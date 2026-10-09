@@ -7,7 +7,7 @@
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
 - **Estado:** Motor S-38-S con pruebas unitarias; el importador está disponible como función protegida, pero el flujo visual de importación quedó deshabilitado mientras se implementa una ruta administrativa segura. El editor de programas ya usa el repositorio Supabase cuando está configurado; no se ha probado contra una base de datos real.
-- **CI:** los últimos cambios están en verificación; no declarar éxito hasta que termine la ejecución del commit actual.
+- **CI:** el commit `1900560` completó `npm ci`, `npm run typecheck`, `npm test` y `npm run build` con éxito; el commit posterior que añade coherencia tipo/sección está en verificación.
 - **Avance global estimado:** no recalculado; la persistencia real y la impresión S-140 requieren pruebas de integración.
 
 ## 1. Objetivo
@@ -45,9 +45,9 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [x] Modo demo sin persistencia local; se elimina la clave heredada `s140-directory-demo-v1` para retirar nombres reales que pudieran haberse almacenado en versiones previas. En producción, si Supabase no está configurado, la aplicación muestra error y no abre demo.
 - [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
 - [x] Editor conectado a carga/guardado de Supabase, edición de títulos y participantes, bloqueo de publicación en modo demo y vista de solo lectura para programas publicados.
-- [x] Prueba del repositorio con cliente Supabase simulado: guarda un título personalizado y lo recupera mediante la función de lectura; también verifica el bloqueo de programas publicados.
+- [x] Pruebas del repositorio con cliente Supabase simulado: ida/vuelta de título y tipo, bloqueo de programas publicados, permisos de escritura y baja lógica sin borrado físico.
 - [x] Endpoint autenticado de generación DOCX S-140 y botón para generar desde el programa persistido.
-- [x] Validación conservadora de publicación: titular activo, compatibilidad básica, ayudante cuando corresponde y confirmación humana S-38-S.
+- [x] Validación conservadora de publicación: presidente activo y compatible, revisión humana de Presidencia/Consejería, titular activo, compatibilidad tipo/sección, ayudante cuando corresponde y confirmación humana S-38-S por intervención.
 - [ ] Aplicar migración `004_assignment_eligibility_review.sql` en el proyecto Supabase definitivo antes de probar persistencia de revisión/baja lógica.
 - [x] Generador DOCX S-140 en `src/features/printing/s140-docx-generator.ts`.
 - [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` y `npm run build`.
@@ -93,3 +93,9 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 - El guardado mantiene el programa como borrador hasta que todas las intervenciones se hayan guardado; las intervenciones retiradas del borrador usan baja lógica, no borrado físico.
 - Se añadió una prueba de ida/vuelta con un cliente Supabase simulado para título y tipo de asignación. Esta prueba no reemplaza la comprobación contra una instancia Supabase real.
 - Se añadió una ruta autenticada para generar el DOCX S-140 a partir de los títulos guardados. El resultado visual de la plantilla todavía requiere inspección.
+
+
+### 9 de octubre de 2026 — Revisión S-38-S y permisos de publicación
+- Se amplió la validación previa a publicación para exigir presidente activo, revisión humana de Presidencia/Consejería, participante activo, tipo de asignación compatible con su sección, ayudante requerido y confirmación humana por intervención.
+- Se bloquean tipos de asignación sin regla conocida; la revisión de elegibilidad no se infiere automáticamente. Solo ancianos/administradores pueden marcar las confirmaciones humanas según las políticas implementadas en la migración 004.
+- Las pruebas del repositorio cubren lectura posterior al guardado, protección de programas publicados, denegación a rol viewer y baja lógica. CI del commit `1900560` pasó typecheck, Vitest y build; el commit actual sigue en ejecución.
