@@ -12,6 +12,8 @@ interface DbMeetingProgramRow {
   history_period_id: string | null;
   chairman_id: string | null;
   auxiliary_counselor_id: string | null;
+  leadership_review_confirmed?: boolean | null;
+  leadership_review_confirmed_by?: string | null;
   circuit_overseer_talk_title: string | null;
   is_draft: boolean;
   notes: string | null;
@@ -114,6 +116,8 @@ export async function getMeetingProgramsFromSupabase(
     historyPeriodId: p.history_period_id || undefined,
     chairmanId: p.chairman_id || undefined,
     auxiliaryCounselorId: p.auxiliary_counselor_id || undefined,
+    leadershipReviewConfirmed: p.leadership_review_confirmed === true,
+    leadershipReviewConfirmedBy: p.leadership_review_confirmed_by || undefined,
     circuitOverseerTalkTitle: p.circuit_overseer_talk_title || undefined,
     status: p.is_draft ? "draft" : "published",
     notes: p.notes || undefined,
@@ -164,6 +168,9 @@ export async function saveMeetingProgramToSupabase(
       history_period_id: program.historyPeriodId || null,
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
+      leadership_review_confirmed: program.leadershipReviewConfirmed === true,
+      leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
+      leadership_review_confirmed_at: program.leadershipReviewConfirmed ? new Date().toISOString() : null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
       // Publicar es el último paso: si falla una asignación, el programa permanece como borrador.
       is_draft: true,
