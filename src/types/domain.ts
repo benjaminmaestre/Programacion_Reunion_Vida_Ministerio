@@ -9,6 +9,8 @@ export interface Member {
   lastName: string;
   gender: Gender;
   appointment: Appointment;
+  isRegularPioneer?: boolean;
+  additionalRoles?: string;
   isActive: boolean;
   isBaptized: boolean;
   phone?: string;

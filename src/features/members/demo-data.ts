@@ -17,6 +17,8 @@ export interface DirectoryMember {
   lastName: string;
   gender: MemberGender;
   appointment: MemberAppointment;
+  isRegularPioneer?: boolean;
+  additionalRoles?: string;
   isActive: boolean;
   isBaptized: boolean;
   phone?: string;
