@@ -21,6 +21,7 @@ export const ProgramsWorkspace: React.FC = () => {
   const [client, setClient] = useState<SupabaseBrowserClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canConfirmEligibility, setCanConfirmEligibility] = useState(false);
   const [programs, setPrograms] = useState<MeetingProgramDetail[]>([]);
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export const ProgramsWorkspace: React.FC = () => {
     ]);
     setUserId(activeUserId);
     setCanManage(["administrator", "elder", "coordinator"].includes(appUser.role));
+    setCanConfirmEligibility(["administrator", "elder"].includes(appUser.role));
     setMembers(directory.members);
     setPrograms(savedPrograms);
     setSelectedProgramId((current) => savedPrograms.some((program) => program.id === current)
@@ -65,6 +67,7 @@ export const ProgramsWorkspace: React.FC = () => {
           setMembers(DEMO_MEMBERS);
           setSelectedProgramId(DEMO_PROGRAMS[0]?.id ?? null);
           setCanManage(true);
+          setCanConfirmEligibility(true);
           setMode("demo");
         }
         return;
@@ -318,7 +321,7 @@ export const ProgramsWorkspace: React.FC = () => {
                       </label>}
                     </div>
                     <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-                      <input type="checkbox" checked={slot.eligibilityConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canManage)} onChange={(event) => updateSlot(slot.id, { eligibilityConfirmed: event.target.checked, eligibilityConfirmedBy: event.target.checked ? userId ?? undefined : undefined })} className="mt-1" />
+                      <input type="checkbox" checked={slot.eligibilityConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => updateSlot(slot.id, { eligibilityConfirmed: event.target.checked, eligibilityConfirmedBy: event.target.checked ? userId ?? undefined : undefined })} className="mt-1" />
                       <span><strong>Revisión humana S-38-S confirmada</strong><span className="block text-xs text-slate-600">Marca solo después de verificar la elegibilidad y las condiciones de la asignación. Cambiar título o participantes invalida esta confirmación.</span></span>
                     </label>
                     {slot.eligibilityConfirmed && <p className="text-xs text-emerald-700"><CheckCircle className="mr-1 inline h-3.5 w-3.5" />Revisión marcada{slot.eligibilityConfirmedBy ? ` por ${slot.eligibilityConfirmedBy}` : " en la sesión demo"}.</p>}
