@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";\nimport type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle,
   Archive,
@@ -495,7 +495,7 @@ export function MembersWorkspace() {
   );
 }
 
-function StatCard({ icon, label, value, caption }: { icon: React.ReactNode; label: string; value: number; caption: string }) {
+function StatCard({ icon, label, value, caption }: { icon: ReactNode; label: string; value: number; caption: string }) {
   return (
     <article className="stat-card">
       <div className="stat-top"><span>{label}</span><span className="stat-icon">{icon}</span></div>
