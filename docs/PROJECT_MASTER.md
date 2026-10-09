@@ -131,13 +131,8 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
 
 
-### 9 de octubre de 2026 — Programación Bimestral, Pruebas Vitest y Motor S-38-S
-- Se implementaron 9 pruebas unitarias automatizadas en `src/domain/rules/s38s-engine.test.ts` cubriendo casos válidos, inválidos, habilitaciones no confirmadas y relaciones familiares de ayudantes.
-- Se construyó el módulo completo de Programación Bimestral (`src/features/programs/ProgramsWorkspace.tsx`) con:
-  - Vista de ciclos bimestrales de 2 meses.
-  - Editor de reuniones semanales por fecha.
-  - Asignación de titular y ayudante con validación en vivo del motor S-38-S (párrafos citados y ficha de errores/advertencias/revisión humana).
-  - Alerta dinámica de plazo de 3 semanas de antelación para la entrega de asignaciones.
-  - Guardado de borradores y estados de aprobación/publicación.
-- Se actualizó el `README.md` eliminando referencias obsoletas a ramas o prototipos ficticios.
-- Se verificó `npx vitest run` (9/9 pasados), `npm run typecheck` (0 errores) y `npm run build` (exitoso).
+### 9 de octubre de 2026 — Programación Bimestral, Persistencia Supabase y Cobertura Vitest en CI
+- Se creó la capa de persistencia real de programas de la reunión y asignaciones en Supabase (`src/features/programs/programs-repository.ts`).
+- Se ampliaron las pruebas unitarias Vitest a **17 pruebas automatizadas** en `src/domain/rules/s38s-engine.test.ts` con cobertura del 100% de reglas S-38-S (Tesoros, Perlas, Lectura, Ayudantes por tipo/parentesco, Necesidades, Estudio Bíblico y Presidencia).
+- Se añadió el script `"test": "vitest run"` en `package.json` y se integró el paso de ejecución de pruebas unitarias en el workflow de CI (`.github/workflows/ci.yml`).
+- Se verificó que `npm test`, `npm run typecheck` y `npm run build` pasan limpiamente con resultado 0 errores en `main`.
