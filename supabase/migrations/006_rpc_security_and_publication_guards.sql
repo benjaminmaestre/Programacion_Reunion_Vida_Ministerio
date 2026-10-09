@@ -384,6 +384,8 @@ BEGIN
       END IF;
 
       v_same_slot_review := v_slot_exists AND v_old_slot.eligibility_confirmed IS TRUE
+        AND v_old_slot.eligibility_confirmed_by IS NOT NULL
+        AND v_old_slot.eligibility_confirmed_at IS NOT NULL
         AND v_old_slot.title IS NOT DISTINCT FROM v_slot.title
         AND v_old_slot.assignment_type IS NOT DISTINCT FROM v_slot.assignment_type
         AND v_old_slot.primary_participant_id IS NOT DISTINCT FROM v_slot.primary_participant_id
@@ -486,6 +488,8 @@ BEGIN
     IF v_slot_exists THEN
       IF v_old_slot.meeting_program_id <> p_program_id THEN RAISE EXCEPTION 'La intervención pertenece a otro programa.'; END IF;
       v_same_slot_review := v_old_slot.eligibility_confirmed IS TRUE
+        AND v_old_slot.eligibility_confirmed_by IS NOT NULL
+        AND v_old_slot.eligibility_confirmed_at IS NOT NULL
         AND v_old_slot.title IS NOT DISTINCT FROM v_slot.title
         AND v_old_slot.assignment_type IS NOT DISTINCT FROM v_slot.assignment_type
         AND v_old_slot.primary_participant_id IS NOT DISTINCT FROM v_slot.primary_participant_id
