@@ -27,7 +27,7 @@ BEGIN
     WHERE au.user_id = (SELECT auth.uid()) AND au.is_active = TRUE;
 
     IF NEW.eligibility_confirmed = TRUE
-       AND current_role NOT IN ('administrator', 'elder') THEN
+       AND (current_role IS NULL OR current_role NOT IN ('administrator', 'elder')) THEN
       RAISE EXCEPTION 'Solo un administrador o anciano puede confirmar la revisión S-38-S.';
     END IF;
 
