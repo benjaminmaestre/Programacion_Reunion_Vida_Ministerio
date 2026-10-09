@@ -1,6 +1,6 @@
-import { OFFICIAL_CONGREGATION_MEMBERS, OfficialMemberImportRecord } from "./official-directory-data";
+import type { OfficialMemberImportRecord } from "./official-directory-data";
 import type { DirectoryMember, MemberAppointment, MemberGender } from "./demo-data";
-import type { MemberWriteInput } from "./members-repository";
+import { assertCanManageDirectory, type MemberWriteInput } from "./members-repository";
 import type { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
@@ -36,7 +36,7 @@ function normalize(value: string): string {
   return value.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
 }
 
-export function validateOfficialImportData(records: OfficialMemberImportRecord[] = OFFICIAL_CONGREGATION_MEMBERS): ImportValidationSummary {
+export function validateOfficialImportData(records: OfficialMemberImportRecord[]): ImportValidationSummary {
   const errors: string[] = [];
 
   const elders = records.filter((r) => r.appointment === "elder");
@@ -44,10 +44,23 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
   const pioneers = records.filter((r) => r.isRegularPioneer);
   const publishers = records.filter((r) => r.appointment === "none" && !r.isRegularPioneer);
 
-  // Combined roles breakdown (Elder or SM + Regular Pioneer, or additional roles like Secretario)
+  const combinedPioneers = records.filter((r) => r.appointment !== "none" && r.isRegularPioneer);
+  const secretaries = records.filter((r) => normalize(r.additionalRoles ?? "") === "secretario");
   const combined = records.filter(
-    (r) => (r.appointment !== "none" && r.isRegularPioneer) || Boolean(r.additionalRoles),
+    (r) => (r.appointment !== "none" && r.isRegularPioneer) || Boolean(r.additionalRoles?.trim()),
   );
+  const seenNames = new Set<string>();
+  for (const record of records) {
+    const firstName = record.firstName.trim();
+    const lastName = record.lastName.trim();
+    if (!firstName || !lastName) {
+      errors.push("Todos los registros deben tener nombre y apellido.");
+      continue;
+    }
+    const key = `${normalize(firstName)}|${normalize(lastName)}`;
+    if (seenNames.has(key)) errors.push(`Nombre duplicado en el listado oficial: ${firstName} ${lastName}.`);
+    seenNames.add(key);
+  }
 
   if (records.length !== 125) {
     errors.push(`Se esperaban 125 personas únicas, pero se encontraron ${records.length}.`);
@@ -64,9 +77,11 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
   if (publishers.length !== 87) {
     errors.push(`Se esperaban 87 publicadores sin nombramiento ni precursorado, pero se encontraron ${publishers.length}.`);
   }
-  if (combined.length !== 3) { // Widmar Grisales (Elder+PR), Heriberto Hernández (SM+PR), Yomar Márquez (SM+PR), plus Luis Castrillo (Elder+Secretario)
-    // Note: Luis Castrillo is Elder + Secretario. Widmar is Elder + PR. Heriberto is SM + PR. Yomar is SM + PR.
-    // Let's ensure combined count checks the exact expected combined roles.
+  if (combinedPioneers.length !== 3) {
+    errors.push(`Se esperaban 3 personas con nombramiento y precursorado regular combinados, pero se encontraron ${combinedPioneers.length}.`);
+  }
+  if (secretaries.length !== 1) {
+    errors.push(`Se esperaba 1 responsable de Secretaría, pero se encontraron ${secretaries.length}.`);
   }
 
   const combinedDetails = combined.map((r) => ({
@@ -91,7 +106,7 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
 
 export function previewMemberImport(
   existingMembers: DirectoryMember[],
-  recordsToImport: OfficialMemberImportRecord[] = OFFICIAL_CONGREGATION_MEMBERS,
+  recordsToImport: OfficialMemberImportRecord[],
 ): ImportPreviewResult {
   const summary = validateOfficialImportData(recordsToImport);
 
@@ -125,9 +140,16 @@ export function previewMemberImport(
 
 export async function executeOfficialImportToSupabase(
   supabase: SupabaseBrowserClient,
-  recordsToImport: OfficialMemberImportRecord[] = OFFICIAL_CONGREGATION_MEMBERS,
+  userId: string,
+  recordsToImport: OfficialMemberImportRecord[],
   overwriteExisting = false,
 ): Promise<ImportExecutionResult> {
+  await assertCanManageDirectory(supabase, userId);
+  const validation = validateOfficialImportData(recordsToImport);
+  if (!validation.isValidStructure) {
+    throw new Error(`La importación fue bloqueada: ${validation.errors.join(" ")}`);
+  }
+
   const { data: existingRows, error: fetchError } = await supabase
     .from("members")
     .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes");
