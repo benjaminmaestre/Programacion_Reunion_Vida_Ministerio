@@ -1,73 +1,77 @@
-# Configuración de Supabase
+# Configuración de Supabase — una congregación
 
-Esta guía conecta el prototipo con una base de datos real. No aplicar la migración a un proyecto Supabase hasta confirmar que es el proyecto correcto: el conector puede mostrar bases de datos de otras aplicaciones.
+Esta aplicación se ha diseñado para **una sola congregación con aproximadamente 100 participantes**. No usa una arquitectura multi-tenant: no hay tabla de congregaciones ni una columna `congregation_id` repetida en todas las tablas. El acceso se controla mediante Supabase Auth, la tabla `app_users` y políticas RLS.
+
+No aplicar la migración a un proyecto Supabase hasta confirmar que ese es el proyecto destinado a esta aplicación.
 
 ## 1. Dependencias y variables
 
-El proyecto fija las dependencias `@supabase/ssr`, `@supabase/supabase-js` y `server-only` en `package.json` y `package-lock.json`.
+El proyecto fija `@supabase/ssr`, `@supabase/supabase-js` y `server-only` en `package.json` y `package-lock.json`.
 
-Copia `.env.example` a `.env.local` y reemplaza los marcadores por los valores de **Project Settings → API / Connect** del proyecto correcto:
+Copia `.env.example` a `.env.local` y configura estos valores desde **Project Settings → API / Connect** del proyecto Supabase correcto:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
-No uses una clave `service_role` ni una secret key en variables `NEXT_PUBLIC_*`. La clave publicable se entrega al navegador; los permisos deben depender de Supabase Auth y RLS.
+Nunca pongas una clave `service_role` ni una secret key en una variable `NEXT_PUBLIC_*`. La clave publicable se envía al navegador; la seguridad depende de Auth y RLS.
 
-## 2. Aplicar las migraciones
+## 2. Migraciones
 
-En un entorno local correctamente enlazado al proyecto Supabase confirmado:
+En un entorno local o de prueba enlazado con el proyecto correcto:
 
-1. Revisa `supabase --help` y los subcomandos disponibles en la versión instalada.
-2. Comprueba primero el estado y las migraciones existentes. No ejecutes a ciegas sobre una base que ya tiene tablas o datos.
-3. Aplica de forma ordenada `supabase/migrations/001_initial_schema.sql` y `supabase/migrations/002_congregations_memberships_rls.sql`, usando el flujo de migraciones documentado para esa versión del CLI.
-4. Ejecuta las pruebas SQL de `supabase/tests/002_rls_policies.test.sql` con `supabase test db` en una base local o entorno de prueba.
-5. Revisa los asesores de seguridad/performance disponibles en el CLI, corrige alertas pertinentes y verifica el resultado con consultas de prueba.
+1. Revisa `supabase --help` y los subcomandos disponibles en la versión instalada del CLI.
+2. Comprueba las tablas existentes y el estado de las migraciones antes de ejecutar DDL. No ejecutes a ciegas sobre una base con datos.
+3. Aplica `supabase/migrations/001_initial_schema.sql` si el esquema inicial todavía no existe.
+4. Aplica `supabase/migrations/002_single_congregation_auth_rls.sql` para añadir los roles y políticas de seguridad.
+5. Ejecuta `supabase/tests/002_rls_policies.test.sql` contra una base local o entorno de prueba y revisa los asesores de seguridad de Supabase.
 
-La migración 002 mueve los registros de esquema inicial existentes a una congregación temporal con slug `configuracion-inicial`, cuando haya tablas con datos sin congregación. No borra registros. Los datos de esa congregación permanecen inaccesibles a través del Data API hasta asignar una membresía autorizada.
+La migración 002 no borra los miembros ni los programas existentes. Añade `app_users`, activa RLS en las tablas de aplicación y revoca el acceso anónimo. No se han aplicado estas migraciones a ningún proyecto conectado desde esta sesión.
 
-## 3. Crear/invitar el primer usuario administrador
+## 3. Crear el primer administrador
 
-1. En Supabase Auth, crea o invita al usuario que administrará esta instalación.
-2. Abre el SQL Editor del **proyecto correcto**, revisa el correo y ejecuta el siguiente SQL reemplazando ambos marcadores explícitamente.
+1. Invita o crea el usuario en **Supabase Dashboard → Authentication**.
+2. En el SQL Editor del proyecto correcto, sustituye el marcador de correo y ejecuta:
 
 ```sql
--- Ejecutar una sola vez como administrador de la base de datos.
--- Sustituye el nombre y correo y comprueba que el SELECT devuelve una fila.
-UPDATE public.congregations
-SET name = 'NOMBRE DE LA CONGREGACIÓN', updated_at = now()
-WHERE slug = 'configuracion-inicial';
-
-INSERT INTO public.congregation_users (congregation_id, user_id, role, created_by)
-SELECT c.id, u.id, 'administrator', u.id
-FROM public.congregations AS c
-CROSS JOIN auth.users AS u
-WHERE c.slug = 'configuracion-inicial'
-  AND lower(u.email) = lower('CORREO-DEL-ADMINISTRADOR')
-ON CONFLICT (congregation_id, user_id)
-DO UPDATE SET role = 'administrator', is_active = true;
+INSERT INTO public.app_users (user_id, display_name, role, is_active)
+SELECT
+  u.id,
+  COALESCE(u.raw_user_meta_data ->> 'full_name', u.email),
+  'administrator',
+  TRUE
+FROM auth.users AS u
+WHERE lower(u.email) = lower('CORREO-DEL-ADMINISTRADOR')
+ON CONFLICT (user_id)
+DO UPDATE SET role = 'administrator', is_active = TRUE, updated_at = NOW()
+RETURNING user_id, display_name, role, is_active;
 ```
 
-Verifica después que exactamente una membresía activa tenga el usuario esperado. No expongas las herramientas administrativas del SQL Editor dentro de la aplicación ni habilites auto-registro público.
+Verifica que devuelve exactamente el usuario previsto. Ejecuta este procedimiento solamente desde un entorno administrativo confiable; la aplicación no concede a los usuarios permisos para insertar o modificar su propia fila de `app_users`.
 
-Para una instalación nueva sin filas previas, renombra la congregación temporal con el nombre correcto y añade el administrador como se muestra arriba.
+## 4. Roles de la aplicación
 
-## 4. Roles iniciales
+- `administrator`: administración del directorio.
+- `elder`: administración del directorio y acceso a información de habilitaciones/relaciones familiares.
+- `coordinator`: mantenimiento del directorio y preparación de programas.
+- `viewer`: consulta sin permisos de escritura.
 
-- `administrator`: administración de la instalación y datos.
-- `elder`: gestiona datos y asignaciones autorizadas.
-- `coordinator`: administra el directorio y programa según las reglas implementadas.
-- `viewer`: consulta datos según las políticas aplicables.
-
-La tabla `congregation_users` no permite que el navegador conceda o eleve sus propios privilegios. La primera membresía se agrega por un proceso administrativo confiable. El acceso entre congregaciones se filtra mediante `congregation_id` y políticas RLS.
+La matriz exacta de permisos puede ajustarse al modelo real de responsabilidades. Las políticas RLS de PostgreSQL son la barrera definitiva; ocultar botones en la interfaz no se considera seguridad.
 
 ## 5. Modo de la aplicación
 
-- Si faltan las variables, se abre el modo demostración con nombres ficticios y guardado local.
-- Si las variables están configuradas, la aplicación requiere inicio de sesión y una membresía activa.
-- El directorio real consulta PostgreSQL; los cambios se guardan en Supabase.
-- El historial consulta las asignaciones del período semestral activo.
-- Los errores de permisos no deben solventarse desactivando RLS ni exponiendo `service_role`.
+- Sin variables de entorno, se abre el modo de demostración con nombres ficticios y guardado local.
+- Con variables configuradas, la aplicación exige iniciar sesión.
+- Si la cuenta no tiene un registro activo en `app_users`, se muestra una pantalla que explica que el administrador debe configurarla.
+- En modo conectado, el directorio y su historial consultan PostgreSQL; los cambios se guardan en Supabase.
+- El modo demo no se debe usar con datos personales reales.
 
-## 6. Comprobaciones pendientes de ejecución
+## 6. Verificaciones pendientes
 
-Esta guía y los archivos de migración están preparados en el repositorio. Hasta que la migración se aplique a un proyecto confirmado, se configure `.env.local` y se ejecuten los tests sobre una base de datos, no afirmar que el despliegue real de Supabase está operativo.
+Aunque el código de conexión, la migración y las pruebas SQL estén versionados, la integración no se considera desplegada hasta que:
+
+- Se confirme el proyecto Supabase correcto.
+- Se configuren las variables de entorno.
+- Se apliquen las migraciones sin errores.
+- Se cree el primer usuario autorizado.
+- Pasen `npm ci`, `npm run typecheck` y `npm run build`.
+- Pasen las pruebas RLS con usuarios de diferentes roles.
