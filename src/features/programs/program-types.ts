@@ -14,6 +14,7 @@ export interface MeetingProgramDetail {
   auxiliaryCounselorId?: string;
   leadershipReviewConfirmed?: boolean;
   leadershipReviewConfirmedBy?: string;
+  leadershipReviewConfirmedAt?: string;
   circuitOverseerTalkTitle?: string;
   status: ProgramStatus;
   notes?: string;
@@ -35,6 +36,7 @@ export interface AssignmentSlotDetail {
   /** Revisión explícita de elegibilidad por un responsable; nunca se infiere automáticamente. */
   eligibilityConfirmed?: boolean;
   eligibilityConfirmedBy?: string;
+  eligibilityConfirmedAt?: string;
   notes?: string;
 }
 
