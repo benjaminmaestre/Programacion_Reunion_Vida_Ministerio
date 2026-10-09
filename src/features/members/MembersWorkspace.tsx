@@ -188,7 +188,7 @@ export function MembersWorkspace() {
   const pioneerCount = activeMembers.filter((member) => member.isRegularPioneer).length;
   const inactiveCount = members.length - activeMembers.length;
 
-remove preview  function openNewMemberForm() {
+function openNewMemberForm() {
     setEditingMember(null);
     setFormError("");
     setIsFormOpen(true);
