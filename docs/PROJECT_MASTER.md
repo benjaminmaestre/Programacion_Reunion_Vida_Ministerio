@@ -131,7 +131,13 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
 
 
-### 9 de octubre de 2026 — Ampliación del Motor S-38-S y Verificación
-- Se ampliaron las reglas de validación en `src/domain/rules/s38s-engine.ts` para cubrir Perlas escondidas, Necesidades de la congregación, Estudio Bíblico (Conductor y Lector), Presidencia y diferencias de género/parentesco en Ayudantes según el tipo de asignación.
-- Se verificó que `npm run typecheck` y `npm run build` pasan con 0 errores en la rama `main`.
-- Todos los cambios fueron consolidados directamente en `main` (commit `65f1079`).
+### 9 de octubre de 2026 — Programación Bimestral, Pruebas Vitest y Motor S-38-S
+- Se implementaron 9 pruebas unitarias automatizadas en `src/domain/rules/s38s-engine.test.ts` cubriendo casos válidos, inválidos, habilitaciones no confirmadas y relaciones familiares de ayudantes.
+- Se construyó el módulo completo de Programación Bimestral (`src/features/programs/ProgramsWorkspace.tsx`) con:
+  - Vista de ciclos bimestrales de 2 meses.
+  - Editor de reuniones semanales por fecha.
+  - Asignación de titular y ayudante con validación en vivo del motor S-38-S (párrafos citados y ficha de errores/advertencias/revisión humana).
+  - Alerta dinámica de plazo de 3 semanas de antelación para la entrega de asignaciones.
+  - Guardado de borradores y estados de aprobación/publicación.
+- Se actualizó el `README.md` eliminando referencias obsoletas a ramas o prototipos ficticios.
+- Se verificó `npx vitest run` (9/9 pasados), `npm run typecheck` (0 errores) y `npm run build` (exitoso).

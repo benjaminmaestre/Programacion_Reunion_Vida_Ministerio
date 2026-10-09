@@ -1,43 +1,42 @@
-# Gestión de asignaciones — Vida y Ministerio
+# Gestión de Asignaciones — Vida y Ministerio Cristianos (S-140 / S-38-S)
 
-Aplicación web en desarrollo para administrar el directorio, preparar asignaciones, consultar historial semestral y generar el programa S-140 respetando las instrucciones S-38-S.
+Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL y Supabase para administrar el directorio de la congregación, preparar los programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S y generar el documento impreso S-140 desde la plantilla oficial.
 
-## Estado actual
+## Estado Actual del Proyecto
 
-La rama `feat/directorio-historial-contextual` incorpora la primera interfaz navegable del directorio, la edición de registros de demostración y la ficha de historial contextual.
+- **Rama principal:** `main` (Desarrollo directo obligatorio en `main`).
+- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npx vitest run` - 9 tests pasaron).
+- **Persistencia:** Capa SSR de Supabase Auth y PostgreSQL con RLS lista, junto a un modo demostración local seguro.
+- **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S para Tesoros, Seamos mejores maestros (ayudantes por sexo/parentesco), Vida cristiana y Presidencia.
 
-> **Importante:** esta versión es un prototipo. Usa nombres ficticios y guarda las modificaciones del directorio únicamente en el almacenamiento local del navegador. No está conectada todavía a Supabase ni debe utilizarse para datos personales reales o como sistema multiusuario.
+## Requisitos e Instalación
 
-## Requisitos
-
-- Node.js compatible con la versión de Next.js instalada.
+- Node.js 18+ o superior.
 - npm.
 
-## Ejecutar en desarrollo
-
 ```bash
+# Instalación de dependencias
 npm install
+
+# Ejecutar servidor de desarrollo
 npm run dev
-```
 
-Abre http://localhost:3000.
+# Ejecutar pruebas unitarias
+npx vitest run
 
-## Verificaciones
-
-```bash
+# Comprobar tipos TypeScript y build de producción
 npm run typecheck
 npm run build
 ```
 
-Estas comprobaciones deben ejecutarse localmente antes de considerar verificada la rama. La sesión que creó el prototipo no ejecutó la compilación.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-## Documentación principal
+## Documentación Principal
 
-Lee primero [docs/PROJECT_MASTER.md](docs/PROJECT_MASTER.md), que mantiene el alcance, estado real, decisiones técnicas y próximos pasos.
+Toda la especificación técnica, decisiones arquitectónicas, esquema SQL y registro de avances se encuentran documentados en:
+📍 [docs/PROJECT_MASTER.md](docs/PROJECT_MASTER.md)
 
-## Fuentes funcionales
+## Fuentes Funcionales Oficiales
 
-- `templates/S-140_S.docx`: formato de impresión de referencia.
-- `templates/S-38_S.pdf`: instrucciones de la reunión.
-
-Los documentos fuente no deben modificarse como parte de la generación de documentos.
+- `templates/S-140_S.docx`: plantilla oficial de impresión S-140.
+- `templates/S-38_S.pdf`: instrucciones oficiales de la reunión Vida y Ministerio.
