@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";\nimport type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle,
   Archive,
   ArrowDownUp,
-  ArrowRight,
-  BookOpen,
   CalendarDays,
   Check,
   ChevronRight,
@@ -16,26 +15,15 @@ import {
   History,
   LayoutDashboard,
   ListChecks,
-  Mail,
   Plus,
   Search,
   ShieldCheck,
   SlidersHorizontal,
   Users,
-  UserRound,
   X,
 } from "lucide-react";
-import {
-  AssignmentHistoryEntry,
-  CATEGORY_LABELS,
-  CATEGORY_OPTIONS,
-  DEMO_HISTORY,
-  DEMO_MEMBERS,
-  DirectoryMember,
-  HistoryCategory,
-  MemberAppointment,
-  MemberGender,
-} from "./demo-data";
+import { CATEGORY_LABELS, CATEGORY_OPTIONS, DEMO_HISTORY, DEMO_MEMBERS } from "./demo-data";
+import type { AssignmentHistoryEntry, DirectoryMember, HistoryCategory, MemberAppointment, MemberGender } from "./demo-data";
 
 const STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
