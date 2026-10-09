@@ -8,10 +8,11 @@ import type {
 } from "./demo-data";
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+export type AppUserRole = "administrator" | "elder" | "coordinator" | "viewer";
 
-interface MembershipRow {
-  congregation_id: string;
-  role: "administrator" | "elder" | "coordinator" | "viewer";
+interface AppUserRow {
+  user_id: string;
+  role: AppUserRole;
   is_active: boolean;
 }
 
@@ -34,7 +35,7 @@ interface DbHistorySlotRow {
   title: string;
   primary_participant_id: string | null;
   assistant_participant_id: string | null;
-  meeting_programs: { meeting_date: string; congregation_id: string } | Array<{ meeting_date: string; congregation_id: string }>;
+  meeting_programs: { meeting_date: string } | Array<{ meeting_date: string }>;
 }
 
 export interface MemberWriteInput {
@@ -50,9 +51,16 @@ export interface MemberWriteInput {
 }
 
 export class MembershipRequiredError extends Error {
-  constructor(message = "Tu usuario todavía no está asociado a una congregación. Solicita al responsable que configure tu acceso.") {
+  constructor(message = "Tu usuario no tiene un acceso activo a esta aplicación. Solicita al administrador que configure tu cuenta.") {
     super(message);
     this.name = "MembershipRequiredError";
+  }
+}
+
+export class PermissionRequiredError extends Error {
+  constructor(message = "Tu rol no permite realizar esta operación.") {
+    super(message);
+    this.name = "PermissionRequiredError";
   }
 }
 
@@ -92,42 +100,41 @@ function toDatabaseRow(input: MemberWriteInput) {
   };
 }
 
-export async function getCurrentCongregationId(
+function canManageDirectory(role: AppUserRole) {
+  return role === "administrator" || role === "elder" || role === "coordinator";
+}
+
+/** Lee el perfil/rol de la cuenta autenticada. RLS permite consultar únicamente el propio perfil. */
+export async function getCurrentAppUser(
   supabase: SupabaseBrowserClient,
   userId: string,
-): Promise<string> {
+): Promise<AppUserRow> {
   const { data, error } = await supabase
-    .from("congregation_users")
-    .select("congregation_id, role, is_active")
+    .from("app_users")
+    .select("user_id, role, is_active")
     .eq("user_id", userId)
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
     .maybeSingle();
 
-  if (error) throw new Error("No se pudo comprobar tu acceso a la congregación.");
-  const membership = data as MembershipRow | null;
-  if (!membership?.congregation_id) throw new MembershipRequiredError();
-  return membership.congregation_id;
+  if (error) throw new Error("No se pudo comprobar tu acceso a la aplicación.");
+  const appUser = data as AppUserRow | null;
+  if (!appUser) throw new MembershipRequiredError();
+  return appUser;
 }
 
 export async function listMembers(
   supabase: SupabaseBrowserClient,
   userId: string,
-): Promise<{ members: DirectoryMember[]; congregationId: string }> {
-  const congregationId = await getCurrentCongregationId(supabase, userId);
+): Promise<{ members: DirectoryMember[] }> {
+  await getCurrentAppUser(supabase, userId);
   const { data, error } = await supabase
     .from("members")
     .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
-    .eq("congregation_id", congregationId)
     .order("first_name", { ascending: true })
     .order("last_name", { ascending: true });
 
   throwIfError(error, "cargar el directorio");
-  return {
-    congregationId,
-    members: ((data ?? []) as unknown as DbMemberRow[]).map(mapMember),
-  };
+  return { members: ((data ?? []) as unknown as DbMemberRow[]).map(mapMember) };
 }
 
 export async function createMember(
@@ -135,10 +142,12 @@ export async function createMember(
   userId: string,
   input: MemberWriteInput,
 ): Promise<DirectoryMember> {
-  const congregationId = await getCurrentCongregationId(supabase, userId);
+  const appUser = await getCurrentAppUser(supabase, userId);
+  if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
+
   const { data, error } = await supabase
     .from("members")
-    .insert({ ...toDatabaseRow(input), congregation_id: congregationId })
+    .insert(toDatabaseRow(input))
     .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
     .single();
 
@@ -153,12 +162,13 @@ export async function updateMember(
   memberId: string,
   input: MemberWriteInput,
 ): Promise<DirectoryMember> {
-  const congregationId = await getCurrentCongregationId(supabase, userId);
+  const appUser = await getCurrentAppUser(supabase, userId);
+  if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
+
   const { data, error } = await supabase
     .from("members")
     .update(toDatabaseRow(input))
     .eq("id", memberId)
-    .eq("congregation_id", congregationId)
     .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
     .single();
 
@@ -173,13 +183,16 @@ function getSemesterRange(reference = new Date()): { start: string; end: string 
   return { start: `${year}-07-01`, end: `${year}-12-31` };
 }
 
-function mapCategory(section: DbHistorySlotRow["section"], title: string): HistoryCategory {
-  const normalized = title.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLocaleLowerCase("es");
+function normalizeText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+}
 
-  // Lectura de la Biblia también pertenece a Tesoros en la estructura general,
-  // pero necesita una categoría de historial específica.
+function mapCategory(section: DbHistorySlotRow["section"], title: string): HistoryCategory {
+  const normalized = normalizeText(title);
+
   if (normalized.includes("lectura de la biblia")) return "bible-reading";
-  if (section === "treasures") return normalized.includes("perla") ? "gems" : "treasures";
+  if (normalized.includes("perlas")) return "gems";
+  if (section === "treasures") return "treasures";
   if (section === "ministers") {
     if (normalized.includes("conversacion")) return "conversation";
     if (normalized.includes("revisita")) return "revisit";
@@ -200,12 +213,11 @@ export async function getMemberHistory(
   userId: string,
   memberId: string,
 ): Promise<AssignmentHistoryEntry[]> {
-  const congregationId = await getCurrentCongregationId(supabase, userId);
+  await getCurrentAppUser(supabase, userId);
 
   const { data: activePeriods, error: periodError } = await supabase
     .from("history_periods")
     .select("start_date, end_date")
-    .eq("congregation_id", congregationId)
     .eq("is_active", true)
     .order("start_date", { ascending: false })
     .limit(1);
@@ -218,8 +230,7 @@ export async function getMemberHistory(
 
   const { data, error } = await supabase
     .from("assignment_slots")
-    .select("id, section, title, primary_participant_id, assistant_participant_id, meeting_programs!inner(meeting_date, congregation_id)")
-    .eq("meeting_programs.congregation_id", congregationId)
+    .select("id, section, title, primary_participant_id, assistant_participant_id, meeting_programs!inner(meeting_date)")
     .gte("meeting_programs.meeting_date", range.start)
     .lte("meeting_programs.meeting_date", range.end)
     .or(`primary_participant_id.eq.${memberId},assistant_participant_id.eq.${memberId}`);
@@ -255,7 +266,6 @@ export async function getMemberHistory(
     const { data: companions, error: companionError } = await supabase
       .from("members")
       .select("id, first_name, last_name")
-      .eq("congregation_id", congregationId)
       .in("id", companionIds);
 
     throwIfError(companionError, "consultar los nombres de los participantes");
