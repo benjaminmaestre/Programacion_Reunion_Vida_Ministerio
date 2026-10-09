@@ -112,6 +112,15 @@ function canManageDirectory(role: AppUserRole) {
   return role === "administrator" || role === "elder" || role === "coordinator";
 }
 
+/** Verifica la membresía activa y el rol antes de ejecutar operaciones administrativas. */
+export async function assertCanManageDirectory(
+  supabase: SupabaseBrowserClient,
+  userId: string,
+): Promise<void> {
+  const appUser = await getCurrentAppUser(supabase, userId);
+  if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
+}
+
 /** Lee el perfil/rol de la cuenta autenticada. RLS permite consultar únicamente el propio perfil. */
 export async function getCurrentAppUser(
   supabase: SupabaseBrowserClient,
