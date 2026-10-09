@@ -16,7 +16,7 @@ El **Sistema de Gestión de Asignaciones S-140** es una aplicación web profesio
 
 ## 2. ESTADO ACTUAL DEL PROYECTO
 
-- **Porcentaje estimado de avance global:** 15% (Etapa 1 completada + Estructura e instalación base de Etapa 2).
+- **Porcentaje estimado de avance global:** 30% (Etapa 1 y Etapa 2 completadas, Etapa 3 iniciada con modelos y tarjetas del directorio).
 - **Última actualización:** 09 de Octubre de 2026.
 
 ### Resumen de Avances Realizados
@@ -24,6 +24,10 @@ El **Sistema de Gestión de Asignaciones S-140** es una aplicación web profesio
 - [x] Ubicación de las fuentes oficiales de referencia: `templates/S-140_S.docx` y `templates/S-38_S.pdf`.
 - [x] Creación e inicio de `docs/PROJECT_MASTER.md`.
 - [x] Instalación de dependencias core (Next.js, React, TypeScript, Tailwind CSS, Lucide Icons, Zod, React Hook Form, Docxtemplater, PizZip, TanStack Table).
+- [x] Esquema inicial de PostgreSQL Supabase (`supabase/migrations/001_initial_schema.sql`).
+- [x] Motor de reglas del S-38-S (`src/domain/rules/s38s-engine.ts`).
+- [x] Módulo de generación de documento DOCX S-140 (`src/features/printing/s140-docx-generator.ts`).
+- [x] Componente y tipos del Directorio de Hermanos (`src/features/members/MemberCard.tsx`).
 
 ---
 
