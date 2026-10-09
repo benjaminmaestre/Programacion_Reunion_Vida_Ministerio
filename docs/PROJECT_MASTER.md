@@ -37,7 +37,7 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 ## 4. Estado verificable
 
 ### Existente y Verificado en el Repositorio
-- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql` y `003_official_directory_and_titles.sql`.
+- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql`, `003_official_directory_and_titles.sql` y `004_assignment_eligibility_review.sql` (004 aún no aplicada a una base real).
 - [x] Tipos de dominio `src/types/domain.ts` con estado de bautismo desconocido (`boolean | null`).
 - [x] Motor de reglas S-38-S en `src/domain/rules/s38s-engine.ts` verificado con 17 pruebas unitarias.
 - [x] Función de importación oficial protegida por rol y validación estructural en `src/features/members/member-importer.ts`.
@@ -45,6 +45,8 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [x] Modo demo sin persistencia local; se elimina la clave heredada `s140-directory-demo-v1` para retirar nombres reales que pudieran haberse almacenado en versiones previas. En producción, si Supabase no está configurado, la aplicación muestra error y no abre demo.
 - [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
 - [x] Editor conectado a carga/guardado de Supabase, edición de títulos y participantes, bloqueo de publicación en modo demo y vista de solo lectura para programas publicados.
+- [x] Prueba del repositorio con cliente Supabase simulado: guarda un título personalizado y lo recupera mediante la función de lectura; también verifica el bloqueo de programas publicados.
+- [x] Endpoint autenticado de generación DOCX S-140 y botón para generar desde el programa persistido.
 - [x] Validación conservadora de publicación: titular activo, compatibilidad básica, ayudante cuando corresponde y confirmación humana S-38-S.
 - [ ] Aplicar migración `004_assignment_eligibility_review.sql` en el proyecto Supabase definitivo antes de probar persistencia de revisión/baja lógica.
 - [x] Generador DOCX S-140 en `src/features/printing/s140-docx-generator.ts`.
@@ -55,7 +57,8 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [ ] Probar de extremo a extremo guardar/recargar/publicar en Supabase real; el CI no sustituye esta prueba.
 - [ ] Excepciones del calendario (Visita del Superintendente de Circuito, Asamblea de Circuito/Regional, Conmemoración).
 - [ ] Renderizado fiel del formulario S-140 para impresión final en DOCX/PDF.
-- [ ] Completar pruebas de integración del repositorio con un cliente Supabase simulado y prueba real de ida/vuelta cuando exista un entorno de prueba autorizado.
+- [x] Pruebas del repositorio con un cliente Supabase simulado.
+- [ ] Prueba real de ida/vuelta y renderizado visual del DOCX cuando exista un entorno Supabase de prueba autorizado.
 
 ## 5. Historial semestral y planificación
 
@@ -83,3 +86,10 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 - `ProgramsWorkspace.tsx` carga miembros/programas de Supabase, edita títulos y participantes, guarda borradores y verifica la lectura posterior al guardado. En desarrollo puede mostrar datos ficticios en memoria; en producción, sin Supabase, falla de forma explícita.
 - Se añadieron confirmación humana de elegibilidad S-38-S, migración 004 y baja lógica para no hacer borrados físicos de intervenciones.
 - Se añadieron pruebas unitarias para validación previa a publicación. No se ha aplicado la migración 004 ni se ha verificado una ida/vuelta contra Supabase real.
+
+
+### 9 de octubre de 2026 — Guardado verificable, ciclos UUID y salida S-140
+- El repositorio separa las etiquetas visibles de ciclo/semestre de sus UUID reales de PostgreSQL; los campos de relación ya no intentan guardar textos como `2026-6` en columnas UUID.
+- El guardado mantiene el programa como borrador hasta que todas las intervenciones se hayan guardado; las intervenciones retiradas del borrador usan baja lógica, no borrado físico.
+- Se añadió una prueba de ida/vuelta con un cliente Supabase simulado para título y tipo de asignación. Esta prueba no reemplaza la comprobación contra una instancia Supabase real.
+- Se añadió una ruta autenticada para generar el DOCX S-140 a partir de los títulos guardados. El resultado visual de la plantilla todavía requiere inspección.
