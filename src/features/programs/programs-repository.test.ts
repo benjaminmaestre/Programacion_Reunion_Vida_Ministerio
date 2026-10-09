@@ -125,6 +125,49 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     expect(reloaded[0].planningCycleId).toBe("00000000-0000-4000-8000-000000000003");
   });
 
+  it("no permite guardar cambios con un rol de solo consulta", async () => {
+    const db = new FakeDatabase();
+    db.tables.app_users = [{ user_id: "user-viewer", role: "viewer", is_active: true }];
+    db.tables.meeting_programs = [];
+    db.tables.assignment_slots = [];
+    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const program: MeetingProgramDetail = {
+      id: "00000000-0000-4000-8000-000000000001",
+      meetingDate: "2026-11-02",
+      weekType: "normal",
+      bimonthCycle: "",
+      historyPeriod: "",
+      status: "draft",
+      updatedAt: new Date().toISOString(),
+      slots: [],
+    };
+    await expect(saveMeetingProgramToSupabase(client, "user-viewer", program)).rejects.toThrow(/Tu rol no permite/);
+    expect(db.tables.meeting_programs).toHaveLength(0);
+  });
+
+  it("retira intervenciones de borrador con baja lógica y no las borra físicamente", async () => {
+    const programId = "00000000-0000-4000-8000-000000000001";
+    const slotId = "00000000-0000-4000-8000-000000000002";
+    const db = new FakeDatabase();
+    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.meeting_programs = [{ id: programId, is_draft: true }];
+    db.tables.assignment_slots = [{ id: slotId, meeting_program_id: programId, is_deleted: false }];
+    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const program: MeetingProgramDetail = {
+      id: programId,
+      meetingDate: "2026-11-02",
+      weekType: "normal",
+      bimonthCycle: "",
+      historyPeriod: "",
+      status: "draft",
+      updatedAt: new Date().toISOString(),
+      slots: [],
+    };
+    await saveMeetingProgramToSupabase(client, "user-elder", program);
+    expect(db.tables.assignment_slots).toHaveLength(1);
+    expect(db.tables.assignment_slots[0].is_deleted).toBe(true);
+  });
+
   it("no permite modificar un programa ya publicado", async () => {
     const db = new FakeDatabase();
     db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
