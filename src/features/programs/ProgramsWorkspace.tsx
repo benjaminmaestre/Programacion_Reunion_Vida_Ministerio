@@ -136,23 +136,45 @@ export const ProgramsWorkspace: React.FC = () => {
     setFeedback(`Intervención "${slot.title}" retirada del borrador.`);
   }
 
-  function handleCreateNewProgram(event: React.FormEvent) {
+  async function handleCreateNewProgram(event: React.FormEvent) {
     event.preventDefault();
-    if (!newMeetingDate) {
-      setPageError("Selecciona una fecha válida para la reunión.");
-      return;
-    }
+    if (!newMeetingDate || saving) return;
+    setPageError("");
+    setFeedback("");
+
     if (programs.some((p) => p.meetingDate === newMeetingDate)) {
       setPageError(`Ya existe un programa registrado para la fecha ${newMeetingDate}.`);
       return;
     }
 
     const newProgram = buildDefaultMeetingProgram(newMeetingDate, newWeekType);
-    setPrograms((current) => [newProgram, ...current]);
-    setSelectedProgramId(newProgram.id);
-    setIsNewProgramModalOpen(false);
-    setNewMeetingDate("");
-    setFeedback(`Nuevo programa borrador creado para la reunión del ${newMeetingDate}.`);
+
+    if (mode === "connected" && client && userId) {
+      if (!canManage) {
+        setPageError("Tu rol no permite crear programas.");
+        return;
+      }
+      setSaving(true);
+      try {
+        await saveMeetingProgramToSupabase(client, userId, newProgram);
+        const freshPrograms = await getMeetingProgramsFromSupabase(client);
+        setPrograms(freshPrograms);
+        setSelectedProgramId(newProgram.id);
+        setIsNewProgramModalOpen(false);
+        setNewMeetingDate("");
+        setFeedback(`Nuevo programa borrador creado y guardado en Supabase para el ${newMeetingDate}.`);
+      } catch (err) {
+        setPageError(err instanceof Error ? err.message : "No se pudo crear la reunión en Supabase.");
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setPrograms((current) => [newProgram, ...current]);
+      setSelectedProgramId(newProgram.id);
+      setIsNewProgramModalOpen(false);
+      setNewMeetingDate("");
+      setFeedback(`Nuevo programa borrador creado en memoria para el ${newMeetingDate}.`);
+    }
   }
 
   async function handleSave(status: "draft" | "published") {

@@ -2,15 +2,16 @@
 
 Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL y Supabase para administrar el directorio de la congregación (125 personas), preparar los programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S y generar el documento impreso S-140 desde la plantilla oficial.
 
-## Estado Actual del Proyecto (Fase 2)
+## Estado Actual del Proyecto (Fase 3)
 
 - **Congregación Objetivo:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas.
 - **Rama principal:** `main` (desarrollo directo en `main`).
-- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npm test` - 42 pruebas automáticas pasando).
-- **Importación oficial:** Flujo administrativo de validación y previsualización dry-run de los 125 registros oficiales (`member-importer.ts`).
-- **Persistencia:** Capa SSR de Supabase Auth y PostgreSQL con RLS lista, junto a un modo demostración aislado con datos ficticios.
-- **Ciclo de vida de programas:** Creación de programas, selección de ciclos/períodos, retiro lógico de asignaciones (`is_deleted`), revisiones humanas de Presidencia/Consejería y S-38-S.
-- **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S para Tesoros, Seamos mejores maestros (ayudantes por sexo/parentesco), Vida cristiana y Presidencia.
+- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npm test` - 44 pruebas automáticas pasando).
+- **Identificadores UUID:** Cumplimiento estricto con UUID v4 RFC 4122 para `meeting_programs` y `assignment_slots` compatibles con PostgreSQL.
+- **Persistencia en Supabase:** Creación de programas con persistencia inmediata y recarga verificada.
+- **Resolución de Ciclos:** Mapeo de `planning_cycles` y `history_periods` a sus UUIDs en base de datos.
+- **Semanas Especiales:** Variaciones para reuniones ordinarias, visita del superintendente de circuito, asambleas y conmemoración.
+- **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S y revisiones humanas de elegibilidad.
 - **Generador S-140:** Endpoint `/api/programs/[programId]/s140` para la descarga directa del documento oficial en formato DOCX.
 
 ## Requisitos e Instalación

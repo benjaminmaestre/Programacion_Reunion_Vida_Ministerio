@@ -39,6 +39,44 @@ interface DbAssignmentSlotRow {
   notes: string | null;
 }
 
+export async function resolvePlanningCycleUuid(
+  supabase: SupabaseBrowserClient,
+  meetingDate: string
+): Promise<string | null> {
+  const date = new Date(`${meetingDate}T12:00:00Z`);
+  const year = date.getUTCFullYear();
+  const bimonthNumber = Math.ceil((date.getUTCMonth() + 1) / 2);
+
+  const { data, error } = await supabase
+    .from("planning_cycles")
+    .select("id")
+    .eq("year", year)
+    .eq("bimonth_number", bimonthNumber)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { id: string }).id ?? null;
+}
+
+export async function resolveHistoryPeriodUuid(
+  supabase: SupabaseBrowserClient,
+  meetingDate: string
+): Promise<string | null> {
+  const date = new Date(`${meetingDate}T12:00:00Z`);
+  const year = date.getUTCFullYear();
+  const semester = date.getUTCMonth() + 1 <= 6 ? 1 : 2;
+
+  const { data, error } = await supabase
+    .from("history_periods")
+    .select("id")
+    .eq("year", year)
+    .eq("semester", semester)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { id: string }).id ?? null;
+}
+
 export async function getMeetingProgramsFromSupabase(
   supabase: SupabaseBrowserClient
 ): Promise<MeetingProgramDetail[]> {
@@ -104,6 +142,7 @@ export async function getMeetingProgramsFromSupabase(
       eligibilityConfirmed: slot.eligibility_confirmed === true,
       eligibilityConfirmedBy: slot.eligibility_confirmed_by || undefined,
       eligibilityConfirmedAt: slot.eligibility_confirmed_at || undefined,
+      isDeleted: slot.is_deleted === true,
       notes: slot.notes || undefined,
     });
     slotsByProgram.set(slot.meeting_program_id, list);
@@ -161,6 +200,16 @@ export async function saveMeetingProgramToSupabase(
     throw new Error("No se pueden eliminar intervenciones al publicar. Guarda el borrador y revisa los cambios.");
   }
 
+  // Resolve planningCycleId and historyPeriodId if missing
+  let planningCycleId = program.planningCycleId;
+  if (!planningCycleId) {
+    planningCycleId = (await resolvePlanningCycleUuid(supabase, program.meetingDate)) ?? undefined;
+  }
+  let historyPeriodId = program.historyPeriodId;
+  if (!historyPeriodId) {
+    historyPeriodId = (await resolveHistoryPeriodUuid(supabase, program.meetingDate)) ?? undefined;
+  }
+
   const isDraft = program.status === "draft";
   const { error: progError } = await supabase
     .from("meeting_programs")
@@ -168,15 +217,14 @@ export async function saveMeetingProgramToSupabase(
       id: program.id,
       meeting_date: program.meetingDate,
       week_type: program.weekType,
-      planning_cycle_id: program.planningCycleId || null,
-      history_period_id: program.historyPeriodId || null,
+      planning_cycle_id: planningCycleId || null,
+      history_period_id: historyPeriodId || null,
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       leadership_review_confirmed: program.leadershipReviewConfirmed === true,
       leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
       leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
-      // Publicar es el último paso: si falla una asignación, el programa permanece como borrador.
       is_draft: true,
       notes: program.notes || null,
       updated_at: new Date().toISOString(),
@@ -186,9 +234,7 @@ export async function saveMeetingProgramToSupabase(
     throw new Error("No se pudo guardar el programa en la base de datos.");
   }
 
-  // Solo se eliminan intervenciones que pertenecen a un borrador existente.
   if (isDraft && toDelete.length > 0) {
-    // Baja lógica: se preservan los registros para auditoría y nunca se hace DELETE físico.
     const { error: deleteError } = await supabase
       .from("assignment_slots")
       .update({ is_deleted: true })
