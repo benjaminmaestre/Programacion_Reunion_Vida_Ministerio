@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle, LockKeyhole, Save, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle, Download, LockKeyhole, Save, ShieldAlert } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -28,6 +28,7 @@ export const ProgramsWorkspace: React.FC = () => {
   const [pageError, setPageError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
 
@@ -162,6 +163,41 @@ export const ProgramsWorkspace: React.FC = () => {
     }
   }
 
+  async function handleGenerateS140() {
+    if (!selectedProgram || mode !== "connected" || !client || !userId) {
+      setPageError("La generación del S-140 requiere una sesión conectada a Supabase.");
+      return;
+    }
+    setGenerating(true);
+    setPageError("");
+    setFeedback("");
+    try {
+      // Si el borrador es editable, guardar primero para que el documento use los títulos actuales.
+      if (selectedProgram.status === "draft" && canManage) {
+        await saveMeetingProgramToSupabase(client, userId, selectedProgram);
+      }
+      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140`, { method: "POST" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(typeof payload.error === "string" ? payload.error : "No se pudo generar el S-140.");
+      }
+      const file = await response.blob();
+      const objectUrl = URL.createObjectURL(file);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `S-140-${selectedProgram.meetingDate}.docx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      setFeedback("Documento S-140 generado desde los datos guardados en Supabase.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo generar el S-140.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!client) return;
@@ -202,7 +238,7 @@ export const ProgramsWorkspace: React.FC = () => {
   if (mode === "membership") return <main className="p-8"><h1 className="text-xl font-bold">Acceso no configurado</h1><p>Solicita al administrador una membresía activa para esta aplicación.</p></main>;
   if (mode === "error") return <main className="p-8"><h1 className="text-xl font-bold">No se pudieron cargar los programas</h1><p role="alert" className="mt-3 text-red-700">{pageError}</p></main>;
 
-  const readOnly = mode === "connected" && selectedProgram?.status === "published";
+  const readOnly = mode === "connected" && (selectedProgram?.status === "published" || !canManage);
   const cycleLabels = [...new Set(programs.map((program) => program.bimonthCycle))];
   const selectedCycle = selectedProgram?.bimonthCycle ?? cycleLabels[0];
 
@@ -258,7 +294,7 @@ export const ProgramsWorkspace: React.FC = () => {
 
           {!selectedProgram ? <div className="rounded-xl border p-8 text-center text-slate-500">No hay reuniones para mostrar. Crea los programas iniciales cuando esté definido el flujo de planificación.</div> : (
             <>
-              {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Programa publicado: vista de solo lectura para proteger el historial.</div>}
+              {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{selectedProgram.status === "published" ? "Programa publicado: vista de solo lectura para proteger el historial." : "Tu rol tiene permisos de consulta. El programa está en modo de solo lectura."}</div>}
               <div className="overflow-hidden rounded-xl border divide-y">
                 {selectedProgram.slots.map((slot) => (
                   <article key={slot.id} className="space-y-3 p-4">
@@ -291,10 +327,13 @@ export const ProgramsWorkspace: React.FC = () => {
               </div>
               {selectedProgram.slots.length === 0 && <p className="rounded-xl border p-5 text-sm text-slate-500">Este programa no tiene intervenciones cargadas.</p>}
 
-              {canManage && !readOnly && <div className="flex flex-col justify-between gap-3 sm:flex-row">
-                <button type="button" onClick={() => void handleSave("draft")} disabled={saving || mode !== "connected" && mode !== "demo"} className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Guardando…" : "Guardar borrador"}</button>
-                <button type="button" onClick={() => void handleSave("published")} disabled={saving || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle className="h-4 w-4" />Validar y publicar</button>
-              </div>}
+              <div className="flex flex-col justify-between gap-3 sm:flex-row">
+                {canManage && !readOnly && <div className="flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={() => void handleSave("draft")} disabled={saving || (mode !== "connected" && mode !== "demo")} className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Guardando…" : "Guardar borrador"}</button>
+                  <button type="button" onClick={() => void handleSave("published")} disabled={saving || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle className="h-4 w-4" />Validar y publicar</button>
+                </div>}
+                <button type="button" onClick={() => void handleGenerateS140()} disabled={generating || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download className="h-4 w-4" />{generating ? "Generando S-140…" : "Generar S-140"}</button>
+              </div>
               {!canManage && mode === "connected" && <p className="text-sm text-amber-700"><ShieldAlert className="mr-1 inline h-4 w-4" />Tu rol no permite editar ni publicar programas.</p>}
             </>
           )}
