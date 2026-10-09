@@ -23,8 +23,12 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
   if (actual.meetingDate !== expected.meetingDate || actual.weekType !== expected.weekType) {
     throw new Error("La reunión recuperada no coincide con la fecha o el tipo de semana.");
   }
-  if (actual.bimonthCycle !== expected.bimonthCycle || actual.historyPeriod !== expected.historyPeriod) {
-    throw new Error("La reunión se recuperó sin los ciclos o períodos esperados.");
+  if (!actual.bimonthCycle || !actual.historyPeriod) {
+    throw new Error("La reunión se guardó sin recuperar sus relaciones de ciclo bimestral y período semestral.");
+  }
+  if ((expected.bimonthCycle && actual.bimonthCycle !== expected.bimonthCycle)
+    || (expected.historyPeriod && actual.historyPeriod !== expected.historyPeriod)) {
+    throw new Error("La reunión recuperada no coincide con los ciclos o períodos solicitados.");
   }
   if (actual.slots.length !== expected.slots.length) {
     throw new Error("La reunión se recuperó con una cantidad de intervenciones diferente.");
