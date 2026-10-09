@@ -140,7 +140,8 @@ export async function saveMeetingProgramToSupabase(
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
-      is_draft: isDraft,
+      // Publicar es el último paso: si falla una asignación, el programa permanece como borrador.
+      is_draft: true,
       notes: program.notes || null,
       updated_at: new Date().toISOString(),
     });
@@ -180,6 +181,16 @@ export async function saveMeetingProgramToSupabase(
 
     if (slotError) {
       throw new Error(`No se pudo actualizar la asignación "${slot.title}" en Supabase.`);
+    }
+  }
+
+  if (!isDraft) {
+    const { error: publishError } = await supabase
+      .from("meeting_programs")
+      .update({ is_draft: false, updated_at: new Date().toISOString() })
+      .eq("id", program.id);
+    if (publishError) {
+      throw new Error("Las asignaciones se guardaron, pero no se pudo completar la publicación. El programa permanece como borrador.");
     }
   }
 }
