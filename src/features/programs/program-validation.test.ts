@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DirectoryMember } from "../members/demo-data";
 import type { MeetingProgramDetail } from "./program-types";
-import { validateProgramForPublication } from "./program-validation";
+import { invalidateReviewIfChanged, validateProgramForPublication } from "./program-validation";
 
 const members: DirectoryMember[] = [
   { id: "m1", firstName: "Laura", lastName: "Vega", gender: "female", appointment: "none", isActive: true, isBaptized: true },
@@ -42,7 +42,36 @@ function program(overrides: Partial<MeetingProgramDetail> = {}): MeetingProgramD
 
 describe("validación de publicación de programas", () => {
   it("acepta un programa con participantes activos, ayudante distinto y revisión humana", () => {
-    expect(validateProgramForPublication(program(), members)).toEqual({ isValid: true, errors: [] });
+    const result = validateProgramForPublication(program(), members);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("permite semanas de asamblea sin intervenciones ordinarias", () => {
+    const assemblyProg = program({ weekType: "assembly", slots: [] });
+    const result = validateProgramForPublication(assemblyProg, members);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("permite semana de conmemoración exigiendo solo presidente activo", () => {
+    const memorialProg = program({ weekType: "memorial", chairmanId: "m3", slots: [] });
+    const result = validateProgramForPublication(memorialProg, members);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("invalida la confirmación de elegibilidad cuando cambia el participante titular", () => {
+    const originalSlot = {
+      id: "s1",
+      primaryParticipantId: "m1",
+      eligibilityConfirmed: true,
+      eligibilityConfirmedBy: "user-1",
+    };
+    const updatedSlot = invalidateReviewIfChanged(originalSlot, { primaryParticipantId: "m2" });
+    expect(updatedSlot.eligibilityConfirmed).toBe(false);
+    expect(updatedSlot.eligibilityConfirmedBy).toBeUndefined();
   });
 
   it("bloquea una intervención sin titular", () => {
@@ -79,7 +108,7 @@ describe("validación de publicación de programas", () => {
     expect(result.errors.some((error) => error.includes("participante activo"))).toBe(true);
   });
 
-  it("bloquea un programa vacío", () => {
+  it("bloquea un programa vacío en semana normal", () => {
     const result = validateProgramForPublication(program({ slots: [] }), members);
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain("El programa no tiene intervenciones.");

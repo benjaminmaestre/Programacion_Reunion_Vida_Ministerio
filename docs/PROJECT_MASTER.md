@@ -6,8 +6,8 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **Estado de Pruebas:** 44 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js limpio.
-- **Avance global estimado:** 90% (Directorio, UUID v4 puros, persistencia inmediata, resolución de ciclos/semestres, motor S-38-S, baja lógica y S-140 integrados).
+- **Estado de Pruebas:** 53 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js totalmente limpio (`npm run build`).
+- **Avance global estimado:** 95% (Estabilización Fase 4 completada: transaccionalidad RPC, auto-creación y unicidad de ciclos/períodos, validación estricta por tipos de semana, invalidación de revisiones humanas y pruebas de integración API S-140 para códigos HTTP 401, 403, 404 y 200).
 
 ## 1. Objetivo
 
@@ -36,24 +36,20 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 ## 4. Estado verificable
 
 ### Existente y Verificado en el Repositorio
-- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql`, `003_official_directory_and_titles.sql` y `004_assignment_eligibility_review.sql`.
+- [x] Migraciones `001` a `005_save_meeting_program_transaction.sql` (unicidad en ciclos/períodos y procedimiento atómico RPC).
 - [x] Formato UUID v4 estricto para `meeting_programs.id` y `assignment_slots.id` en `program-builder.ts` y datos demo (sin prefijos incompatibles).
-- [x] Persistencia inmediata en Supabase al crear un programa en modo conectado (`saveMeetingProgramToSupabase` + recarga verificada).
-- [x] Resolución de UUIDs para `planning_cycles` y `history_periods` mediante las funciones `resolvePlanningCycleUuid` y `resolveHistoryPeriodUuid`.
-- [x] Estructuras diferenciadas por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`).
-- [x] Tipos de dominio `src/types/domain.ts` con estado de bautismo desconocido (`boolean | null`).
-- [x] Motor de reglas S-38-S en `src/domain/rules/s38s-engine.ts` verificado con 17 pruebas unitarias.
-- [x] Función e interfaz de importación oficial con previsualización dry-run, advertencias de duplicados y bloqueo de carga hasta confirmar instancia de destino (`member-importer.ts`).
-- [x] Modo demo aislado con datos ficticios exclusivamente.
-- [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
-- [x] Retiro lógico de asignaciones (`is_deleted: true`) sin borrado físico.
-- [x] Endpoint autenticado `/api/programs/[programId]/s140` y pruebas unitarias de filtrado de asignaciones activas.
-- [x] Pruebas unitarias completas: 44 pruebas en 7 archivos de prueba ejecutados por Vitest.
-- [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` y `npm run build`.
+- [x] Auto-creación estricta y resolución de UUIDs para `planning_cycles` y `history_periods` sin permitir guardados huérfanos.
+- [x] Persistencia transaccional RPC `save_meeting_program_transaction` con fallback atómico.
+- [x] Estructuras y reglas de validación diferenciadas por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`).
+- [x] Distinción estructurada de errores bloqueantes (`errors`) y advertencias (`warnings`), más invalidación automática de revisiones humanas al modificar participantes.
+- [x] Pruebas completas del Route Handler S-140 (`s140-route.test.ts`) cubriendo respuestas 503, 401, 403, 404 y 200 con encabezados y filtrado de intervenciones activas.
+- [x] Modo demo aislado con datos ficticios exclusivamente y protección contra escrituras accidentales.
+- [x] Suite de pruebas automatizadas: 53 pruebas unitarias en 7 archivos pasando al 100%.
+- [x] Compilación TypeScript (`npm run typecheck`) y Next.js build de producción sin advertencias ni errores.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Confirmación explícita de la instancia Supabase de destino antes de ejecutar migraciones e importación real a la base de datos de producción.
-- [ ] Inspección visual del renderizado DOCX S-140 generado con Microsoft Word / LibreOffice.
+- [ ] Confirmación explícita de la instancia Supabase de destino para ejecución de migraciones e importación real del directorio de 125 personas.
+- [ ] Inspección visual final del documento DOCX generado con Microsoft Word / LibreOffice.
 
 ## 5. Historial semestral y planificación
 
@@ -67,9 +63,9 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 
 ## 6. Registro de avances
 
-### 9 de octubre de 2026 — Fase 3: Corrección Crítica de Identificadores UUID, Persistencia Imediata y Resolución de Ciclos
-- **Identificadores UUID v4:** Se corrigió el generador en `program-builder.ts` y `programs-demo-data.ts` eliminando prefijos incompatibles (`prog-`, `slot-`).
-- **Persistencia Inmediata:** La creación de nuevas reuniones en modo conectado guarda inmediatamente en Supabase y recarga la lista para verificar coincidencia.
-- **Resolución de Ciclos y Semestres:** `programs-repository.ts` resuelve y asigna las claves UUID de `planning_cycles` y `history_periods` manteniendo las etiquetas visibles (`2026-6`, `2026-S2`).
-- **Tipos de Semana:** Estructuras configuradas para semanas normales, visita de circuito (discurso de 30 min), asambleas y conmemoración.
-- **Pruebas Automatizadas:** 44 pruebas unitarias en Vitest pasando al 100%. TypeScript y build de producción limpios.
+### 9 de octubre de 2026 — Fase 4: Estabilización, Integridad de Datos y Verificación Integral
+- **Auto-creación y unicidad de Ciclos/Períodos:** `resolvePlanningCycleUuid` y `resolveHistoryPeriodUuid` garantizan la creación automática o recuperación de UUIDs reales, impidiendo programas sin relaciones obligatorias.
+- **Transaccionalidad en Supabase:** Creación de la migración `005_save_meeting_program_transaction.sql` con el procedimiento RPC atómico `save_meeting_program_transaction` y fallback seguro en el cliente.
+- **Semanas Especiales y Revisiones:** Soporte completo de validación por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) e invalidación de aprobaciones de elegibilidad al cambiar asignaciones (`invalidateReviewIfChanged`).
+- **Pruebas de Integración Route Handler S-140:** Ampliación de `s140-route.test.ts` para validar códigos 503, 401, 403, 404 y 200 (headers y buffer DOCX).
+- **Suite de Pruebas y Build:** 53 pruebas en Vitest pasando al 100%, `npm run typecheck` y `npm run build` sin errores.

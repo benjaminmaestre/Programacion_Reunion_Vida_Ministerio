@@ -4,6 +4,30 @@ import type { MeetingProgramDetail } from "./program-types";
 export interface ProgramPublicationValidation {
   isValid: boolean;
   errors: string[];
+  warnings: string[];
+}
+
+/** Invalida la confirmación de revisión si los datos fundamentales han cambiado */
+export function invalidateReviewIfChanged<T extends { eligibilityConfirmed?: boolean; eligibilityConfirmedBy?: string; eligibilityConfirmedAt?: string }>(
+  originalItem: T,
+  newItem: Partial<T>
+): T {
+  const hasParticipantChanged =
+    ("primaryParticipantId" in newItem && (newItem as unknown as { primaryParticipantId?: string }).primaryParticipantId !== (originalItem as unknown as { primaryParticipantId?: string }).primaryParticipantId) ||
+    ("assistantParticipantId" in newItem && (newItem as unknown as { assistantParticipantId?: string }).assistantParticipantId !== (originalItem as unknown as { assistantParticipantId?: string }).assistantParticipantId) ||
+    ("assignmentType" in newItem && (newItem as unknown as { assignmentType?: string }).assignmentType !== (originalItem as unknown as { assignmentType?: string }).assignmentType);
+
+  if (hasParticipantChanged) {
+    return {
+      ...originalItem,
+      ...newItem,
+      eligibilityConfirmed: false,
+      eligibilityConfirmedBy: undefined,
+      eligibilityConfirmedAt: undefined,
+    };
+  }
+
+  return { ...originalItem, ...newItem };
 }
 
 /** No permite publicar sin participantes, compatibilidad básica y revisión humana explícita. */
@@ -12,9 +36,30 @@ export function validateProgramForPublication(
   members: DirectoryMember[],
 ): ProgramPublicationValidation {
   const errors: string[] = [];
+  const warnings: string[] = [];
   const activeMembers = new Map(members.filter((member) => member.isActive).map((member) => [member.id, member]));
 
-  if (program.slots.length === 0) errors.push("El programa no tiene intervenciones.");
+  // Manejo de semanas especiales
+  if (program.weekType === "assembly") {
+    // Semana de Asamblea: No hay reunión ordinaria en el Salón
+    if (program.slots.length > 0) {
+      warnings.push("Semana de asamblea: El programa contiene intervenciones aunque no habrá reunión ordinaria en el salón.");
+    }
+    return { isValid: true, errors: [], warnings };
+  }
+
+  if (program.weekType === "memorial") {
+    // Semana de Conmemoración: Evento especial
+    const chairman = program.chairmanId ? activeMembers.get(program.chairmanId) : undefined;
+    if (!chairman) {
+      errors.push("Conmemoración: Selecciona un presidente activo.");
+    }
+    return { isValid: errors.length === 0, errors, warnings };
+  }
+
+  if (program.slots.length === 0) {
+    errors.push("El programa no tiene intervenciones.");
+  }
 
   const eldersCount = members.filter((member) => member.isActive && member.appointment === "elder").length;
   const chairman = program.chairmanId ? activeMembers.get(program.chairmanId) : undefined;
@@ -23,13 +68,19 @@ export function validateProgramForPublication(
   } else if (chairman.appointment !== "elder" && !(eldersCount < 3 && chairman.appointment === "ministerial_servant")) {
     errors.push("El presidente debe ser anciano; solo en congregaciones con menos de tres ancianos puede considerarse un siervo ministerial capacitado.");
   }
+
   if (program.leadershipReviewConfirmed !== true) {
     errors.push("Falta la confirmación de un anciano/administrador para Presidencia y Consejería.");
   }
+
   if (program.auxiliaryCounselorId) {
     const counselor = activeMembers.get(program.auxiliaryCounselorId);
     if (!counselor) errors.push("El consejero auxiliar seleccionado no está activo o no existe.");
     else if (counselor.appointment !== "elder") errors.push("El consejero auxiliar debe ser un anciano.");
+  }
+
+  if (program.weekType === "circuit_overseer" && !program.circuitOverseerTalkTitle?.trim()) {
+    warnings.push("Visita del Superintendente: No se ha indicado el título del discurso de servicio.");
   }
 
   for (const slot of program.slots) {
@@ -100,5 +151,6 @@ export function validateProgramForPublication(
     }
   }
 
-  return { isValid: errors.length === 0, errors };
+  return { isValid: errors.length === 0, errors, warnings };
 }
+

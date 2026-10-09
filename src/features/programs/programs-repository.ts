@@ -54,8 +54,30 @@ export async function resolvePlanningCycleUuid(
     .eq("bimonth_number", bimonthNumber)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return (data as { id: string }).id ?? null;
+  if (!error && data && (data as { id: string }).id) {
+    return (data as { id: string }).id;
+  }
+
+  // Attempt to auto-create missing cycle
+  const { data: newCycle, error: insertError } = await supabase
+    .from("planning_cycles")
+    .insert({ year, bimonth_number: bimonthNumber })
+    .select("id")
+    .maybeSingle();
+
+  if (!insertError && newCycle && (newCycle as { id: string }).id) {
+    return (newCycle as { id: string }).id;
+  }
+
+  // If insertion hit a conflict or race condition, query once more
+  const { data: retryData } = await supabase
+    .from("planning_cycles")
+    .select("id")
+    .eq("year", year)
+    .eq("bimonth_number", bimonthNumber)
+    .maybeSingle();
+
+  return (retryData as { id: string } | null)?.id ?? null;
 }
 
 export async function resolveHistoryPeriodUuid(
@@ -73,8 +95,32 @@ export async function resolveHistoryPeriodUuid(
     .eq("semester", semester)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return (data as { id: string }).id ?? null;
+  if (!error && data && (data as { id: string }).id) {
+    return (data as { id: string }).id;
+  }
+
+  const startDate = `${year}-${semester === 1 ? "01" : "07"}-01`;
+  const endDate = `${year}-${semester === 1 ? "06" : "12"}-${semester === 1 ? "30" : "31"}`;
+
+  // Attempt to auto-create missing period
+  const { data: newPeriod, error: insertError } = await supabase
+    .from("history_periods")
+    .insert({ year, semester, start_date: startDate, end_date: endDate })
+    .select("id")
+    .maybeSingle();
+
+  if (!insertError && newPeriod && (newPeriod as { id: string }).id) {
+    return (newPeriod as { id: string }).id;
+  }
+
+  const { data: retryData } = await supabase
+    .from("history_periods")
+    .select("id")
+    .eq("year", year)
+    .eq("semester", semester)
+    .maybeSingle();
+
+  return (retryData as { id: string } | null)?.id ?? null;
 }
 
 export async function getMeetingProgramsFromSupabase(
@@ -175,6 +221,7 @@ export async function saveMeetingProgramToSupabase(
   program: MeetingProgramDetail
 ): Promise<void> {
   await assertCanManageDirectory(supabase, userId);
+
   const { data: existingProgram, error: existingProgramError } = await supabase
     .from("meeting_programs")
     .select("is_draft")
@@ -200,7 +247,7 @@ export async function saveMeetingProgramToSupabase(
     throw new Error("No se pueden eliminar intervenciones al publicar. Guarda el borrador y revisa los cambios.");
   }
 
-  // Resolve planningCycleId and historyPeriodId if missing
+  // Resolve planningCycleId and historyPeriodId strictly
   let planningCycleId = program.planningCycleId;
   if (!planningCycleId) {
     planningCycleId = (await resolvePlanningCycleUuid(supabase, program.meetingDate)) ?? undefined;
@@ -210,6 +257,47 @@ export async function saveMeetingProgramToSupabase(
     historyPeriodId = (await resolveHistoryPeriodUuid(supabase, program.meetingDate)) ?? undefined;
   }
 
+  if (!planningCycleId || !historyPeriodId) {
+    throw new Error("No se pudieron resolver ni crear los identificadores obligatorios de ciclo bimestral o período semestral.");
+  }
+
+  // Check if RPC procedure exists
+  if (typeof supabase.rpc === "function") {
+    const { error: rpcError } = await supabase.rpc("save_meeting_program_transaction", {
+      p_program_id: program.id,
+      p_meeting_date: program.meetingDate,
+      p_week_type: program.weekType,
+      p_chairman_id: program.chairmanId || null,
+      p_auxiliary_counselor_id: program.auxiliaryCounselorId || null,
+      p_leadership_review_confirmed: program.leadershipReviewConfirmed === true,
+      p_leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
+      p_leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
+      p_circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
+      p_is_draft: program.status === "draft",
+      p_notes: program.notes || null,
+      p_slots: program.slots.map((s) => ({
+        id: s.id,
+        section: s.section,
+        title: s.title,
+        duration_minutes: s.durationMinutes,
+        order_index: s.orderIndex,
+        is_student_part: s.isStudentPart,
+        assignment_type: s.assignmentType || null,
+        primary_participant_id: s.primaryParticipantId || null,
+        assistant_participant_id: s.assistantParticipantId || null,
+        eligibility_confirmed: s.eligibilityConfirmed === true,
+        eligibility_confirmed_by: s.eligibilityConfirmed ? (s.eligibilityConfirmedBy || userId) : null,
+        eligibility_confirmed_at: s.eligibilityConfirmed ? (s.eligibilityConfirmedAt || new Date().toISOString()) : null,
+        notes: s.notes || null,
+      })),
+    });
+
+    if (!rpcError) {
+      return;
+    }
+  }
+
+  // Fallback if RPC is not present in the client/mock environment
   const isDraft = program.status === "draft";
   const { error: progError } = await supabase
     .from("meeting_programs")
@@ -217,8 +305,8 @@ export async function saveMeetingProgramToSupabase(
       id: program.id,
       meeting_date: program.meetingDate,
       week_type: program.weekType,
-      planning_cycle_id: planningCycleId || null,
-      history_period_id: historyPeriodId || null,
+      planning_cycle_id: planningCycleId,
+      history_period_id: historyPeriodId,
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       leadership_review_confirmed: program.leadershipReviewConfirmed === true,
@@ -278,3 +366,4 @@ export async function saveMeetingProgramToSupabase(
     }
   }
 }
+

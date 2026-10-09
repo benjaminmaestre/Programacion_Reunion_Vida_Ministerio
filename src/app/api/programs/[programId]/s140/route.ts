@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { S140DocxGenerator } from "@/features/printing/s140-docx-generator";
+import { S140DocxGenerator } from "../../../../../features/printing/s140-docx-generator";
 
 export const runtime = "nodejs";
 

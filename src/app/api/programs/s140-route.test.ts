@@ -1,7 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { S140DocxGenerator } from "../../../features/printing/s140-docx-generator";
+import { POST } from "./[programId]/s140/route";
 
-describe("Generación del documento S-140 DOCX", () => {
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn().mockResolvedValue({
+    getAll: () => [],
+    set: () => {},
+  }),
+}));
+
+describe("Generación del documento S-140 DOCX y Route Handler", () => {
   it("genera un buffer DOCX válido omitiendo intervenciones retiradas lógicamente", () => {
     const activeSlots = [
       {
@@ -46,5 +58,174 @@ describe("Generación del documento S-140 DOCX", () => {
 
     expect(docxBuffer).toBeDefined();
     expect(docxBuffer.byteLength).toBeGreaterThan(100);
+  });
+
+  it("devuelve 503 si Supabase no está configurado", async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
+
+    expect(response.status).toBe(503);
+    const json = await response.json();
+    expect(json.error).toContain("Supabase no está configurado");
+  });
+
+  it("devuelve 401 si no hay usuario autenticado", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+
+    const { createServerClient } = await import("@supabase/ssr");
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new Error("No session") }),
+      },
+    } as unknown as ReturnType<typeof createServerClient>);
+
+    const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
+
+    expect(response.status).toBe(401);
+    const json = await response.json();
+    expect(json.error).toContain("Inicia sesión");
+  });
+
+  it("devuelve 403 si el usuario no tiene acceso activo en app_users", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+
+    const { createServerClient } = await import("@supabase/ssr");
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
+      },
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }),
+    } as unknown as ReturnType<typeof createServerClient>);
+
+    const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.error).toContain("No tienes acceso activo");
+  });
+
+  it("devuelve 404 si el programa no existe", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+
+    const { createServerClient } = await import("@supabase/ssr");
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
+      },
+      from: vi.fn((table: string) => {
+        if (table === "app_users") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+          };
+        }
+        if (table === "meeting_programs") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          };
+        }
+        return {};
+      }),
+    } as unknown as ReturnType<typeof createServerClient>);
+
+    const request = new Request("http://localhost/api/programs/prog-missing/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "prog-missing" }) });
+
+    expect(response.status).toBe(404);
+    const json = await response.json();
+    expect(json.error).toContain("No se encontró el programa");
+  });
+
+  it("devuelve 200 y el documento DOCX cuando la solicitud es válida", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+
+    const { createServerClient } = await import("@supabase/ssr");
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
+      },
+      from: vi.fn((table: string) => {
+        if (table === "app_users") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+          };
+        }
+        if (table === "meeting_programs") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "prog-valid",
+                meeting_date: "2026-11-02",
+                chairman_id: "m-1",
+                auxiliary_counselor_id: "m-2",
+              },
+              error: null,
+            }),
+          };
+        }
+        if (table === "assignment_slots") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: "s-1",
+                  section: "treasures",
+                  title: "Tesoros de la Biblia",
+                  assignment_type: "treasures_talk",
+                  primary_participant_id: "m-1",
+                  assistant_participant_id: null,
+                  order_index: 1,
+                  is_deleted: false,
+                },
+              ],
+              error: null,
+            }),
+          };
+        }
+        if (table === "members") {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [
+                { id: "m-1", first_name: "David", last_name: "Morales", is_active: true },
+                { id: "m-2", first_name: "Félix", last_name: "Pérez", is_active: true },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return {};
+      }),
+    } as unknown as ReturnType<typeof createServerClient>);
+
+    const request = new Request("http://localhost/api/programs/prog-valid/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "prog-valid" }) });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    expect(response.headers.get("Content-Disposition")).toContain('filename="S-140-2026-11-02.docx"');
+    const buffer = await response.arrayBuffer();
+    expect(buffer.byteLength).toBeGreaterThan(100);
   });
 });

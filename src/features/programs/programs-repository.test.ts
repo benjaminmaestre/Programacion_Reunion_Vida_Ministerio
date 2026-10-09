@@ -6,7 +6,7 @@ import { getMeetingProgramsFromSupabase, saveMeetingProgramToSupabase } from "./
 type Row = Record<string, any>;
 
 class FakeQuery {
-  private operation: "select" | "upsert" | "update" = "select";
+  private operation: "select" | "upsert" | "update" | "insert" = "select";
   private payload: Row | null = null;
   private filters: Array<{ field: string; value: any; kind: "eq" | "in" }> = [];
   constructor(private db: FakeDatabase, private table: string) {}
@@ -14,6 +14,11 @@ class FakeQuery {
   order(_field: string, _options?: unknown) { return this; }
   eq(field: string, value: any) { this.filters.push({ field, value, kind: "eq" }); return this; }
   in(field: string, value: any[]) { this.filters.push({ field, value, kind: "in" }); return this; }
+  insert(payload: Row) {
+    this.operation = "insert";
+    this.payload = { id: payload.id || `00000000-0000-4000-8000-${Math.floor(Math.random() * 1000000000000).toString().padStart(12, "0")}`, ...payload };
+    return this;
+  }
   upsert(payload: Row) { this.operation = "upsert"; this.payload = payload; return this; }
   update(payload: Row) { this.operation = "update"; this.payload = payload; return this; }
   private matches(row: Row) {
@@ -23,11 +28,15 @@ class FakeQuery {
   }
   private execute(): { data: any; error: null } {
     const rows = this.db.tables[this.table] ?? (this.db.tables[this.table] = []);
+    if (this.operation === "insert" && this.payload) {
+      rows.push(this.payload);
+      return { data: [this.payload], error: null };
+    }
     if (this.operation === "upsert" && this.payload) {
       const index = rows.findIndex((row) => row.id && row.id === this.payload?.id);
       if (index >= 0) rows[index] = { ...rows[index], ...this.payload };
       else rows.push({ ...this.payload });
-      return { data: null, error: null };
+      return { data: [this.payload], error: null };
     }
     if (this.operation === "update" && this.payload) {
       rows.forEach((row) => { if (this.matches(row)) Object.assign(row, this.payload); });
@@ -189,4 +198,38 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     };
     await expect(saveMeetingProgramToSupabase(client, "user-elder", program)).rejects.toThrow(/ya está publicado/);
   });
+
+  it("crea automáticamente el ciclo bimestral y período semestral si no existen previamente", async () => {
+    const db = new FakeDatabase();
+    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.planning_cycles = [];
+    db.tables.history_periods = [];
+    db.tables.meeting_programs = [];
+    db.tables.assignment_slots = [];
+
+    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const program: MeetingProgramDetail = {
+      id: "00000000-0000-4000-8000-000000000001",
+      meetingDate: "2026-11-02",
+      weekType: "normal",
+      bimonthCycle: "",
+      historyPeriod: "",
+      status: "draft",
+      updatedAt: new Date().toISOString(),
+      slots: [],
+    };
+
+    await saveMeetingProgramToSupabase(client, "user-elder", program);
+    expect(db.tables.planning_cycles).toHaveLength(1);
+    expect(db.tables.planning_cycles[0].year).toBe(2026);
+    expect(db.tables.planning_cycles[0].bimonth_number).toBe(6);
+
+    expect(db.tables.history_periods).toHaveLength(1);
+    expect(db.tables.history_periods[0].year).toBe(2026);
+    expect(db.tables.history_periods[0].semester).toBe(2);
+
+    expect(db.tables.meeting_programs[0].planning_cycle_id).toBeDefined();
+    expect(db.tables.meeting_programs[0].history_period_id).toBeDefined();
+  });
 });
+
