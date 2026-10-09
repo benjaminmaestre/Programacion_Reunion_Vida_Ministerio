@@ -176,6 +176,9 @@ function getSemesterRange(reference = new Date()): { start: string; end: string 
 function mapCategory(section: DbHistorySlotRow["section"], title: string): HistoryCategory {
   const normalized = title.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLocaleLowerCase("es");
 
+  // Lectura de la Biblia también pertenece a Tesoros en la estructura general,
+  // pero necesita una categoría de historial específica.
+  if (normalized.includes("lectura de la biblia")) return "bible-reading";
   if (section === "treasures") return normalized.includes("perla") ? "gems" : "treasures";
   if (section === "ministers") {
     if (normalized.includes("conversacion")) return "conversation";
@@ -185,7 +188,6 @@ function mapCategory(section: DbHistorySlotRow["section"], title: string): Histo
     return "student-talk";
   }
   if (section === "living") return "living";
-  if (normalized.includes("lectura de la biblia")) return "bible-reading";
   return "living";
 }
 
