@@ -71,7 +71,7 @@ export function validateProgramForPublication(
 
   if (program.weekType === "circuit_overseer") {
     if (!program.circuitOverseerTalkTitle?.trim()) {
-      errors.push("Visita del Superintendente: Ingresa el título del discurso de servicio de 30 minutos.");
+      errors.push("Visita del Superintendente: Ingresa el título real del discurso de servicio de 30 minutos.");
     }
   }
 
