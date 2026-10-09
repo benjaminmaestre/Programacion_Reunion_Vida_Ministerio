@@ -51,7 +51,27 @@ export async function getMeetingProgramsFromSupabase(
     return [];
   }
 
-  const programIds = (programsData as unknown as DbMeetingProgramRow[]).map((p) => p.id);
+  const typedPrograms = programsData as unknown as DbMeetingProgramRow[];
+  const programIds = typedPrograms.map((p) => p.id);
+  const { data: cyclesData, error: cyclesError } = await supabase
+    .from("planning_cycles")
+    .select("id, year, bimonth_number");
+  if (cyclesError) throw new Error("No se pudieron cargar los ciclos de planificación.");
+
+  const { data: periodsData, error: periodsError } = await supabase
+    .from("history_periods")
+    .select("id, year, semester");
+  if (periodsError) throw new Error("No se pudieron cargar los períodos históricos.");
+
+  const cycleLabels = new Map<string, string>(
+    ((cyclesData ?? []) as Array<{ id: string; year: number; bimonth_number: number }>)
+      .map((cycle) => [cycle.id, `${cycle.year}-${cycle.bimonth_number}`]),
+  );
+  const periodLabels = new Map<string, string>(
+    ((periodsData ?? []) as Array<{ id: string; year: number; semester: number }>)
+      .map((period) => [period.id, `${period.year}-S${period.semester}`]),
+  );
+
   const { data: slotsData, error: slotsError } = await supabase
     .from("assignment_slots")
     .select("*")
@@ -88,8 +108,10 @@ export async function getMeetingProgramsFromSupabase(
     id: p.id,
     meetingDate: p.meeting_date,
     weekType: p.week_type,
-    bimonthCycle: p.planning_cycle_id || "2026-6",
-    historyPeriod: p.history_period_id || "2026-S2",
+    bimonthCycle: p.planning_cycle_id ? cycleLabels.get(p.planning_cycle_id) ?? "" : "",
+    historyPeriod: p.history_period_id ? periodLabels.get(p.history_period_id) ?? "" : "",
+    planningCycleId: p.planning_cycle_id || undefined,
+    historyPeriodId: p.history_period_id || undefined,
     chairmanId: p.chairman_id || undefined,
     auxiliaryCounselorId: p.auxiliary_counselor_id || undefined,
     circuitOverseerTalkTitle: p.circuit_overseer_talk_title || undefined,
@@ -138,8 +160,8 @@ export async function saveMeetingProgramToSupabase(
       id: program.id,
       meeting_date: program.meetingDate,
       week_type: program.weekType,
-      planning_cycle_id: program.bimonthCycle,
-      history_period_id: program.historyPeriod,
+      planning_cycle_id: program.planningCycleId || null,
+      history_period_id: program.historyPeriodId || null,
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
