@@ -39,90 +39,6 @@ interface DbAssignmentSlotRow {
   notes: string | null;
 }
 
-export async function resolvePlanningCycleUuid(
-  supabase: SupabaseBrowserClient,
-  meetingDate: string
-): Promise<string | null> {
-  const date = new Date(`${meetingDate}T12:00:00Z`);
-  const year = date.getUTCFullYear();
-  const bimonthNumber = Math.ceil((date.getUTCMonth() + 1) / 2);
-
-  const { data, error } = await supabase
-    .from("planning_cycles")
-    .select("id")
-    .eq("year", year)
-    .eq("bimonth_number", bimonthNumber)
-    .maybeSingle();
-
-  if (!error && data && (data as { id: string }).id) {
-    return (data as { id: string }).id;
-  }
-
-  // Attempt to auto-create missing cycle
-  const { data: newCycle, error: insertError } = await supabase
-    .from("planning_cycles")
-    .insert({ year, bimonth_number: bimonthNumber })
-    .select("id")
-    .maybeSingle();
-
-  if (!insertError && newCycle && (newCycle as { id: string }).id) {
-    return (newCycle as { id: string }).id;
-  }
-
-  // If insertion hit a conflict or race condition, query once more
-  const { data: retryData } = await supabase
-    .from("planning_cycles")
-    .select("id")
-    .eq("year", year)
-    .eq("bimonth_number", bimonthNumber)
-    .maybeSingle();
-
-  return (retryData as { id: string } | null)?.id ?? null;
-}
-
-export async function resolveHistoryPeriodUuid(
-  supabase: SupabaseBrowserClient,
-  meetingDate: string
-): Promise<string | null> {
-  const date = new Date(`${meetingDate}T12:00:00Z`);
-  const year = date.getUTCFullYear();
-  const semester = date.getUTCMonth() + 1 <= 6 ? 1 : 2;
-
-  const { data, error } = await supabase
-    .from("history_periods")
-    .select("id")
-    .eq("year", year)
-    .eq("semester", semester)
-    .maybeSingle();
-
-  if (!error && data && (data as { id: string }).id) {
-    return (data as { id: string }).id;
-  }
-
-  const startDate = `${year}-${semester === 1 ? "01" : "07"}-01`;
-  const endDate = `${year}-${semester === 1 ? "06" : "12"}-${semester === 1 ? "30" : "31"}`;
-
-  // Attempt to auto-create missing period
-  const { data: newPeriod, error: insertError } = await supabase
-    .from("history_periods")
-    .insert({ year, semester, start_date: startDate, end_date: endDate })
-    .select("id")
-    .maybeSingle();
-
-  if (!insertError && newPeriod && (newPeriod as { id: string }).id) {
-    return (newPeriod as { id: string }).id;
-  }
-
-  const { data: retryData } = await supabase
-    .from("history_periods")
-    .select("id")
-    .eq("year", year)
-    .eq("semester", semester)
-    .maybeSingle();
-
-  return (retryData as { id: string } | null)?.id ?? null;
-}
-
 export async function getMeetingProgramsFromSupabase(
   supabase: SupabaseBrowserClient
 ): Promise<MeetingProgramDetail[]> {
@@ -220,83 +136,53 @@ export async function saveMeetingProgramToSupabase(
   userId: string,
   program: MeetingProgramDetail
 ): Promise<void> {
+  // Esta comprobación mejora el mensaje en interfaz; PostgreSQL vuelve a comprobar
+  // identidad y rol dentro de la RPC privilegiada.
   await assertCanManageDirectory(supabase, userId);
 
-  const { data: existingProgram, error: existingProgramError } = await supabase
-    .from("meeting_programs")
-    .select("is_draft")
-    .eq("id", program.id)
-    .maybeSingle();
-
-  if (existingProgramError) throw new Error("No se pudo comprobar el estado actual del programa.");
-  if (existingProgram && existingProgram.is_draft === false) {
-    throw new Error("Este programa ya está publicado y se protege contra modificaciones. No se guardaron cambios.");
-  }
-
-  const { data: existingSlots, error: existingSlotsError } = await supabase
-    .from("assignment_slots")
-    .select("id, is_deleted")
-    .eq("meeting_program_id", program.id)
-    .eq("is_deleted", false);
-  if (existingSlotsError) throw new Error("No se pudo comprobar la integridad de las intervenciones.");
-
-  const currentSlotIds = program.slots.map((slot) => slot.id);
-  const existingSlotIds = (existingSlots ?? []).map((slot: { id: string }) => slot.id);
-  const toDelete = existingSlotIds.filter((id: string) => !currentSlotIds.includes(id));
-  if (program.status === "published" && toDelete.length > 0) {
-    throw new Error("No se pueden eliminar intervenciones al publicar. Guarda el borrador y revisa los cambios.");
-  }
-
-  // Resolve planningCycleId and historyPeriodId strictly
-  let planningCycleId = program.planningCycleId;
-  if (!planningCycleId) {
-    planningCycleId = (await resolvePlanningCycleUuid(supabase, program.meetingDate)) ?? undefined;
-  }
-  let historyPeriodId = program.historyPeriodId;
-  if (!historyPeriodId) {
-    historyPeriodId = (await resolveHistoryPeriodUuid(supabase, program.meetingDate)) ?? undefined;
-  }
-
-  if (!planningCycleId || !historyPeriodId) {
-    throw new Error("No se pudieron resolver ni crear los identificadores obligatorios de ciclo bimestral o período semestral.");
-  }
-
-  // Execute production RPC save_meeting_program_transaction strictly
   if (typeof supabase.rpc !== "function") {
     throw new Error("El cliente de Supabase no soporta llamadas RPC transaccionales.");
   }
 
-  const { error: rpcError } = await supabase.rpc("save_meeting_program_transaction", {
+  const { data, error } = await supabase.rpc("save_meeting_program_transaction", {
     p_program_id: program.id,
     p_meeting_date: program.meetingDate,
     p_week_type: program.weekType,
     p_chairman_id: program.chairmanId || null,
     p_auxiliary_counselor_id: program.auxiliaryCounselorId || null,
     p_leadership_review_confirmed: program.leadershipReviewConfirmed === true,
-    p_leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
-    p_leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
+    // La identidad y fecha de la revisión se obtienen/validan en PostgreSQL, no del cliente.
+    p_leadership_review_confirmed_by: null,
+    p_leadership_review_confirmed_at: null,
     p_circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
     p_is_draft: program.status === "draft",
     p_notes: program.notes || null,
-    p_slots: program.slots.map((s) => ({
-      id: s.id,
-      section: s.section,
-      title: s.title,
-      duration_minutes: s.durationMinutes,
-      order_index: s.orderIndex,
-      is_student_part: s.isStudentPart,
-      assignment_type: s.assignmentType || null,
-      primary_participant_id: s.primaryParticipantId || null,
-      assistant_participant_id: s.assistantParticipantId || null,
-      eligibility_confirmed: s.eligibilityConfirmed === true,
-      eligibility_confirmed_by: s.eligibilityConfirmed ? (s.eligibilityConfirmedBy || userId) : null,
-      eligibility_confirmed_at: s.eligibilityConfirmed ? (s.eligibilityConfirmedAt || new Date().toISOString()) : null,
-      notes: s.notes || null,
+    p_slots: program.slots.map((slot) => ({
+      id: slot.id,
+      section: slot.section,
+      title: slot.title,
+      duration_minutes: slot.durationMinutes,
+      order_index: slot.orderIndex,
+      is_student_part: slot.isStudentPart,
+      assignment_type: slot.assignmentType || null,
+      primary_participant_id: slot.primaryParticipantId || null,
+      assistant_participant_id: slot.assistantParticipantId || null,
+      eligibility_confirmed: slot.eligibilityConfirmed === true,
+      eligibility_confirmed_by: null,
+      eligibility_confirmed_at: null,
+      notes: slot.notes || null,
     })),
   });
 
-  if (rpcError) {
-    throw new Error(rpcError.message || "No se pudo guardar la reunión en la base de datos mediante la función transaccional de Supabase.");
+  if (error) {
+    const rpcError = error as { code?: string; message?: string };
+    if (rpcError.code === "PGRST202" || /could not find the function|schema cache/i.test(rpcError.message ?? "")) {
+      throw new Error("No está desplegada la RPC save_meeting_program_transaction. Revisa las migraciones requeridas en el proyecto Supabase autorizado.");
+    }
+    throw new Error(rpcError.message || "No se pudo guardar el programa mediante la transacción atómica de Supabase.");
+  }
+
+  if (typeof data === "string" && data.toLowerCase() !== program.id.toLowerCase()) {
+    throw new Error("Supabase devolvió un identificador diferente al del programa guardado.");
   }
 }
-
