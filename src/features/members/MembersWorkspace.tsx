@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle, Archive, ArrowDownUp, CalendarDays, Check, ChevronRight,
-  CircleHelp, Clock3, Download, FileText, History, LayoutDashboard, ListChecks,
+  CircleHelp, Clock3, FileText, History, LayoutDashboard, ListChecks,
   LockKeyhole, LogOut, Plus, Search, ShieldCheck, SlidersHorizontal,
   Users, X,
 } from "lucide-react";
@@ -20,14 +20,7 @@ import type {
   AssignmentHistoryEntry, DirectoryMember, HistoryCategory,
   MemberAppointment, MemberGender,
 } from "./demo-data";
-import {
-  executeOfficialImportToSupabase,
-  previewMemberImport,
-  validateOfficialImportData,
-} from "./member-importer";
-import { OFFICIAL_CONGREGATION_MEMBERS } from "./official-directory-data";
-
-const STORAGE_KEY = "s140-directory-demo-v1";
+const LEGACY_STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
 type CategoryFilter = "all" | HistoryCategory;
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
@@ -72,7 +65,6 @@ export function MembersWorkspace() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<DirectoryMember | null>(null);
   const [formError, setFormError] = useState("");
   const [pageError, setPageError] = useState("");
@@ -80,33 +72,26 @@ export function MembersWorkspace() {
   const [isReady, setIsReady] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importResultMsg, setImportResultMsg] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function initialize() {
+      // Elimina la clave heredada: versiones anteriores pudieron guardar aquí nombres reales.
+      // La demostración actual solo vive en memoria y no persiste datos personales en el navegador.
+      try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* almacenamiento bloqueado */ }
+
       if (!isSupabaseConfigured()) {
-        try {
-          const saved = window.localStorage.getItem(STORAGE_KEY);
-          let initialMembers = DEMO_MEMBERS;
-          if (saved) {
-            const parsed: unknown = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) initialMembers = parsed as DirectoryMember[];
-          }
-          if (cancelled) return;
-          setMembers(initialMembers);
-          setSelectedMemberId(initialMembers.find((member) => member.isActive)?.id ?? initialMembers[0]?.id ?? "");
-          setMode("demo");
-        } catch {
-          if (cancelled) return;
+        if (cancelled) return;
+        if (process.env.NODE_ENV === "production") {
+          setPageError("La conexión con Supabase no está configurada. No se habilitará el modo de demostración en producción.");
+          setMode("error");
+        } else {
           setMembers(DEMO_MEMBERS);
-          setSelectedMemberId(DEMO_MEMBERS[0]?.id ?? "");
+          setSelectedMemberId(DEMO_MEMBERS.find((member) => member.isActive)?.id ?? DEMO_MEMBERS[0]?.id ?? "");
           setMode("demo");
-        } finally {
-          if (!cancelled) setIsReady(true);
         }
+        setIsReady(true);
         return;
       }
 
@@ -142,16 +127,6 @@ export function MembersWorkspace() {
     void initialize();
     return () => { cancelled = true; };
   }, []);
-
-  // Persistir solo datos de demostración en localStorage en modo demo
-  useEffect(() => {
-    if (mode !== "demo" || !isReady) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
-    } catch {
-      setPageError("El navegador no permitió guardar los cambios de demostración.");
-    }
-  }, [members, mode, isReady]);
 
   const activeMembers = members.filter((member) => member.isActive);
   const selectedMember = members.find((member) => member.id === selectedMemberId)
@@ -213,9 +188,7 @@ export function MembersWorkspace() {
   const pioneerCount = activeMembers.filter((member) => member.isRegularPioneer).length;
   const inactiveCount = members.length - activeMembers.length;
 
-  const importPreview = useMemo(() => previewMemberImport(members, OFFICIAL_CONGREGATION_MEMBERS), [members]);
-
-  function openNewMemberForm() {
+remove preview  function openNewMemberForm() {
     setEditingMember(null);
     setFormError("");
     setIsFormOpen(true);
@@ -279,39 +252,6 @@ export function MembersWorkspace() {
       setFormError(error instanceof Error ? error.message : "No se pudieron guardar los cambios.");
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function handleExecuteImport() {
-    setImporting(true);
-    setImportResultMsg("");
-    try {
-      if (mode === "connected" && client) {
-        const result = await executeOfficialImportToSupabase(client, OFFICIAL_CONGREGATION_MEMBERS, false);
-        setMembers(result.members);
-        setSelectedMemberId(result.members[0]?.id ?? "");
-        setImportResultMsg(`¡Importación completada! Se insertaron ${result.insertedCount} registros nuevos (${result.skippedCount} conservados sin duplicar).`);
-      } else {
-        // Simulación en modo demo
-        const importedMembers: DirectoryMember[] = OFFICIAL_CONGREGATION_MEMBERS.map((m, idx) => ({
-          id: `imp-${idx + 1}`,
-          firstName: m.firstName,
-          lastName: m.lastName,
-          gender: m.gender,
-          appointment: m.appointment,
-          isRegularPioneer: m.isRegularPioneer,
-          additionalRoles: m.additionalRoles,
-          isActive: true,
-          isBaptized: null,
-        }));
-        setMembers(importedMembers);
-        setSelectedMemberId(importedMembers[0].id);
-        setImportResultMsg(`Modo demostración: Se cargaron los 125 registros oficiales en memoria local.`);
-      }
-    } catch (err) {
-      setImportResultMsg(err instanceof Error ? err.message : "Error al ejecutar la importación.");
-    } finally {
-      setImporting(false);
     }
   }
 
@@ -413,13 +353,12 @@ export function MembersWorkspace() {
           <div className="page-heading">
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="button" onClick={() => setIsImportModalOpen(true)} type="button"><Download size={16} /> Importar 125 personas</button>
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
           </div>
 
           {demoMode ? (
-            <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: nombres ficticios</strong><p>Los nombres desplegados por defecto son estrictamente ficticios. Para cargar los 125 registros de la congregación de forma controlada, utiliza la opción de importación administrativa.</p></div></div>
+            <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: nombres ficticios</strong><p>Los nombres son ficticios. Los cambios de esta sesión son temporales y no se guardan en el navegador. La importación oficial permanecerá deshabilitada hasta contar con un flujo administrativo seguro.</p></div></div>
           ) : (
             <div className="connected-banner" role="status"><ShieldCheck size={17} /><div><strong>Sesión autenticada</strong><p>Las operaciones se ejecutan con tu sesión de Supabase. La base de datos aplica las políticas de acceso y el rol que te fue asignado.</p></div></div>
           )}
@@ -521,7 +460,7 @@ export function MembersWorkspace() {
               </div>
             </div>
           </section>
-          <footer className="screen-footer"><span>Gestión de asignaciones · Directorio</span><span>{demoMode ? "Almacenamiento local de demostración" : "PostgreSQL protegido por RLS"}</span></footer>
+          <footer className="screen-footer"><span>Gestión de asignaciones · Directorio</span><span>{demoMode ? "Memoria temporal de demostración" : "PostgreSQL protegido por RLS"}</span></footer>
         </div>
       </main>
 
@@ -552,62 +491,7 @@ export function MembersWorkspace() {
         </section>
       </div>}
 
-      {/* Modal de Importación Administrativa */}
-      {isImportModalOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsImportModalOpen(false); }}>
-        <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" style={{ maxWidth: 650 }}>
-          <div className="modal-header">
-            <div>
-              <h2 className="modal-title" id="import-modal-title">Flujo de importación oficial (125 personas)</h2>
-              <p className="modal-description">Congregación Las Violetas · Validación estructural y detección de duplicados.</p>
-            </div>
-            <button type="button" className="icon-button" onClick={() => setIsImportModalOpen(false)} aria-label="Cerrar modal"><X size={17} /></button>
-          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div className="stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-              <StatCard icon={<Users size={15} />} label="Total personas" value={importPreview.summary.totalRecords} caption="125 registros únicos" />
-              <StatCard icon={<ShieldCheck size={15} />} label="Ancianos / SM" value={importPreview.summary.eldersCount + importPreview.summary.ministerialServantsCount} caption={`${importPreview.summary.eldersCount} anc. / ${importPreview.summary.ministerialServantsCount} SM`} />
-              <StatCard icon={<Check size={15} />} label="Precursores" value={importPreview.summary.regularPioneersCount} caption={`${importPreview.summary.regularPioneersCount} regulares`} />
-            </div>
-
-            <div className="helper-note" style={{ background: "var(--color-bg-subtle, #f8fafc)", padding: 12, borderRadius: 8 }}>
-              <strong>Estructura validada:</strong>
-              <ul style={{ margin: "6px 0 0 16px", padding: 0, fontSize: "0.85em", lineHeight: "1.5" }}>
-                <li>12 Ancianos (incluye 1 con responsabilidad de Secretario y 1 precursor regular combinado)</li>
-                <li>7 Siervos ministeriales (incluye 2 precursores regulares combinados)</li>
-                <li>22 Precursores regulares totales (19 exclusivos + 3 combinados con nombramiento)</li>
-                <li>87 Publicadores sin nombramiento ni precursorado</li>
-                <li>Bautismo inicial: Desconocido / Pendiente de confirmar por usuario autorizado</li>
-              </ul>
-            </div>
-
-            {importPreview.duplicateRecords.length > 0 && (
-              <div className="inline-alert" role="alert" style={{ background: "#fffbeb", borderColor: "#fef3c7", color: "#92400e" }}>
-                <AlertTriangle size={16} />
-                <div>
-                  <strong>{importPreview.duplicateRecords.length} duplicado(s) detectado(s) en el directorio actual.</strong>
-                  <p style={{ margin: 0, fontSize: "0.85em" }}>La importación omitirá automáticamente las personas existentes para no sobrescribir modificaciones sin autorización.</p>
-                </div>
-              </div>
-            )}
-
-            {importResultMsg && (
-              <div className="inline-alert" role="status">
-                <Check size={16} />
-                <span>{importResultMsg}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="modal-footer" style={{ marginTop: 20 }}>
-            <button type="button" className="button" onClick={() => setIsImportModalOpen(false)} disabled={importing}>Cerrar</button>
-            <button type="button" className="button button-primary" onClick={handleExecuteImport} disabled={importing}>
-              <Download size={15} />
-              {importing ? "Importando…" : mode === "connected" ? "Confirmar e importar en Supabase" : "Simular carga (modo demo)"}
-            </button>
-          </div>
-        </section>
-      </div>}
     </div>
   );
 }
