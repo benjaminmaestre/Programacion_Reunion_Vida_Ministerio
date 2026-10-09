@@ -1,376 +1,305 @@
 "use client";
 
-import React, { useState } from "react";
-import { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
-import { DEMO_PROGRAMS, DEMO_BIMONTHLY_PLANS } from "./programs-demo-data";
+import React, { useEffect, useState } from "react";
+import { AlertTriangle, Calendar, CheckCircle, LockKeyhole, Save, ShieldAlert } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
+import type { DirectoryMember } from "../members/demo-data";
 import { DEMO_MEMBERS } from "../members/demo-data";
-import { S38SRulesEngine } from "@/domain/rules/s38s-engine";
-import { Calendar, Clock, AlertTriangle, CheckCircle, Save, FileSpreadsheet, User, ShieldAlert, ArrowLeft } from "lucide-react";
+import { DEMO_PROGRAMS } from "./programs-demo-data";
+import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
+import { getMeetingProgramsFromSupabase, saveMeetingProgramToSupabase } from "./programs-repository";
+import { validateProgramForPublication } from "./program-validation";
+
+type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
+type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+const PAIRED_ASSIGNMENTS = new Set(["conversation", "revisit", "disciples", "explain_beliefs"]);
 
 export const ProgramsWorkspace: React.FC = () => {
-  const [programs, setPrograms] = useState<MeetingProgramDetail[]>(DEMO_PROGRAMS);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>("prog-2026-11-02");
+  const [mode, setMode] = useState<WorkspaceMode>("loading");
+  const [client, setClient] = useState<SupabaseBrowserClient | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [programs, setPrograms] = useState<MeetingProgramDetail[]>([]);
+  const [members, setMembers] = useState<DirectoryMember[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"bimonthly" | "editor">("editor");
+  const [pageError, setPageError] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
-  const selectedProgram = programs.find((p) => p.id === selectedProgramId);
+  const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
-  // Calcula si faltan menos de 3 semanas para la entrega
-  const getDeadlineAlert = (dateStr: string) => {
-    const meetingDate = new Date(dateStr);
-    const today = new Date();
-    const diffTime = meetingDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 21 && diffDays >= 0) {
-      return { isAlert: true, daysLeft: diffDays, message: `⚠️ Atención: Quedan ${diffDays} días (${Math.ceil(diffDays / 7)} semanas). Las asignaciones deben entregarse con al menos 3 semanas de antelación.` };
-    }
-    return { isAlert: false, daysLeft: diffDays, message: "OK: Plazo con más de 3 semanas de antelación." };
-  };
+  async function loadConnectedData(supabase: SupabaseBrowserClient, activeUserId: string) {
+    const [appUser, directory, savedPrograms] = await Promise.all([
+      getCurrentAppUser(supabase, activeUserId),
+      listMembers(supabase, activeUserId),
+      getMeetingProgramsFromSupabase(supabase),
+    ]);
+    setUserId(activeUserId);
+    setCanManage(["administrator", "elder", "coordinator"].includes(appUser.role));
+    setMembers(directory.members);
+    setPrograms(savedPrograms);
+    setSelectedProgramId((current) => savedPrograms.some((program) => program.id === current)
+      ? current
+      : savedPrograms[0]?.id ?? null);
+    setMode("connected");
+  }
 
-  const handleUpdateParticipant = (slotId: string, role: "primary" | "assistant", participantId: string) => {
-    if (!selectedProgram) return;
-
-    const updatedSlots = selectedProgram.slots.map((slot) => {
-      if (slot.id === slotId) {
-        return {
-          ...slot,
-          [role === "primary" ? "primaryParticipantId" : "assistantParticipantId"]: participantId || undefined,
-        };
-      }
-      return slot;
-    });
-
-    const updatedProgram = { ...selectedProgram, slots: updatedSlots, updatedAt: new Date().toISOString() };
-    setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
-  };
-
-  const handleUpdateTitle = (slotId: string, title: string) => {
-    if (!selectedProgram) return;
-
-    const updatedSlots = selectedProgram.slots.map((slot) => {
-      if (slot.id === slotId) {
-        return {
-          ...slot,
-          title,
-        };
-      }
-      return slot;
-    });
-
-    const updatedProgram = { ...selectedProgram, slots: updatedSlots, updatedAt: new Date().toISOString() };
-    setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
-  };
-
-  const [publishError, setPublishError] = useState("");
-
-  const handleSaveStatus = (status: "draft" | "published") => {
-    if (!selectedProgram) return;
-    setPublishError("");
-
-    if (status === "published") {
-      // Validar si existen errores bloqueantes S-38-S
-      let hasBlockingErrors = false;
-      for (const slot of selectedProgram.slots) {
-        const primary = DEMO_MEMBERS.find((m) => m.id === slot.primaryParticipantId);
-        if (primary) {
-          const fullEligibility = {
-            memberId: primary.id,
-            canDoTreasuresTalk: primary.appointment !== "none",
-            canDoGems: primary.appointment !== "none",
-            canDoBibleReading: primary.gender === "male",
-            canDoStudentTalk: true,
-            canBeAssistant: true,
-            canDoLivingPart: primary.gender === "male",
-            canConductCongregationBibleStudy: primary.appointment === "elder",
-            canReadCongregationBibleStudy: primary.gender === "male",
-            canBeChairman: primary.appointment === "elder",
-            canBeAuxiliaryCounselor: primary.appointment === "elder",
-          };
-
-          let res = null;
-          if (slot.assignmentType === "treasures_talk") {
-            res = S38SRulesEngine.validateTreasuresTalk(primary, fullEligibility);
-          } else if (slot.assignmentType === "gems") {
-            res = S38SRulesEngine.validateGems(primary, fullEligibility);
-          } else if (slot.assignmentType === "bible_reading") {
-            res = S38SRulesEngine.validateBibleReading(primary, fullEligibility);
+  useEffect(() => {
+    let cancelled = false;
+    async function initialize() {
+      // La demostración solo existe en desarrollo; nunca se presenta como persistencia real.
+      if (!isSupabaseConfigured()) {
+        if (process.env.NODE_ENV === "production") {
+          if (!cancelled) {
+            setPageError("Supabase no está configurado. La demostración está deshabilitada en producción.");
+            setMode("error");
           }
-          if (res && !res.isValid) {
-            hasBlockingErrors = true;
-            break;
-          }
+        } else if (!cancelled) {
+          setPrograms(DEMO_PROGRAMS);
+          setMembers(DEMO_MEMBERS);
+          setSelectedProgramId(DEMO_PROGRAMS[0]?.id ?? null);
+          setCanManage(true);
+          setMode("demo");
+        }
+        return;
+      }
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        if (cancelled) return;
+        setClient(supabase);
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw new Error("No se pudo verificar la sesión.");
+        if (!data.user) {
+          setMode("login");
+          return;
+        }
+        await loadConnectedData(supabase, data.user.id);
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof MembershipRequiredError) setMode("membership");
+        else {
+          setPageError(error instanceof Error ? error.message : "No se pudieron cargar los programas.");
+          setMode("error");
         }
       }
+    }
+    void initialize();
+    return () => { cancelled = true; };
+  }, []);
 
-      if (hasBlockingErrors) {
-        setPublishError("No se puede publicar el programa porque contiene violaciones bloqueantes del reglamento S-38-S.");
+  function updateProgram(nextProgram: MeetingProgramDetail) {
+    setPrograms((current) => current.map((program) => program.id === nextProgram.id ? nextProgram : program));
+  }
+
+  function updateSlot(slotId: string, changes: Partial<AssignmentSlotDetail>, resetReview = false) {
+    if (!selectedProgram || (mode === "connected" && selectedProgram.status === "published")) return;
+    const updatedProgram: MeetingProgramDetail = {
+      ...selectedProgram,
+      updatedAt: new Date().toISOString(),
+      slots: selectedProgram.slots.map((slot) => slot.id === slotId
+        ? { ...slot, ...changes, ...(resetReview ? { eligibilityConfirmed: false, eligibilityConfirmedBy: undefined } : {}) }
+        : slot),
+    };
+    updateProgram(updatedProgram);
+    setFeedback("");
+    setPageError("");
+  }
+
+  async function handleSave(status: "draft" | "published") {
+    if (!selectedProgram) return;
+    setPageError("");
+    setFeedback("");
+
+    if (mode === "demo") {
+      if (status === "published") {
+        setPageError("El modo demo no permite publicar programas. Conecta Supabase y usa una cuenta autorizada.");
+        return;
+      }
+      updateProgram({ ...selectedProgram, status: "draft", updatedAt: new Date().toISOString() });
+      setFeedback("Cambio temporal en modo demo. No se guardó en una base de datos.");
+      return;
+    }
+
+    if (mode !== "connected" || !client || !userId) {
+      setPageError("No hay una sesión válida. Inicia sesión para guardar cambios.");
+      return;
+    }
+    if (!canManage) {
+      setPageError("Tu rol permite consultar, pero no modificar ni publicar programas.");
+      return;
+    }
+    if (selectedProgram.status === "published") {
+      setPageError("Este programa está publicado y es de solo lectura para proteger el historial.");
+      return;
+    }
+
+    if (status === "published") {
+      const validation = validateProgramForPublication(selectedProgram, members);
+      if (!validation.isValid) {
+        setPageError("No se puede publicar. Corrige estos puntos:\n• " + validation.errors.slice(0, 8).join("\n• "));
         return;
       }
     }
 
-    const updatedProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
-    setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
-  };
+    setSaving(true);
+    try {
+      const nextProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
+      await saveMeetingProgramToSupabase(client, userId, nextProgram);
+      const freshPrograms = await getMeetingProgramsFromSupabase(client);
+      setPrograms(freshPrograms);
+      setSelectedProgramId(nextProgram.id);
+      setFeedback(status === "published" ? "Programa publicado y recuperado de Supabase." : "Borrador guardado y verificado en Supabase.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo guardar el programa.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!client) return;
+    setSigningIn(true);
+    setLoginError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email: String(form.get("email") ?? "").trim(),
+        password: String(form.get("password") ?? ""),
+      });
+      if (error || !data.user) {
+        setLoginError("No se pudo iniciar sesión. Comprueba tus credenciales.");
+        return;
+      }
+      await loadConnectedData(client, data.user.id);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "No se pudo cargar la sesión.");
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  if (mode === "loading") return <main className="p-8"><p>Cargando programas…</p></main>;
+  if (mode === "login") return (
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <form onSubmit={handleSignIn} className="w-full max-w-md space-y-4 rounded-xl border p-6 shadow-sm">
+        <LockKeyhole className="h-8 w-8" />
+        <h1 className="text-xl font-bold">Iniciar sesión</h1>
+        <p className="text-sm text-slate-600">Accede con una cuenta autorizada para consultar y editar los programas reales.</p>
+        <label className="block text-sm">Correo<input name="email" type="email" required autoComplete="username" className="mt-1 w-full rounded border p-2" /></label>
+        <label className="block text-sm">Contraseña<input name="password" type="password" required autoComplete="current-password" className="mt-1 w-full rounded border p-2" /></label>
+        {loginError && <p role="alert" className="text-sm text-red-700">{loginError}</p>}
+        <button disabled={signingIn} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{signingIn ? "Ingresando…" : "Entrar"}</button>
+      </form>
+    </main>
+  );
+  if (mode === "membership") return <main className="p-8"><h1 className="text-xl font-bold">Acceso no configurado</h1><p>Solicita al administrador una membresía activa para esta aplicación.</p></main>;
+  if (mode === "error") return <main className="p-8"><h1 className="text-xl font-bold">No se pudieron cargar los programas</h1><p role="alert" className="mt-3 text-red-700">{pageError}</p></main>;
+
+  const readOnly = mode === "connected" && selectedProgram?.status === "published";
+  const cycleLabels = [...new Set(programs.map((program) => program.bimonthCycle))];
+  const selectedCycle = selectedProgram?.bimonthCycle ?? cycleLabels[0];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <header className="flex flex-col justify-between gap-4 border-b pb-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Calendar className="w-7 h-7 text-blue-600" />
-            Programación Bimestral Vida y Ministerio
-          </h1>
-          <p className="text-sm text-slate-500">
-            Gestión de programas de reuniones, validación del motor S-38-S y alertas de plazo de 3 semanas.
-          </p>
+          <h1 className="flex items-center gap-2 text-2xl font-bold"><Calendar className="h-7 w-7 text-blue-600" />Programación Vida y Ministerio</h1>
+          <p className="mt-1 text-sm text-slate-500">Títulos editables, participantes, revisión S-38-S y guardado verificado.</p>
         </div>
+        <span className={mode === "demo" ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800" : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"}>
+          {mode === "demo" ? "DEMO · SOLO MEMORIA" : "CONECTADO A SUPABASE"}
+        </span>
+      </header>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab("bimonthly")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === "bimonthly" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-            }`}
-          >
-            Ciclos Bimestrales
-          </button>
-          <button
-            onClick={() => setActiveTab("editor")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === "editor" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-            }`}
-          >
-            Editor de Reunión
-          </button>
-        </div>
-      </div>
+      {mode === "demo" && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="note">
+        Modo de desarrollo con datos ficticios. Los cambios son temporales; publicar y persistir en base de datos está deshabilitado.
+      </div>}
+      {pageError && <div role="alert" className="whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertTriangle className="mr-2 inline h-4 w-4" />{pageError}</div>}
+      {feedback && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{feedback}</div>}
 
-      {/* Tab: Ciclos Bimestrales */}
-      {activeTab === "bimonthly" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {DEMO_BIMONTHLY_PLANS.map((plan) => (
-            <div key={plan.label} className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{plan.label}</h3>
-                  <span className="text-xs text-slate-500">Año {plan.year} • Ciclo {plan.bimonthNumber}</span>
-                </div>
-                {plan.isPublished ? (
-                  <span className="px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-full flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" /> Publicado
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> En Preparación
-                  </span>
-                )}
-              </div>
+      <nav className="flex gap-2" aria-label="Vistas de programación">
+        <button onClick={() => setActiveTab("editor")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "editor" ? "bg-slate-900 text-white" : "border"}`}>Editor de programa</button>
+        <button onClick={() => setActiveTab("bimonthly")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "bimonthly" ? "bg-slate-900 text-white" : "border"}`}>Resumen bimestral</button>
+      </nav>
 
-              <div className="grid grid-cols-3 gap-2 text-center text-xs py-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                <div>
-                  <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{plan.totalMeetings}</div>
-                  <div className="text-slate-500">Reuniones</div>
-                </div>
-                <div>
-                  <div className="font-bold text-amber-600 text-base">{plan.draftMeetings}</div>
-                  <div className="text-slate-500">Borradores</div>
-                </div>
-                <div>
-                  <div className="font-bold text-emerald-600 text-base">{plan.publishedMeetings}</div>
-                  <div className="text-slate-500">Listas</div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setActiveTab("editor");
-                }}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg transition-colors"
-              >
-                Abrir Planificación
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tab: Editor de Reunión */}
-      {activeTab === "editor" && selectedProgram && (
-        <div className="space-y-6">
-          {/* Selector de Fecha de Reunión y Alerta de Plazo */}
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de Reunión:</label>
-              <input
-                type="date"
-                value={selectedProgram.meetingDate}
-                onChange={(e) => {
-                  const p = programs.find((pr) => pr.meetingDate === e.target.value);
-                  if (p) setSelectedProgramId(p.id);
-                }}
-                className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-              />
-              <span className={`px-2 py-1 text-xs font-semibold rounded ${selectedProgram.status === 'published' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {selectedProgram.status === 'published' ? 'Publicado' : 'Borrador'}
-              </span>
-            </div>
-
-            {/* Alerta de Plazo de 3 Semanas */}
-            {(() => {
-              const deadline = getDeadlineAlert(selectedProgram.meetingDate);
-              return (
-                <div className={`text-xs p-2.5 rounded-lg flex items-center gap-2 ${deadline.isAlert ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
-                  {deadline.isAlert ? <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
-                  <span>{deadline.message}</span>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Tabla / Lista de Intervenciones con Validación S-38-S en Vivo */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 flex justify-between items-center">
-              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Intervenciones de la Reunion</h2>
-              <span className="text-xs text-slate-500">Duración estimada total: 1h 45m</span>
-            </div>
-
-            {selectedProgram.slots.map((slot) => {
-              const primaryMember = DEMO_MEMBERS.find((m) => m.id === slot.primaryParticipantId);
-              const assistantMember = DEMO_MEMBERS.find((m) => m.id === slot.assistantParticipantId);
-
-              // Ejecutar validación S-38-S si hay participante asignado
-              let validationRes = null;
-              if (primaryMember) {
-                const fullEligibility = {
-                  memberId: primaryMember.id,
-                  canDoTreasuresTalk: primaryMember.appointment !== "none",
-                  canDoGems: primaryMember.appointment !== "none",
-                  canDoBibleReading: primaryMember.gender === "male",
-                  canDoStudentTalk: true,
-                  canBeAssistant: true,
-                  canDoLivingPart: primaryMember.gender === "male",
-                  canConductCongregationBibleStudy: primaryMember.appointment === "elder",
-                  canReadCongregationBibleStudy: primaryMember.gender === "male",
-                  canBeChairman: primaryMember.appointment === "elder",
-                  canBeAuxiliaryCounselor: primaryMember.appointment === "elder",
-                };
-
-                if (slot.assignmentType === "treasures_talk") {
-                  validationRes = S38SRulesEngine.validateTreasuresTalk(primaryMember, fullEligibility);
-                } else if (slot.assignmentType === "gems") {
-                  validationRes = S38SRulesEngine.validateGems(primaryMember, fullEligibility);
-                } else if (slot.assignmentType === "bible_reading") {
-                  validationRes = S38SRulesEngine.validateBibleReading(primaryMember, fullEligibility);
-                } else if (slot.assignmentType === "living_needs") {
-                  validationRes = S38SRulesEngine.validateLivingNeeds(primaryMember);
-                } else if (slot.assistantParticipantId && assistantMember) {
-                  validationRes = S38SRulesEngine.validateAssistant(primaryMember, assistantMember, []);
-                }
-              }
-
-              return (
-                <div key={slot.id} className="p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <div className="flex-1 flex items-center gap-2">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {slot.durationMinutes} min
-                      </span>
-                      <input
-                        type="text"
-                        value={slot.title}
-                        onChange={(e) => handleUpdateTitle(slot.id, e.target.value)}
-                        className="px-2 py-1 border border-slate-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1 font-semibold"
-                        title="Título de la intervención (editable según la Guía de actividades)"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {/* Selector Titular */}
-                      <select
-                        value={slot.primaryParticipantId || ""}
-                        onChange={(e) => handleUpdateParticipant(slot.id, "primary", e.target.value)}
-                        className="px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                      >
-                        <option value="">-- Seleccionar Titular --</option>
-                        {DEMO_MEMBERS.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.firstName} {m.lastName} ({m.gender === "male" ? "Hno" : "Hna"})
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Selector Ayudante (Si aplica) */}
-                      {slot.isStudentPart && (
-                        <select
-                          value={slot.assistantParticipantId || ""}
-                          onChange={(e) => handleUpdateParticipant(slot.id, "assistant", e.target.value)}
-                          className="px-2.5 py-1 border border-slate-300 dark:border-slate-700 rounded-lg text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                        >
-                          <option value="">-- Seleccionar Ayudante --</option>
-                          {DEMO_MEMBERS.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.firstName} {m.lastName} ({m.gender === "male" ? "Hno" : "Hna"})
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Ficha contextual de validación S-38-S */}
-                  {validationRes && (
-                    <div className="text-xs space-y-1 pl-3 border-l-2 border-slate-300 dark:border-slate-700">
-                      {validationRes.errors.map((err, idx) => (
-                        <div key={idx} className="text-red-600 dark:text-red-400 flex items-center gap-1 font-medium">
-                          <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{err}</span>
-                        </div>
-                      ))}
-                      {validationRes.warnings.map((warn, idx) => (
-                        <div key={idx} className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{warn}</span>
-                        </div>
-                      ))}
-                      {validationRes.isValid && validationRes.warnings.length === 0 && (
-                        <div className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>Validación S-38-S correcta</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {publishError && (
-            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs flex items-center gap-2" role="alert">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-              <span>{publishError}</span>
+      {activeTab === "bimonthly" ? (
+        <section className="rounded-xl border p-4">
+          <h2 className="text-lg font-semibold">Resumen de ciclos</h2>
+          {programs.length === 0 ? <p className="mt-3 text-sm text-slate-500">No hay programas en la base de datos todavía.</p> : (
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {cycleLabels.map((cycle) => {
+                const items = programs.filter((program) => program.bimonthCycle === cycle);
+                return <article key={cycle} className="rounded-lg border p-4">
+                  <h3 className="font-semibold">{cycle}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{items.length} reuniones · {items.filter((item) => item.status === "published").length} publicadas · {items.filter((item) => item.status === "draft").length} borradores</p>
+                </article>;
+              })}
             </div>
           )}
-
-          {/* Acciones de Guardado y Publicación */}
-          <div className="flex justify-between items-center pt-2">
-            <button
-              onClick={() => handleSaveStatus("draft")}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <Save className="w-4 h-4" /> Guardar Borrador
-            </button>
-
-            <button
-              onClick={() => handleSaveStatus("published")}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 shadow-sm transition-colors"
-            >
-              <CheckCircle className="w-4 h-4" /> Aprobar y Publicar
-            </button>
+        </section>
+      ) : (
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-end">
+            <label className="flex-1 text-sm font-medium">Reunión
+              <select value={selectedProgramId ?? ""} onChange={(event) => { setSelectedProgramId(event.target.value || null); setPageError(""); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 text-slate-900">
+                <option value="">Seleccionar reunión…</option>
+                {programs.map((program) => <option key={program.id} value={program.id}>{program.meetingDate} · {program.status === "published" ? "Publicada" : "Borrador"}</option>)}
+              </select>
+            </label>
+            {selectedProgram && <div className="text-sm text-slate-500">Ciclo {selectedProgram.bimonthCycle} · {selectedProgram.weekType}</div>}
           </div>
-        </div>
+
+          {!selectedProgram ? <div className="rounded-xl border p-8 text-center text-slate-500">No hay reuniones para mostrar. Crea los programas iniciales cuando esté definido el flujo de planificación.</div> : (
+            <>
+              {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">Programa publicado: vista de solo lectura para proteger el historial.</div>}
+              <div className="overflow-hidden rounded-xl border divide-y">
+                {selectedProgram.slots.map((slot) => (
+                  <article key={slot.id} className="space-y-3 p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                      <span className="shrink-0 rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{slot.durationMinutes} min</span>
+                      <input aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { title: event.target.value }, true)} className="min-w-0 flex-1 rounded-lg border p-2 font-semibold disabled:bg-slate-100" />
+                      <span className="text-xs text-slate-500">{slot.assignmentType ?? "Tipo sin definir"}</span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="text-sm">Titular
+                        <select aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { primaryParticipantId: event.target.value || undefined }, true)} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                          <option value="">Seleccionar titular…</option>
+                          {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
+                        </select>
+                      </label>
+                      {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && <label className="text-sm">Ayudante
+                        <select aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { assistantParticipantId: event.target.value || undefined }, true)} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                          <option value="">Seleccionar ayudante…</option>
+                          {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
+                        </select>
+                      </label>}
+                    </div>
+                    <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm">
+                      <input type="checkbox" checked={slot.eligibilityConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canManage)} onChange={(event) => updateSlot(slot.id, { eligibilityConfirmed: event.target.checked, eligibilityConfirmedBy: event.target.checked ? userId ?? undefined : undefined })} className="mt-1" />
+                      <span><strong>Revisión humana S-38-S confirmada</strong><span className="block text-xs text-slate-600">Marca solo después de verificar la elegibilidad y las condiciones de la asignación. Cambiar título o participantes invalida esta confirmación.</span></span>
+                    </label>
+                    {slot.eligibilityConfirmed && <p className="text-xs text-emerald-700"><CheckCircle className="mr-1 inline h-3.5 w-3.5" />Revisión marcada{slot.eligibilityConfirmedBy ? ` por ${slot.eligibilityConfirmedBy}` : " en la sesión demo"}.</p>}
+                  </article>
+                ))}
+              </div>
+              {selectedProgram.slots.length === 0 && <p className="rounded-xl border p-5 text-sm text-slate-500">Este programa no tiene intervenciones cargadas.</p>}
+
+              {canManage && !readOnly && <div className="flex flex-col justify-between gap-3 sm:flex-row">
+                <button type="button" onClick={() => void handleSave("draft")} disabled={saving || mode !== "connected" && mode !== "demo"} className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Guardando…" : "Guardar borrador"}</button>
+                <button type="button" onClick={() => void handleSave("published")} disabled={saving || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle className="h-4 w-4" />Validar y publicar</button>
+              </div>}
+              {!canManage && mode === "connected" && <p className="text-sm text-amber-700"><ShieldAlert className="mr-1 inline h-4 w-4" />Tu rol no permite editar ni publicar programas.</p>}
+            </>
+          )}
+        </section>
       )}
-    </div>
+    </main>
   );
 };
