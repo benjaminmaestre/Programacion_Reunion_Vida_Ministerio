@@ -543,9 +543,10 @@ export const ProgramsWorkspace: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  disabled={saving}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Crear programa
+                  {saving ? "Guardando…" : "Crear programa"}
                 </button>
               </div>
             </form>
