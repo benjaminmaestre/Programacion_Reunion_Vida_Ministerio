@@ -5,6 +5,72 @@ import type { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 
+function memberKey(firstName: string, lastName: string): string {
+  return `${normalize(firstName)}|${normalize(lastName)}`;
+}
+
+// Alias de identidad: conserva el UUID y el historial cuando el listado oficial actualiza nombres.
+// Cada clave es nombre+apellido anterior; el valor es la identidad canónica del listado 2026-10-09.
+const LEGACY_MEMBER_ALIASES: Record<string, string> = {
+  "duver|garzon": "duber antonio|garzon",
+  "felix|perez": "felix anibal|perez",
+  "gonzalo|alvarez ramirez": "gonzalo|alvarez puerta",
+  "juan|lopez": "juan felipe|lopez",
+  "luis|castrillo": "luis guillermo|castrillo",
+  "luis|ospina": "luis alberto|ospina rodriguez",
+  "widmar|grisales": "widmar alberto|grisales",
+  "gustavo|ruiz potes": "gustavo|ruiz",
+  "roman|rodriguez velasquez": "roman alberto|rodriguez",
+  "yomar|marquez": "stirwen yomar|marquez salazar",
+  "aura|ospina": "aura rosa|tabares de ospina",
+  "diris|arbelaez": "diris isabel|anaya de arbelaez",
+  "emilse|castano": "emilsen|de castano",
+  "gloria|escobar quintero": "gloria|escobar",
+  "gloria|valencia rios": "gloria aleida|valencia",
+  "lucy|cano": "lucy|murillo de cano",
+  "marilyn|perez": "marilyn|maestre de perez",
+  "martha|alvarez": "martha|munoz de alvarez",
+  "mary de|marquez": "mary|montilla de marquez",
+  "saida de|quintero": "saida|gallardo",
+  "sandra|alvarez": "sandra maria|suarez de alvarez",
+  "viviana|grisales": "viviana marcela|tabares de grisales",
+  "argemiro|murillo": "argemiro|murillo quintero",
+  "bernarda|penagos": "bernarda tamayo|penagos",
+  "francia|mosquera": "francia nirla|mosquera",
+  "javier|castano": "francisco javier|castano",
+  "julia elisa|gomez": "julia elisa|gomez gutierrez",
+  "leticia|valdez de yepes": "maria leticia|valdez de yepes",
+  "lucia de|garcia": "lucia|de garcia",
+  "luz amparo|jaramillo": "luz amparo|jaramillo sanchez",
+  "martha de|castrillon": "martha|de castrillon",
+  "omaira|usuga": "omaira|usuga oquendo",
+  "pablo|andrade": "pablo|andrade valencia",
+  "rosalba de|castano": "rosalba|de castano",
+  "soledad|rodriguez": "soledad|rodriguez de gomez",
+  "sonia patricia|londono": "sonia patricia|hernandez",
+  "teresa de|valencia": "teresa|de valencia",
+  "yeimy|castrillo": "yeimy tibisay|de freitas chacon",
+  "yisel de|perez": "yisel adriana|contreras de perez",
+  "yosannis|diaz": "yosannis|de diaz",
+};
+
+function findExistingMember<T extends { firstName: string; lastName: string }>(
+  existingMap: Map<string, T>,
+  firstName: string,
+  lastName: string,
+): T | undefined {
+  const key = memberKey(firstName, lastName);
+  const canonical = existingMap.get(key);
+  if (canonical) return canonical;
+  for (const [legacyKey, canonicalKey] of Object.entries(LEGACY_MEMBER_ALIASES)) {
+    if (canonicalKey === key) {
+      const existing = existingMap.get(legacyKey);
+      if (existing) return existing;
+    }
+  }
+  return undefined;
+}
+
 export interface ImportValidationSummary {
   totalRecords: number;
   eldersCount: number;
@@ -12,6 +78,7 @@ export interface ImportValidationSummary {
   regularPioneersCount: number;
   publishersCount: number;
   combinedRolesCount: number;
+  inactiveCount: number;
   combinedDetails: Array<{ name: string; appointment: string; pioneer: boolean; additionalRoles?: string }>;
   isValidStructure: boolean;
   errors: string[];
@@ -42,7 +109,8 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
   const elders = records.filter((r) => r.appointment === "elder");
   const servants = records.filter((r) => r.appointment === "ministerial_servant");
   const pioneers = records.filter((r) => r.isRegularPioneer);
-  const publishers = records.filter((r) => r.appointment === "none" && !r.isRegularPioneer);
+  const publishers = records.filter((r) => r.isActive && r.appointment === "none" && !r.isRegularPioneer);
+  const inactive = records.filter((r) => !r.isActive);
 
   const combinedPioneers = records.filter((r) => r.appointment !== "none" && r.isRegularPioneer);
   const secretaries = records.filter((r) => normalize(r.additionalRoles ?? "") === "secretario");
@@ -62,8 +130,8 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
     seenNames.add(key);
   }
 
-  if (records.length !== 125) {
-    errors.push(`Se esperaban 125 personas únicas, pero se encontraron ${records.length}.`);
+  if (records.length !== 139) {
+    errors.push(`Se esperaban 139 personas únicas, pero se encontraron ${records.length}.`);
   }
   if (elders.length !== 12) {
     errors.push(`Se esperaban 12 ancianos, pero se encontraron ${elders.length}.`);
@@ -74,8 +142,11 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
   if (pioneers.length !== 22) {
     errors.push(`Se esperaban 22 precursores regulares, pero se encontraron ${pioneers.length}.`);
   }
-  if (publishers.length !== 87) {
-    errors.push(`Se esperaban 87 publicadores sin nombramiento ni precursorado, pero se encontraron ${publishers.length}.`);
+  if (publishers.length !== 90) {
+    errors.push(`Se esperaban 90 publicadores activos sin nombramiento ni precursorado, pero se encontraron ${publishers.length}.`);
+  }
+  if (inactive.length !== 11) {
+    errors.push(`Se esperaban 11 personas inactivas, pero se encontraron ${inactive.length}.`);
   }
   if (combinedPioneers.length !== 3) {
     errors.push(`Se esperaban 3 personas con nombramiento y precursorado regular combinados, pero se encontraron ${combinedPioneers.length}.`);
@@ -112,7 +183,7 @@ export function previewMemberImport(
 
   const existingMap = new Map<string, DirectoryMember>();
   for (const member of existingMembers) {
-    const key = `${normalize(member.firstName)}|${normalize(member.lastName)}`;
+    const key = memberKey(member.firstName, member.lastName);
     existingMap.set(key, member);
   }
 
@@ -120,8 +191,7 @@ export function previewMemberImport(
   const duplicateRecords: Array<{ newRecord: OfficialMemberImportRecord; existingMember: DirectoryMember }> = [];
 
   for (const record of recordsToImport) {
-    const key = `${normalize(record.firstName)}|${normalize(record.lastName)}`;
-    const existing = existingMap.get(key);
+    const existing = findExistingMember(existingMap, record.firstName, record.lastName);
     if (existing) {
       duplicateRecords.push({ newRecord: record, existingMember: existing });
     } else {
@@ -160,7 +230,7 @@ export async function executeOfficialImportToSupabase(
 
   const existingMap = new Map<string, any>();
   for (const row of existingRows ?? []) {
-    const key = `${normalize(row.first_name)}|${normalize(row.last_name)}`;
+    const key = memberKey(row.first_name, row.last_name);
     existingMap.set(key, row);
   }
 
@@ -169,8 +239,7 @@ export async function executeOfficialImportToSupabase(
   let skippedCount = 0;
 
   for (const record of recordsToImport) {
-    const key = `${normalize(record.firstName)}|${normalize(record.lastName)}`;
-    const existing = existingMap.get(key);
+    const existing = findExistingMember(existingMap, record.firstName, record.lastName);
 
     const payload: MemberWriteInput = {
       firstName: record.firstName.trim(),
@@ -179,8 +248,8 @@ export async function executeOfficialImportToSupabase(
       appointment: record.appointment,
       isRegularPioneer: record.isRegularPioneer,
       additionalRoles: record.additionalRoles || undefined,
-      isActive: true,
-      isBaptized: null, // Default baptism state to unknown (null) as per specification
+      isActive: record.isActive,
+      isBaptized: record.isBaptized, // Preserve source uncertainty instead of assuming baptism state
     };
 
     if (existing) {
@@ -188,9 +257,13 @@ export async function executeOfficialImportToSupabase(
         const { error: updateError } = await supabase
           .from("members")
           .update({
+            first_name: payload.firstName,
+            last_name: payload.lastName,
+            gender: payload.gender,
             appointment: payload.appointment,
             is_regular_pioneer: payload.isRegularPioneer,
             additional_roles: payload.additionalRoles || null,
+            is_active: payload.isActive,
           })
           .eq("id", existing.id);
 
@@ -211,8 +284,8 @@ export async function executeOfficialImportToSupabase(
           appointment: payload.appointment,
           is_regular_pioneer: payload.isRegularPioneer,
           additional_roles: payload.additionalRoles || null,
-          is_active: true,
-          is_baptized: null,
+          is_active: payload.isActive,
+          is_baptized: payload.isBaptized,
         });
 
       if (insertError) {
