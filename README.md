@@ -6,8 +6,8 @@ Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tai
 
 - **Congregación Objetivo:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas.
 - **Rama principal:** `main` (desarrollo directo en `main`).
-- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npm test` - 54 pruebas automáticas pasando al 100%).
-- **Seguridad RPC SECURITY DEFINER:** Funciones en `005_save_meeting_program_transaction.sql` protegidas con `search_path = public, pg_temp`, revocación de permisos a `PUBLIC`/`anon`, comprobación interna de `auth.uid()` contra la tabla `app_users` y sobrescritura segura de campos de auditoría.
+- **CI verificado:** commit `a20a677` pasó 58 pruebas en 7 archivos, `npm run typecheck` y `npm run build` en GitHub Actions.
+- **Seguridad RPC SECURITY DEFINER:** la migración `006_rpc_security_and_publication_guards.sql` incorpora endurecimiento de permisos, auditoría y validación de publicación. Está preparada en Git, pero aún no se ha aplicado ni probado en un proyecto Supabase real.
 - **Eliminación del Fallback Inseguro:** Remoción total de escrituras directas múltiples no atómicas en `programs-repository.ts`, exigiendo exclusivamente la llamada RPC `save_meeting_program_transaction`.
 - **Identificadores UUID:** Cumplimiento estricto con UUID v4 RFC 4122 para `meeting_programs` y `assignment_slots` compatibles con PostgreSQL.
 - **Auto-creación de Ciclos y Semestres:** Resolución y creación automática de UUIDs para `planning_cycles` y `history_periods` impidiendo registros huérfanos.
