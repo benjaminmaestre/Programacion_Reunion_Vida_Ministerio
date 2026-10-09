@@ -243,7 +243,7 @@ export async function getMemberHistory(
       if (!meeting) return null;
 
       const isPrimary = slot.primary_participant_id === memberId;
-      const participation = isPrimary ? "Titular" : "Ayudante";
+      const participation: AssignmentHistoryEntry["participation"] = isPrimary ? "Titular" : "Ayudante";
       const companionId = isPrimary ? slot.assistant_participant_id : slot.primary_participant_id;
 
       return {
