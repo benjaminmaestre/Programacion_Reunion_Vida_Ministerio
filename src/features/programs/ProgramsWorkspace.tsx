@@ -18,6 +18,32 @@ type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" |
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 const PAIRED_ASSIGNMENTS = new Set(["conversation", "revisit", "disciples", "explain_beliefs"]);
 
+function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingProgramDetail | undefined) {
+  if (!actual) throw new Error("Supabase no devolvió la reunión después de guardarla.");
+  if (actual.meetingDate !== expected.meetingDate || actual.weekType !== expected.weekType) {
+    throw new Error("La reunión recuperada no coincide con la fecha o el tipo de semana.");
+  }
+  if (actual.bimonthCycle !== expected.bimonthCycle || actual.historyPeriod !== expected.historyPeriod) {
+    throw new Error("La reunión se recuperó sin los ciclos o períodos esperados.");
+  }
+  if (actual.slots.length !== expected.slots.length) {
+    throw new Error("La reunión se recuperó con una cantidad de intervenciones diferente.");
+  }
+  for (const expectedSlot of expected.slots) {
+    const actualSlot = actual.slots.find((slot) => slot.id === expectedSlot.id);
+    if (!actualSlot
+      || actualSlot.title !== expectedSlot.title
+      || actualSlot.assignmentType !== expectedSlot.assignmentType
+      || (actualSlot.primaryParticipantId ?? "") !== (expectedSlot.primaryParticipantId ?? "")
+      || (actualSlot.assistantParticipantId ?? "") !== (expectedSlot.assistantParticipantId ?? "")) {
+      throw new Error("La reunión recuperada contiene una intervención distinta a la enviada a Supabase.");
+    }
+  }
+  if ((actual.status === "published") !== (expected.status === "published")) {
+    throw new Error("El estado recuperado no coincide con el estado solicitado.");
+  }
+}
+
 export const ProgramsWorkspace: React.FC = () => {
   const [mode, setMode] = useState<WorkspaceMode>("loading");
   const [client, setClient] = useState<SupabaseBrowserClient | null>(null);
