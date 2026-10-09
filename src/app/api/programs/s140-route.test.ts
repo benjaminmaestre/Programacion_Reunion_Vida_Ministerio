@@ -71,12 +71,6 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     };
     expect(findZipSignature([0x50, 0x4b, 0x01, 0x02])).toBeGreaterThan(-1);
     expect(findZipSignature([0x50, 0x4b, 0x05, 0x06])).toBeGreaterThan(-1);
-    expect(generatorSpy).toHaveBeenCalledOnce();
-    const generated = generatorSpy.mock.calls[0][0];
-    expect(generated.treasuresTalkTitle).toBe("Tesoros de la Biblia");
-    expect(generated.gemsSpeaker).toBe("");
-    expect(JSON.stringify(generated)).not.toContain("NO DEBE APARECER");
-    generatorSpy.mockRestore();
   });
 
   it("devuelve 503 si Supabase no está configurado", async () => {
@@ -274,7 +268,7 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
             eq(field: string, value: unknown) { this.filters.push({ field, value }); return this; },
             order(field: string) {
               const filtered = rows
-                .filter((row) => this.filters.every((filter) => (row as any)[filter.field] === filter.value))
+                .filter((row) => this.filters.every((filter: { field: string; value: unknown }) => (row as any)[filter.field] === filter.value))
                 .sort((a, b) => Number((a as any)[field]) - Number((b as any)[field]));
               return Promise.resolve({ data: filtered, error: null });
             },
@@ -311,5 +305,19 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(bytes[1]).toBe(0x4b); // K
     expect(bytes[2]).toBe(0x03);
     expect(bytes[3]).toBe(0x04);
+    const findZipSignature = (signature: number[]) => {
+      for (let i = Math.max(0, bytes.length - 65557); i <= bytes.length - signature.length; i++) {
+        if (signature.every((byte, offset) => bytes[i + offset] === byte)) return i;
+      }
+      return -1;
+    };
+    expect(findZipSignature([0x50, 0x4b, 0x01, 0x02])).toBeGreaterThan(-1);
+    expect(findZipSignature([0x50, 0x4b, 0x05, 0x06])).toBeGreaterThan(-1);
+    expect(generatorSpy).toHaveBeenCalledOnce();
+    const generated = generatorSpy.mock.calls[0][0];
+    expect(generated.treasuresTalkTitle).toBe("Tesoros de la Biblia");
+    expect(generated.gemsSpeaker).toBe("");
+    expect(JSON.stringify(generated)).not.toContain("NO DEBE APARECER");
+    generatorSpy.mockRestore();
   });
 });
