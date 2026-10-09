@@ -243,6 +243,7 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
           const rows = [
             {
               id: "s-1",
+              meeting_program_id: "prog-valid",
               section: "treasures",
               title: "Tesoros de la Biblia",
               assignment_type: "treasures_talk",
@@ -253,6 +254,7 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
             },
             {
               id: "s-2",
+              meeting_program_id: "prog-valid",
               section: "treasures",
               title: "NO DEBE APARECER: intervención retirada",
               assignment_type: "gems",
