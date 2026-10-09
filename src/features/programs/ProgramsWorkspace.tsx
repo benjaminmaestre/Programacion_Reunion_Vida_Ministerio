@@ -141,6 +141,11 @@ export const ProgramsWorkspace: React.FC = () => {
     if (!selectedProgram || (mode === "connected" && selectedProgram.status === "published")) return;
     const updatedProgram: MeetingProgramDetail = {
       ...selectedProgram,
+      ...(resetReview ? {
+        leadershipReviewConfirmed: false,
+        leadershipReviewConfirmedBy: undefined,
+        leadershipReviewConfirmedAt: undefined,
+      } : {}),
       updatedAt: new Date().toISOString(),
       slots: selectedProgram.slots.map((slot) => slot.id === slotId
         ? { ...slot, ...changes, ...(resetReview ? { eligibilityConfirmed: false, eligibilityConfirmedBy: undefined, eligibilityConfirmedAt: undefined } : {}) }
@@ -433,7 +438,14 @@ export const ProgramsWorkspace: React.FC = () => {
                       value={selectedProgram.circuitOverseerTalkTitle ?? ""}
                       disabled={!!readOnly}
                       onChange={(event) => {
-                        updateProgram({ ...selectedProgram, circuitOverseerTalkTitle: event.target.value, updatedAt: new Date().toISOString() });
+                        updateProgram({
+                          ...selectedProgram,
+                          circuitOverseerTalkTitle: event.target.value,
+                          leadershipReviewConfirmed: false,
+                          leadershipReviewConfirmedBy: undefined,
+                          leadershipReviewConfirmedAt: undefined,
+                          updatedAt: new Date().toISOString(),
+                        });
                         setFeedback("");
                       }}
                       placeholder="Escribe el título asignado del discurso de servicio"
