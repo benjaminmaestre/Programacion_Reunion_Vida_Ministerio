@@ -6,8 +6,9 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **Estado de Pruebas:** 54 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js totalmente limpio (`npm run build`).
-- **Avance global estimado:** 100% en lógica de aplicación, validaciones S-38-S, transaccionalidad RPC, seguridad RLS y pruebas automatizadas (pendiente confirmación de instancia de producción Supabase para despliegue de migraciones y carga de 125 miembros).
+- **CI de referencia:** el commit `3b0ed89` aprobó 54 pruebas reportadas, TypeScript y build. La corrección posterior requiere nuevo CI.
+- **Estado de despliegue:** migración 006 preparada en Git; no aplicada ni ejecutada contra una instancia Supabase real.
+- **Avance global estimado:** no se declara porcentaje hasta validar las RPC, RLS, persistencia real y la salida visual S-140.
 
 ## 1. Objetivo
 
@@ -36,19 +37,21 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 ## 4. Estado verificable
 
 ### Existente y Verificado en el Repositorio
-- [x] Migración `005_save_meeting_program_transaction.sql` reforzada con `SET search_path = public, pg_temp`, revocación de ejecuciones a `PUBLIC`/`anon`, verificación de `auth.uid()` e historial de auditoría de revisiones.
-- [x] Eliminación total de fallbacks inseguros en `programs-repository.ts` exigiendo la función RPC atómica `save_meeting_program_transaction`.
+- [x] Migración `005_save_meeting_program_transaction.sql` contiene la RPC inicial de guardado.
+- [ ] Migración `006_rpc_security_and_publication_guards.sql` añade controles de rol, auditoría y publicación, además de restringir escrituras directas. Está preparada en Git, pero aún no se ha aplicado ni validado contra PostgreSQL real.
+- [x] `programs-repository.ts` exige la RPC y no usa fallback de escrituras directas; la creación de ciclos y períodos se resuelve dentro de la transacción.
 - [x] Formato UUID v4 estricto para `meeting_programs.id` y `assignment_slots.id` en `program-builder.ts` y datos demo.
 - [x] Auto-creación estricta y resolución de UUIDs para `planning_cycles` y `history_periods`.
-- [x] Reglas estrictas por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) en `program-validation.ts`.
-- [x] Pruebas completas del Route Handler S-140 (`s140-route.test.ts`) cubriendo respuestas 503, 401, 403, 404, 500 y 200 con verificación de firma de bytes mágicos `PK\x03\x04` en el contenedor DOCX.
-- [x] Modo demo aislado con datos ficticios exclusivamente y protección contra escrituras accidentales.
-- [x] Suite de pruebas automatizadas: 54 pruebas unitarias en 7 archivos pasando al 100%.
-- [x] Compilación TypeScript (`npm run typecheck`) y Next.js build de producción sin advertencias ni errores.
+- [x] Validación para semanas especiales y requisitos de aviso; falta contrastar el comportamiento final contra una instancia real y las instrucciones aplicables.
+- [x] Pruebas del Route Handler S-140 con Supabase simulado para respuestas 503, 401, 403, 404, 500 y 200; la inspección visual frente a la plantilla sigue pendiente.
+- [x] Modo demo aislado con datos ficticios exclusivamente.
+- [ ] El código posterior a la Fase 5 requiere nuevo CI verde después de la corrección de pruebas.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Confirmación explícita de la instancia Supabase de destino para ejecución de migraciones 001-005 e importación real del directorio de 125 personas.
-- [ ] Inspección visual final del documento DOCX generado mediante Microsoft Word / LibreOffice.
+- [ ] Confirmar la instancia Supabase de destino y ejecutar las migraciones 001-006 en un entorno autorizado.
+- [ ] Probar RPC, RLS, atomicidad, concurrencia y bloqueo de publicación directa contra PostgreSQL/Supabase real.
+- [ ] Inspección visual final del DOCX con Microsoft Word o LibreOffice.
+- [ ] Mantener bloqueada la importación del directorio oficial de 125 personas hasta cerrar estas verificaciones.
 
 ## 5. Historial semestral y planificación
 
