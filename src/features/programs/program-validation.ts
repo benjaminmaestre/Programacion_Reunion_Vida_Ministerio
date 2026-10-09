@@ -35,6 +35,15 @@ export function validateProgramForPublication(
   for (const slot of program.slots) {
     const label = slot.title.trim() || `Intervención ${slot.orderIndex}`;
     if (!slot.title.trim()) errors.push(`${label}: falta el título.`);
+    const expectedSectionByType: Record<string, string> = {
+      treasures_talk: "treasures", gems: "treasures", bible_reading: "treasures",
+      conversation: "ministers", revisit: "ministers", disciples: "ministers", explain_beliefs: "ministers", student_talk: "ministers",
+      living_part: "living", living_needs: "living", bible_study_conductor: "living", bible_study_reader: "living",
+    };
+    const expectedSection = slot.assignmentType ? expectedSectionByType[slot.assignmentType] : undefined;
+    if (expectedSection && slot.section !== expectedSection) {
+      errors.push(`${label}: el tipo ${slot.assignmentType} no corresponde a la sección ${slot.section}.`);
+    }
 
     const primary = slot.primaryParticipantId ? activeMembers.get(slot.primaryParticipantId) : undefined;
     if (!primary) {
