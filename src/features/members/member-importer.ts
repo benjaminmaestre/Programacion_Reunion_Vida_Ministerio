@@ -169,6 +169,7 @@ export function validateOfficialImportData(records: OfficialMemberImportRecord[]
     regularPioneersCount: pioneers.length,
     publishersCount: publishers.length,
     combinedRolesCount: combined.length,
+    inactiveCount: inactive.length,
     combinedDetails,
     isValidStructure: errors.length === 0,
     errors,
