@@ -107,7 +107,7 @@ export const ProgramsWorkspace: React.FC = () => {
       ...selectedProgram,
       updatedAt: new Date().toISOString(),
       slots: selectedProgram.slots.map((slot) => slot.id === slotId
-        ? { ...slot, ...changes, ...(resetReview ? { eligibilityConfirmed: false, eligibilityConfirmedBy: undefined } : {}) }
+        ? { ...slot, ...changes, ...(resetReview ? { eligibilityConfirmed: false, eligibilityConfirmedBy: undefined, eligibilityConfirmedAt: undefined } : {}) }
         : slot),
     };
     updateProgram(updatedProgram);
@@ -300,7 +300,7 @@ export const ProgramsWorkspace: React.FC = () => {
               {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{selectedProgram.status === "published" ? "Programa publicado: vista de solo lectura para proteger el historial." : "Tu rol tiene permisos de consulta. El programa está en modo de solo lectura."}</div>}
               <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
                 <label className="text-sm">Presidente de la reunión
-                  <select value={selectedProgram.chairmanId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, chairmanId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                  <select value={selectedProgram.chairmanId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, chairmanId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
                     <option value="">Seleccionar presidente…</option>
                     {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName} · {member.appointment === "elder" ? "Anciano" : member.appointment === "ministerial_servant" ? "Siervo ministerial" : "Publicador"}</option>)}
                   </select>
@@ -312,7 +312,7 @@ export const ProgramsWorkspace: React.FC = () => {
                   </select>
                 </label>
                 <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm md:col-span-2">
-                  <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
+                  <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, leadershipReviewConfirmedAt: event.target.checked ? selectedProgram.leadershipReviewConfirmedAt : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
                   <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Solo un anciano o administrador debe confirmar la elegibilidad antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
                 </label>
               </div>
