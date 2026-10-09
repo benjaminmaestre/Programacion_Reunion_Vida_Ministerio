@@ -58,12 +58,14 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     const slotId = "00000000-0000-4000-8000-000000000002";
     const db = new FakeDatabase();
     db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.planning_cycles = [{ id: "00000000-0000-4000-8000-000000000003", year: 2026, bimonth_number: 6 }];
+    db.tables.history_periods = [{ id: "00000000-0000-4000-8000-000000000004", year: 2026, semester: 2 }];
     db.tables.meeting_programs = [{
       id: programId,
       meeting_date: "2026-11-02",
       week_type: "normal",
-      planning_cycle_id: "2026-6",
-      history_period_id: "2026-S2",
+      planning_cycle_id: "00000000-0000-4000-8000-000000000003",
+      history_period_id: "00000000-0000-4000-8000-000000000004",
       chairman_id: null,
       auxiliary_counselor_id: null,
       circuit_overseer_talk_title: null,
@@ -118,6 +120,9 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     expect(reloaded[0].slots[0].title).toBe("Levítico 17:1-16 — La santidad de la sangre");
     expect(reloaded[0].slots[0].assignmentType).toBe("treasures_talk");
     expect(reloaded[0].status).toBe("draft");
+    expect(reloaded[0].bimonthCycle).toBe("2026-6");
+    expect(reloaded[0].historyPeriod).toBe("2026-S2");
+    expect(reloaded[0].planningCycleId).toBe("00000000-0000-4000-8000-000000000003");
   });
 
   it("no permite modificar un programa ya publicado", async () => {
