@@ -245,6 +245,7 @@ export const ProgramsWorkspace: React.FC = () => {
       const nextProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
       await saveMeetingProgramToSupabase(client, userId, nextProgram);
       const freshPrograms = await getMeetingProgramsFromSupabase(client);
+      verifyProgramRoundTrip(nextProgram, freshPrograms.find((program) => program.id === nextProgram.id));
       setPrograms(freshPrograms);
       setSelectedProgramId(nextProgram.id);
       setFeedback(status === "published" ? "Programa publicado y recuperado de Supabase." : "Borrador guardado y verificado en Supabase.");
