@@ -20,6 +20,18 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 
 CREATE INDEX IF NOT EXISTS idx_app_users_active_role ON public.app_users(is_active, role);
 CREATE INDEX IF NOT EXISTS idx_members_name ON public.members(first_name, last_name);
+
+-- Si la base previa tiene más de un período marcado como activo, conserva el más reciente.
+WITH ranked_active_periods AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY start_date DESC, created_at DESC) AS row_number
+  FROM public.history_periods
+  WHERE is_active = TRUE
+)
+UPDATE public.history_periods AS hp
+SET is_active = FALSE
+FROM ranked_active_periods AS ranked
+WHERE hp.id = ranked.id AND ranked.row_number > 1;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_history_periods_single_active
   ON public.history_periods(is_active) WHERE is_active = TRUE;
 
