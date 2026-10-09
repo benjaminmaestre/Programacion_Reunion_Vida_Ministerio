@@ -84,4 +84,33 @@ describe("validación de publicación de programas", () => {
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain("El programa no tiene intervenciones.");
   });
+
+  it("bloquea revisitas con titular y ayudante de distinto sexo", () => {
+    const candidate = program({ slots: [{
+      ...program().slots[0],
+      assignmentType: "revisit",
+      primaryParticipantId: "m1",
+      assistantParticipantId: "m3",
+    }] });
+    const result = validateProgramForPublication(candidate, members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors.some((error) => error.includes("deben ser del mismo sexo"))).toBe(true);
+  });
+
+  it("bloquea publicación sin revisión de Presidencia y Consejería", () => {
+    const candidate = program({ leadershipReviewConfirmed: false });
+    const result = validateProgramForPublication(candidate, members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors.some((error) => error.includes("Presidencia y Consejería"))).toBe(true);
+  });
+
+  it("bloquea un tipo de asignación no reconocido", () => {
+    const candidate = program({ slots: [{
+      ...program().slots[0],
+      assignmentType: undefined,
+    }] });
+    const result = validateProgramForPublication(candidate, members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors.some((error) => error.includes("tipo de asignación"))).toBe(true);
+  });
 });
