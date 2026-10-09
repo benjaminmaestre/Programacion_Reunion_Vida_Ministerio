@@ -14,6 +14,7 @@ interface DbMeetingProgramRow {
   auxiliary_counselor_id: string | null;
   leadership_review_confirmed?: boolean | null;
   leadership_review_confirmed_by?: string | null;
+  leadership_review_confirmed_at?: string | null;
   circuit_overseer_talk_title: string | null;
   is_draft: boolean;
   notes: string | null;
@@ -33,6 +34,7 @@ interface DbAssignmentSlotRow {
   assistant_participant_id: string | null;
   eligibility_confirmed?: boolean | null;
   eligibility_confirmed_by?: string | null;
+  eligibility_confirmed_at?: string | null;
   is_deleted?: boolean | null;
   notes: string | null;
 }
@@ -101,6 +103,7 @@ export async function getMeetingProgramsFromSupabase(
       assistantParticipantId: slot.assistant_participant_id || undefined,
       eligibilityConfirmed: slot.eligibility_confirmed === true,
       eligibilityConfirmedBy: slot.eligibility_confirmed_by || undefined,
+      eligibilityConfirmedAt: slot.eligibility_confirmed_at || undefined,
       notes: slot.notes || undefined,
     });
     slotsByProgram.set(slot.meeting_program_id, list);
@@ -118,6 +121,7 @@ export async function getMeetingProgramsFromSupabase(
     auxiliaryCounselorId: p.auxiliary_counselor_id || undefined,
     leadershipReviewConfirmed: p.leadership_review_confirmed === true,
     leadershipReviewConfirmedBy: p.leadership_review_confirmed_by || undefined,
+    leadershipReviewConfirmedAt: p.leadership_review_confirmed_at || undefined,
     circuitOverseerTalkTitle: p.circuit_overseer_talk_title || undefined,
     status: p.is_draft ? "draft" : "published",
     notes: p.notes || undefined,
@@ -170,7 +174,7 @@ export async function saveMeetingProgramToSupabase(
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       leadership_review_confirmed: program.leadershipReviewConfirmed === true,
       leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
-      leadership_review_confirmed_at: program.leadershipReviewConfirmed ? new Date().toISOString() : null,
+      leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
       // Publicar es el último paso: si falla una asignación, el programa permanece como borrador.
       is_draft: true,
@@ -208,7 +212,7 @@ export async function saveMeetingProgramToSupabase(
         assistant_participant_id: slot.assistantParticipantId || null,
         eligibility_confirmed: slot.eligibilityConfirmed === true,
         eligibility_confirmed_by: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedBy || userId) : null,
-        eligibility_confirmed_at: slot.eligibilityConfirmed ? new Date().toISOString() : null,
+        eligibility_confirmed_at: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedAt || new Date().toISOString()) : null,
         is_deleted: false,
         notes: slot.notes || null,
       });
