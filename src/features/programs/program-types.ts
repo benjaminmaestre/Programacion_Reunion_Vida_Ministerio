@@ -6,8 +6,10 @@ export interface MeetingProgramDetail {
   id: string;
   meetingDate: string; // ISO Date "YYYY-MM-DD"
   weekType: WeekType;
-  bimonthCycle: string; // p.ej. "2026-1" (Enero-Febrero 2026)
-  historyPeriod: string; // p.ej. "2026-S1" (1 de enero a 30 de junio de 2026)
+  bimonthCycle: string; // Etiqueta de presentación, p.ej. "2026-1"
+  historyPeriod: string; // Etiqueta de presentación, p.ej. "2026-S1"
+  planningCycleId?: string; // UUID real de planning_cycles
+  historyPeriodId?: string; // UUID real de history_periods
   chairmanId?: string;
   auxiliaryCounselorId?: string;
   circuitOverseerTalkTitle?: string;
