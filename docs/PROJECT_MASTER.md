@@ -6,7 +6,7 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** una congregación, aproximadamente 100 participantes.
-- **Estado:** directorio integrado con capa Supabase/Auth/RLS preparada en código. La conexión real y la migración todavía requieren verificación en el entorno destino.
+- **Estado:** directorio integrado con capa Supabase/Auth/RLS preparada en código. En el commit `40a5ca89f808b17386475e1010c6cb4283129184`, GitHub Actions pasó `npm ci`, `npm run typecheck` y `npm run build`. La conexión real y las pruebas SQL de RLS todavía requieren verificación en el entorno destino.
 - **Avance global estimado:** 40% (estimación cualitativa, no métrica automática).
 
 ## 1. Objetivo
@@ -58,7 +58,8 @@ No inventar reglas ni datos oficiales que no estén sustentados por las fuentes.
 - [x] Guía de conexión en `docs/SUPABASE_SETUP.md`.
 
 ### Pendientes/limitaciones
-- [ ] Ejecutar `npm ci`, `npm run typecheck` y `npm run build` después de la integración reciente. No afirmar que pasa hasta observar el resultado de CI o la ejecución local.
+- [x] En CI para el commit `40a5ca89f808b17386475e1010c6cb4283129184`, `npm ci`, `npm run typecheck` y `npm run build` finalizaron correctamente.
+- [ ] Repetir la verificación tras futuros cambios funcionales.
 - [ ] Configurar el URL y la clave publicable de **este** proyecto, aplicar migraciones de forma segura y crear el primer usuario en `app_users`.
 - [ ] Ejecutar pruebas de RLS en una base local/de prueba y revisar asesores de seguridad.
 - [ ] El historial actual considera el titular y el ayudante de las columnas actuales. Diseñar luego una tabla normalizada `assignment_participants` si se registran lectores, conductores u otros roles por separado.
@@ -113,7 +114,8 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 - Se cambiaron las consultas para no depender de `congregation_id`.
 - Se actualizó `docs/SUPABASE_SETUP.md` para explicar la configuración del primer administrador.
 - No se aplicó ninguna migración a los proyectos Supabase disponibles: ninguno se confirmó como correspondiente a esta aplicación.
-- No se han verificado en esta sesión el build, typecheck ni las pruebas SQL del esquema revisado.
+- La CI confirmó build y typecheck correctos en el commit `40a5ca89f808b17386475e1010c6cb4283129184`.
+- No se han ejecutado todavía las pruebas SQL RLS ni se ha aplicado la migración en un proyecto Supabase confirmado.
 
 ## 10. Próximos pasos prioritarios
 
@@ -127,3 +129,12 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 ## 11. Protocolo permanente
 
 Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
+
+
+### 9 de octubre de 2026 — Simplificación a una sola congregación y CI
+- Se sustituyó el diseño multi-congregación por `app_users` con roles y políticas RLS para una única congregación con aproximadamente 100 participantes.
+- Se retiró la migración anterior de multi-tenancy antes de darla como aplicada y se sustituyó por `002_single_congregation_auth_rls.sql`.
+- Se actualizó el repositorio para consultar el directorio e historial sin `congregation_id`.
+- CI encontró un error de tipo en `participation` (un `string` demasiado amplio); se corrigió tipándolo como `AssignmentHistoryEntry["participation"]`.
+- GitHub Actions para commit `40a5ca89f808b17386475e1010c6cb4283129184` pasó instalación, typecheck y build de producción.
+- La migración no se ha aplicado y las pruebas RLS no se han ejecutado en una base de datos. Hace falta configurar el proyecto Supabase correcto y validar la seguridad ahí.
