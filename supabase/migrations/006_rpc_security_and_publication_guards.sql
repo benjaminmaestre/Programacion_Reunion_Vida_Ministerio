@@ -297,7 +297,7 @@ BEGIN
   ELSIF p_week_type = 'memorial'::public.week_type_enum THEN
     SELECT m.appointment::text INTO v_chair_appointment FROM public.members AS m
     WHERE m.id = p_chairman_id AND m.is_active IS TRUE;
-    IF NOT FOUND OR v_chair_appointment <> 'elder' THEN
+    IF NOT FOUND OR v_chair_appointment IS DISTINCT FROM 'elder' THEN
       RAISE EXCEPTION 'Conmemoración: el presidente debe ser un anciano activo.';
     END IF;
     IF NOT (LOWER(COALESCE(p_notes, '')) LIKE '%conmemoración%'
@@ -319,7 +319,7 @@ BEGIN
     WHERE m.is_active IS TRUE AND m.appointment = 'elder'::public.appointment_enum;
 
     IF p_week_type = 'circuit_overseer'::public.week_type_enum THEN
-      IF v_chair_appointment <> 'elder' THEN
+      IF v_chair_appointment IS DISTINCT FROM 'elder' THEN
         RAISE EXCEPTION 'La visita del Superintendente requiere un presidente que sea anciano activo.';
       END IF;
       IF NULLIF(BTRIM(p_circuit_overseer_talk_title), '') IS NULL THEN
@@ -332,8 +332,8 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'Falta la intervención del discurso del Superintendente de Circuito.';
       END IF;
-    ELSIF v_chair_appointment <> 'elder'
-      AND NOT (v_elders_count < 3 AND v_chair_appointment = 'ministerial_servant') THEN
+    ELSIF v_chair_appointment IS DISTINCT FROM 'elder'
+      AND NOT COALESCE(v_elders_count < 3 AND v_chair_appointment = 'ministerial_servant', FALSE) THEN
       RAISE EXCEPTION 'El presidente debe ser anciano salvo la excepción aplicable con menos de tres ancianos activos.';
     END IF;
 
@@ -343,7 +343,7 @@ BEGIN
     IF p_auxiliary_counselor_id IS NOT NULL THEN
       SELECT m.appointment::text INTO v_counselor_appointment FROM public.members AS m
       WHERE m.id = p_auxiliary_counselor_id AND m.is_active IS TRUE;
-      IF NOT FOUND OR v_counselor_appointment <> 'elder' THEN
+      IF NOT FOUND OR v_counselor_appointment IS DISTINCT FROM 'elder' THEN
         RAISE EXCEPTION 'El consejero auxiliar debe ser un anciano activo.';
       END IF;
     END IF;
@@ -408,13 +408,13 @@ BEGIN
 
         CASE v_slot.assignment_type
           WHEN 'treasures_talk','gems' THEN
-            IF v_primary_gender <> 'male' OR v_primary_appointment NOT IN ('elder','ministerial_servant') THEN
+            IF v_primary_gender IS DISTINCT FROM 'male' OR v_primary_appointment IS NULL OR v_primary_appointment NOT IN ('elder','ministerial_servant') THEN
               RAISE EXCEPTION 'La intervención % requiere un anciano o siervo ministerial varón.', v_slot.title;
             END IF;
           WHEN 'bible_reading','student_talk','bible_study_reader','living_part' THEN
-            IF v_primary_gender <> 'male' THEN RAISE EXCEPTION 'La intervención % requiere un participante varón.', v_slot.title; END IF;
+            IF v_primary_gender IS DISTINCT FROM 'male' THEN RAISE EXCEPTION 'La intervención % requiere un participante varón.', v_slot.title; END IF;
           WHEN 'living_needs','bible_study_conductor' THEN
-            IF v_primary_appointment <> 'elder' THEN RAISE EXCEPTION 'La intervención % requiere un anciano.', v_slot.title; END IF;
+            IF v_primary_appointment IS DISTINCT FROM 'elder' THEN RAISE EXCEPTION 'La intervención % requiere un anciano.', v_slot.title; END IF;
           WHEN 'conversation','revisit','disciples','explain_beliefs' THEN
             IF v_slot.assistant_participant_id IS NULL OR v_slot.assistant_participant_id = v_slot.primary_participant_id THEN
               RAISE EXCEPTION 'La intervención % requiere un ayudante activo distinto.', v_slot.title;
@@ -422,7 +422,7 @@ BEGIN
             SELECT m.gender::text INTO v_assistant_gender FROM public.members AS m
             WHERE m.id = v_slot.assistant_participant_id AND m.is_active IS TRUE;
             IF NOT FOUND THEN RAISE EXCEPTION 'El ayudante de % no está activo.', v_slot.title; END IF;
-            IF v_slot.assignment_type IN ('revisit','disciples') AND v_assistant_gender <> v_primary_gender THEN
+            IF v_slot.assignment_type IN ('revisit','disciples') AND v_assistant_gender IS DISTINCT FROM v_primary_gender THEN
               RAISE EXCEPTION 'Titular y ayudante de % deben ser del mismo sexo.', v_slot.title;
             END IF;
         END CASE;
