@@ -2,16 +2,17 @@
 
 Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL y Supabase para administrar el directorio de la congregación (125 personas), preparar los programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S y generar el documento impreso S-140 desde la plantilla oficial.
 
-## Estado Actual del Proyecto (Fase 4 Completada)
+## Estado Actual del Proyecto (Fase 5 Completada)
 
 - **Congregación Objetivo:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas.
 - **Rama principal:** `main` (desarrollo directo en `main`).
-- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npm test` - 53 pruebas automáticas pasando).
+- **Pruebas unitarias:** Ejecutadas con **Vitest** (`npm test` - 54 pruebas automáticas pasando al 100%).
+- **Seguridad RPC SECURITY DEFINER:** Funciones en `005_save_meeting_program_transaction.sql` protegidas con `search_path = public, pg_temp`, revocación de permisos a `PUBLIC`/`anon`, comprobación interna de `auth.uid()` contra la tabla `app_users` y sobrescritura segura de campos de auditoría.
+- **Eliminación del Fallback Inseguro:** Remoción total de escrituras directas múltiples no atómicas en `programs-repository.ts`, exigiendo exclusivamente la llamada RPC `save_meeting_program_transaction`.
 - **Identificadores UUID:** Cumplimiento estricto con UUID v4 RFC 4122 para `meeting_programs` y `assignment_slots` compatibles con PostgreSQL.
 - **Auto-creación de Ciclos y Semestres:** Resolución y creación automática de UUIDs para `planning_cycles` y `history_periods` impidiendo registros huérfanos.
-- **Transaccionalidad en Supabase:** Migración `005_save_meeting_program_transaction.sql` con la función RPC `save_meeting_program_transaction` para operaciones atómicas.
 - **Semanas Especiales y Revisiones:** Manejo explícito por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) e invalidación de aprobaciones de elegibilidad al cambiar asignaciones (`invalidateReviewIfChanged`).
-- **Endpoint y API S-140:** Cobertura de pruebas completa en `s140-route.test.ts` para respuestas 503, 401, 403, 404 y 200 con encabezados `Content-Disposition` y filtrado de intervenciones retiradas lógicamente.
+- **Endpoint y API S-140:** Cobertura de pruebas completa en `s140-route.test.ts` para respuestas 503, 401, 403, 404, 500 y 200 (con validación de cabeceras HTTP y bytes mágicos `PK\x03\x04` del contenedor DOCX).
 - **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S y revisiones humanas de elegibilidad.
 
 ## Requisitos e Instalación

@@ -43,18 +43,27 @@ export function validateProgramForPublication(
   if (program.weekType === "assembly") {
     // Semana de Asamblea: No hay reunión ordinaria en el Salón
     if (program.slots.length > 0) {
-      warnings.push("Semana de asamblea: El programa contiene intervenciones aunque no habrá reunión ordinaria en el salón.");
+      warnings.push("Semana de asamblea: El programa contiene intervenciones extraordinarias; se registrará como aviso especial.");
     }
     return { isValid: true, errors: [], warnings };
   }
 
   if (program.weekType === "memorial") {
-    // Semana de Conmemoración: Evento especial
+    // Semana de Conmemoración: Evento especial de la Muerte de Cristo
     const chairman = program.chairmanId ? activeMembers.get(program.chairmanId) : undefined;
     if (!chairman) {
-      errors.push("Conmemoración: Selecciona un presidente activo.");
+      errors.push("Conmemoración: Selecciona un presidente activo para el evento especial.");
+    }
+    if (program.leadershipReviewConfirmed !== true) {
+      errors.push("Conmemoración: Falta la confirmación de la revisión humana por parte del cuerpo de ancianos.");
     }
     return { isValid: errors.length === 0, errors, warnings };
+  }
+
+  if (program.weekType === "circuit_overseer") {
+    if (!program.circuitOverseerTalkTitle?.trim()) {
+      errors.push("Visita del Superintendente: Ingresa el título del discurso de servicio de 30 minutos.");
+    }
   }
 
   if (program.slots.length === 0) {

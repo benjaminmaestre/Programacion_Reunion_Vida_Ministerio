@@ -261,109 +261,42 @@ export async function saveMeetingProgramToSupabase(
     throw new Error("No se pudieron resolver ni crear los identificadores obligatorios de ciclo bimestral o período semestral.");
   }
 
-  // Check if RPC procedure exists
-  if (typeof supabase.rpc === "function") {
-    const { error: rpcError } = await supabase.rpc("save_meeting_program_transaction", {
-      p_program_id: program.id,
-      p_meeting_date: program.meetingDate,
-      p_week_type: program.weekType,
-      p_chairman_id: program.chairmanId || null,
-      p_auxiliary_counselor_id: program.auxiliaryCounselorId || null,
-      p_leadership_review_confirmed: program.leadershipReviewConfirmed === true,
-      p_leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
-      p_leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
-      p_circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
-      p_is_draft: program.status === "draft",
-      p_notes: program.notes || null,
-      p_slots: program.slots.map((s) => ({
-        id: s.id,
-        section: s.section,
-        title: s.title,
-        duration_minutes: s.durationMinutes,
-        order_index: s.orderIndex,
-        is_student_part: s.isStudentPart,
-        assignment_type: s.assignmentType || null,
-        primary_participant_id: s.primaryParticipantId || null,
-        assistant_participant_id: s.assistantParticipantId || null,
-        eligibility_confirmed: s.eligibilityConfirmed === true,
-        eligibility_confirmed_by: s.eligibilityConfirmed ? (s.eligibilityConfirmedBy || userId) : null,
-        eligibility_confirmed_at: s.eligibilityConfirmed ? (s.eligibilityConfirmedAt || new Date().toISOString()) : null,
-        notes: s.notes || null,
-      })),
-    });
-
-    if (!rpcError) {
-      return;
-    }
+  // Execute production RPC save_meeting_program_transaction strictly
+  if (typeof supabase.rpc !== "function") {
+    throw new Error("El cliente de Supabase no soporta llamadas RPC transaccionales.");
   }
 
-  // Fallback if RPC is not present in the client/mock environment
-  const isDraft = program.status === "draft";
-  const { error: progError } = await supabase
-    .from("meeting_programs")
-    .upsert({
-      id: program.id,
-      meeting_date: program.meetingDate,
-      week_type: program.weekType,
-      planning_cycle_id: planningCycleId,
-      history_period_id: historyPeriodId,
-      chairman_id: program.chairmanId || null,
-      auxiliary_counselor_id: program.auxiliaryCounselorId || null,
-      leadership_review_confirmed: program.leadershipReviewConfirmed === true,
-      leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
-      leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
-      circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
-      is_draft: true,
-      notes: program.notes || null,
-      updated_at: new Date().toISOString(),
-    });
+  const { error: rpcError } = await supabase.rpc("save_meeting_program_transaction", {
+    p_program_id: program.id,
+    p_meeting_date: program.meetingDate,
+    p_week_type: program.weekType,
+    p_chairman_id: program.chairmanId || null,
+    p_auxiliary_counselor_id: program.auxiliaryCounselorId || null,
+    p_leadership_review_confirmed: program.leadershipReviewConfirmed === true,
+    p_leadership_review_confirmed_by: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedBy || userId) : null,
+    p_leadership_review_confirmed_at: program.leadershipReviewConfirmed ? (program.leadershipReviewConfirmedAt || new Date().toISOString()) : null,
+    p_circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
+    p_is_draft: program.status === "draft",
+    p_notes: program.notes || null,
+    p_slots: program.slots.map((s) => ({
+      id: s.id,
+      section: s.section,
+      title: s.title,
+      duration_minutes: s.durationMinutes,
+      order_index: s.orderIndex,
+      is_student_part: s.isStudentPart,
+      assignment_type: s.assignmentType || null,
+      primary_participant_id: s.primaryParticipantId || null,
+      assistant_participant_id: s.assistantParticipantId || null,
+      eligibility_confirmed: s.eligibilityConfirmed === true,
+      eligibility_confirmed_by: s.eligibilityConfirmed ? (s.eligibilityConfirmedBy || userId) : null,
+      eligibility_confirmed_at: s.eligibilityConfirmed ? (s.eligibilityConfirmedAt || new Date().toISOString()) : null,
+      notes: s.notes || null,
+    })),
+  });
 
-  if (progError) {
-    throw new Error("No se pudo guardar el programa en la base de datos.");
-  }
-
-  if (isDraft && toDelete.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("assignment_slots")
-      .update({ is_deleted: true })
-      .in("id", toDelete);
-    if (deleteError) throw new Error("No se pudieron retirar las intervenciones del borrador.");
-  }
-
-  for (const slot of program.slots) {
-    const { error: slotError } = await supabase
-      .from("assignment_slots")
-      .upsert({
-        id: slot.id,
-        meeting_program_id: program.id,
-        section: slot.section,
-        title: slot.title,
-        duration_minutes: slot.durationMinutes,
-        order_index: slot.orderIndex,
-        is_student_part: slot.isStudentPart,
-        assignment_type: slot.assignmentType || null,
-        primary_participant_id: slot.primaryParticipantId || null,
-        assistant_participant_id: slot.assistantParticipantId || null,
-        eligibility_confirmed: slot.eligibilityConfirmed === true,
-        eligibility_confirmed_by: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedBy || userId) : null,
-        eligibility_confirmed_at: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedAt || new Date().toISOString()) : null,
-        is_deleted: false,
-        notes: slot.notes || null,
-      });
-
-    if (slotError) {
-      throw new Error(`No se pudo actualizar la asignación "${slot.title}" en Supabase.`);
-    }
-  }
-
-  if (!isDraft) {
-    const { error: publishError } = await supabase
-      .from("meeting_programs")
-      .update({ is_draft: false, updated_at: new Date().toISOString() })
-      .eq("id", program.id);
-    if (publishError) {
-      throw new Error("Las asignaciones se guardaron, pero no se pudo completar la publicación. El programa permanece como borrador.");
-    }
+  if (rpcError) {
+    throw new Error(rpcError.message || "No se pudo guardar la reunión en la base de datos mediante la función transaccional de Supabase.");
   }
 }
 

@@ -58,6 +58,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     expect(docxBuffer).toBeDefined();
     expect(docxBuffer.byteLength).toBeGreaterThan(100);
+    const bytes = new Uint8Array(docxBuffer);
+    expect(bytes[0]).toBe(0x50); // P
+    expect(bytes[1]).toBe(0x4b); // K
+    expect(bytes[2]).toBe(0x03);
+    expect(bytes[3]).toBe(0x04);
   });
 
   it("devuelve 503 si Supabase no está configurado", async () => {
@@ -151,7 +156,50 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(json.error).toContain("No se encontró el programa");
   });
 
-  it("devuelve 200 y el documento DOCX cuando la solicitud es válida", async () => {
+  it("devuelve 500 ante un error en la consulta de intervenciones", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+
+    const { createServerClient } = await import("@supabase/ssr");
+    vi.mocked(createServerClient).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
+      },
+      from: vi.fn((table: string) => {
+        if (table === "app_users") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+          };
+        }
+        if (table === "meeting_programs") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { id: "p-1", meeting_date: "2026-11-02" }, error: null }),
+          };
+        }
+        if (table === "assignment_slots") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({ data: null, error: new Error("DB Error") }),
+          };
+        }
+        return {};
+      }),
+    } as unknown as ReturnType<typeof createServerClient>);
+
+    const request = new Request("http://localhost/api/programs/p-1/s140", { method: "POST" });
+    const response = await POST(request, { params: Promise.resolve({ programId: "p-1" }) });
+
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.error).toContain("No se pudieron cargar las intervenciones");
+  });
+
+  it("devuelve 200 y un contenedor DOCX válido (PK magic bytes) excluyendo intervenciones retiradas", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
 
@@ -227,5 +275,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(response.headers.get("Content-Disposition")).toContain('filename="S-140-2026-11-02.docx"');
     const buffer = await response.arrayBuffer();
     expect(buffer.byteLength).toBeGreaterThan(100);
+
+    const bytes = new Uint8Array(buffer);
+    expect(bytes[0]).toBe(0x50); // P
+    expect(bytes[1]).toBe(0x4b); // K
+    expect(bytes[2]).toBe(0x03);
+    expect(bytes[3]).toBe(0x04);
   });
 });

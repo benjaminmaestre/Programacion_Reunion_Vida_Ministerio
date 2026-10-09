@@ -6,8 +6,8 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **Estado de Pruebas:** 53 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js totalmente limpio (`npm run build`).
-- **Avance global estimado:** 95% (Estabilización Fase 4 completada: transaccionalidad RPC, auto-creación y unicidad de ciclos/períodos, validación estricta por tipos de semana, invalidación de revisiones humanas y pruebas de integración API S-140 para códigos HTTP 401, 403, 404 y 200).
+- **Estado de Pruebas:** 54 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js totalmente limpio (`npm run build`).
+- **Avance global estimado:** 100% en lógica de aplicación, validaciones S-38-S, transaccionalidad RPC, seguridad RLS y pruebas automatizadas (pendiente confirmación de instancia de producción Supabase para despliegue de migraciones y carga de 125 miembros).
 
 ## 1. Objetivo
 
@@ -36,20 +36,19 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 ## 4. Estado verificable
 
 ### Existente y Verificado en el Repositorio
-- [x] Migraciones `001` a `005_save_meeting_program_transaction.sql` (unicidad en ciclos/períodos y procedimiento atómico RPC).
-- [x] Formato UUID v4 estricto para `meeting_programs.id` y `assignment_slots.id` en `program-builder.ts` y datos demo (sin prefijos incompatibles).
-- [x] Auto-creación estricta y resolución de UUIDs para `planning_cycles` y `history_periods` sin permitir guardados huérfanos.
-- [x] Persistencia transaccional RPC `save_meeting_program_transaction` con fallback atómico.
-- [x] Estructuras y reglas de validación diferenciadas por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`).
-- [x] Distinción estructurada de errores bloqueantes (`errors`) y advertencias (`warnings`), más invalidación automática de revisiones humanas al modificar participantes.
-- [x] Pruebas completas del Route Handler S-140 (`s140-route.test.ts`) cubriendo respuestas 503, 401, 403, 404 y 200 con encabezados y filtrado de intervenciones activas.
+- [x] Migración `005_save_meeting_program_transaction.sql` reforzada con `SET search_path = public, pg_temp`, revocación de ejecuciones a `PUBLIC`/`anon`, verificación de `auth.uid()` e historial de auditoría de revisiones.
+- [x] Eliminación total de fallbacks inseguros en `programs-repository.ts` exigiendo la función RPC atómica `save_meeting_program_transaction`.
+- [x] Formato UUID v4 estricto para `meeting_programs.id` y `assignment_slots.id` en `program-builder.ts` y datos demo.
+- [x] Auto-creación estricta y resolución de UUIDs para `planning_cycles` y `history_periods`.
+- [x] Reglas estrictas por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) en `program-validation.ts`.
+- [x] Pruebas completas del Route Handler S-140 (`s140-route.test.ts`) cubriendo respuestas 503, 401, 403, 404, 500 y 200 con verificación de firma de bytes mágicos `PK\x03\x04` en el contenedor DOCX.
 - [x] Modo demo aislado con datos ficticios exclusivamente y protección contra escrituras accidentales.
-- [x] Suite de pruebas automatizadas: 53 pruebas unitarias en 7 archivos pasando al 100%.
+- [x] Suite de pruebas automatizadas: 54 pruebas unitarias en 7 archivos pasando al 100%.
 - [x] Compilación TypeScript (`npm run typecheck`) y Next.js build de producción sin advertencias ni errores.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Confirmación explícita de la instancia Supabase de destino para ejecución de migraciones e importación real del directorio de 125 personas.
-- [ ] Inspección visual final del documento DOCX generado con Microsoft Word / LibreOffice.
+- [ ] Confirmación explícita de la instancia Supabase de destino para ejecución de migraciones 001-005 e importación real del directorio de 125 personas.
+- [ ] Inspección visual final del documento DOCX generado mediante Microsoft Word / LibreOffice.
 
 ## 5. Historial semestral y planificación
 
@@ -63,9 +62,10 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 
 ## 6. Registro de avances
 
-### 9 de octubre de 2026 — Fase 4: Estabilización, Integridad de Datos y Verificación Integral
-- **Auto-creación y unicidad de Ciclos/Períodos:** `resolvePlanningCycleUuid` y `resolveHistoryPeriodUuid` garantizan la creación automática o recuperación de UUIDs reales, impidiendo programas sin relaciones obligatorias.
-- **Transaccionalidad en Supabase:** Creación de la migración `005_save_meeting_program_transaction.sql` con el procedimiento RPC atómico `save_meeting_program_transaction` y fallback seguro en el cliente.
-- **Semanas Especiales y Revisiones:** Soporte completo de validación por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) e invalidación de aprobaciones de elegibilidad al cambiar asignaciones (`invalidateReviewIfChanged`).
-- **Pruebas de Integración Route Handler S-140:** Ampliación de `s140-route.test.ts` para validar códigos 503, 401, 403, 404 y 200 (headers y buffer DOCX).
-- **Suite de Pruebas y Build:** 53 pruebas en Vitest pasando al 100%, `npm run typecheck` y `npm run build` sin errores.
+### 9 de octubre de 2026 — Fase 5: Seguridad RPC, Integridad Transaccional y Validación Final
+- **Seguridad en RPC `SECURITY DEFINER`:** En `005_save_meeting_program_transaction.sql`, se revocó el permiso de ejecución a `PUBLIC` y `anon`, otorgándolo exclusivamente a `authenticated`. Se fijó `search_path = public, pg_temp;` y se incluyeron comprobaciones internas de `auth.uid()` contra la tabla `app_users` para verificar roles activos (`administrator`, `elder`, `coordinator`).
+- **Trazabilidad de Auditoría:** Las confirmaciones de revisión humana sobrescriben la identidad con `auth.uid()` y la fecha con `NOW()`, impidiendo la falsificación de auditoría desde el cliente.
+- **Eliminación del Fallback Inseguro:** Se eliminó el camino de escrituras directas múltiples de `programs-repository.ts`. Si la RPC falla o no está desplegada, la operación se detiene y retorna una excepción atómica.
+- **Validaciones de Semanas Especiales:** Se reforzó la obligatoriedad del título del discurso en visitas de circuito y las reglas especiales en asambleas y conmemoración.
+- **Pruebas S-140 Extremo a Extremo:** `s140-route.test.ts` verifica los códigos HTTP 503, 401, 403, 404, 500 y 200, validando la firma de bytes `PK\x03\x04` del archivo DOCX.
+- **Verificación Completa:** 54 pruebas unitarias pasando al 100% en Vitest, TypeScript y Next.js build limpios.

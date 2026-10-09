@@ -59,6 +59,72 @@ class FakeQuery {
 class FakeDatabase {
   tables: Record<string, Row[]> = {};
   from(table: string) { return new FakeQuery(this, table); }
+  rpc(fnName: string, args: Record<string, any>) {
+    if (fnName === "save_meeting_program_transaction") {
+      const existingProg = (this.tables.meeting_programs ?? []).find((p) => p.id === args.p_program_id);
+      if (existingProg && existingProg.is_draft === false) {
+        return Promise.resolve({ data: null, error: { message: "El programa ya está publicado y se encuentra protegido contra modificaciones." } });
+      }
+
+      const progRows = this.tables.meeting_programs ?? (this.tables.meeting_programs = []);
+      const existingIdx = progRows.findIndex((p) => p.id === args.p_program_id);
+      const newProgRow = {
+        id: args.p_program_id,
+        meeting_date: args.p_meeting_date,
+        week_type: args.p_week_type,
+        planning_cycle_id: (this.tables.planning_cycles ?? [])[0]?.id || "00000000-0000-4000-8000-000000000003",
+        history_period_id: (this.tables.history_periods ?? [])[0]?.id || "00000000-0000-4000-8000-000000000004",
+        chairman_id: args.p_chairman_id,
+        auxiliary_counselor_id: args.p_auxiliary_counselor_id,
+        leadership_review_confirmed: args.p_leadership_review_confirmed,
+        leadership_review_confirmed_by: args.p_leadership_review_confirmed_by,
+        leadership_review_confirmed_at: args.p_leadership_review_confirmed_at,
+        circuit_overseer_talk_title: args.p_circuit_overseer_talk_title,
+        is_draft: args.p_is_draft,
+        notes: args.p_notes,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingIdx >= 0) progRows[existingIdx] = { ...progRows[existingIdx], ...newProgRow };
+      else progRows.push(newProgRow);
+
+      const slotRows = this.tables.assignment_slots ?? (this.tables.assignment_slots = []);
+      const newSlots = args.p_slots as any[];
+      const newSlotIds = newSlots.map((s) => s.id);
+
+      slotRows.forEach((s) => {
+        if (s.meeting_program_id === args.p_program_id && !newSlotIds.includes(s.id)) {
+          s.is_deleted = true;
+        }
+      });
+
+      for (const slot of newSlots) {
+        const slotIdx = slotRows.findIndex((s) => s.id === slot.id);
+        const slotData = {
+          id: slot.id,
+          meeting_program_id: args.p_program_id,
+          section: slot.section,
+          title: slot.title,
+          duration_minutes: slot.duration_minutes,
+          order_index: slot.order_index,
+          is_student_part: slot.is_student_part,
+          assignment_type: slot.assignment_type,
+          primary_participant_id: slot.primary_participant_id,
+          assistant_participant_id: slot.assistant_participant_id,
+          eligibility_confirmed: slot.eligibility_confirmed,
+          eligibility_confirmed_by: slot.eligibility_confirmed_by,
+          eligibility_confirmed_at: slot.eligibility_confirmed_at,
+          is_deleted: false,
+          notes: slot.notes,
+        };
+        if (slotIdx >= 0) slotRows[slotIdx] = { ...slotRows[slotIdx], ...slotData };
+        else slotRows.push(slotData);
+      }
+
+      return Promise.resolve({ data: args.p_program_id, error: null });
+    }
+    return Promise.resolve({ data: null, error: { message: `Función RPC ${fnName} no implementada en la prueba.` } });
+  }
 }
 
 describe("repositorio de programas: guardado y lectura posterior", () => {
