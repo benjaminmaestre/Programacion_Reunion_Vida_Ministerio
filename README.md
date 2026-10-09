@@ -10,7 +10,7 @@ Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tai
 - **Importación oficial:** Función de importación protegida por rol y validación; el botón de importación está temporalmente retirado del cliente hasta implementar un flujo administrativo seguro.
 - **Persistencia:** El editor de programas utiliza el repositorio Supabase cuando hay conexión; el modo demo es temporal, solo en desarrollo y no persiste en localStorage. La conexión real y las migraciones deben verificarse en un proyecto de prueba autorizado.
 - **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S para Tesoros, Seamos mejores maestros (ayudantes por sexo/parentesco), Vida cristiana y Presidencia.
-- **Editor de programas:** Carga y guardado de programas, títulos editables y participantes mediante Supabase; publicación bloqueada si faltan asignaciones o revisión humana S-38-S. Incluye prueba de ida/vuelta con cliente simulado y endpoint autenticado para generar el DOCX S-140 desde datos guardados. La ida/vuelta real depende de un entorno Supabase configurado y de aplicar las migraciones correspondientes.
+- **Editor de programas:** Carga y guardado de programas, títulos editables y participantes mediante Supabase; publicación bloqueada si faltan asignaciones o revisión humana S-38-S. Incluye pruebas de ida/vuelta con cliente simulado, controles de autorización y baja lógica, y endpoint autenticado para generar el DOCX S-140 desde datos guardados. La ida/vuelta real depende de un entorno Supabase configurado y de aplicar las migraciones correspondientes.
 
 ## Requisitos e Instalación
 
