@@ -49,17 +49,53 @@ describe("validación de publicación de programas", () => {
   });
 
   it("permite semanas de asamblea sin intervenciones ordinarias", () => {
-    const assemblyProg = program({ weekType: "assembly", slots: [] });
+    const assemblyProg = program({ weekType: "assembly", notes: "Semana de asamblea: no hay reunión ordinaria.", slots: [] });
     const result = validateProgramForPublication(assemblyProg, members);
     expect(result.isValid).toBe(true);
     expect(result.errors).toEqual([]);
   });
 
   it("permite semana de conmemoración exigiendo solo presidente activo", () => {
-    const memorialProg = program({ weekType: "memorial", chairmanId: "m3", slots: [] });
+    const memorialProg = program({ weekType: "memorial", chairmanId: "m3", notes: "Semana de la Conmemoración de la Muerte de Cristo.", slots: [] });
     const result = validateProgramForPublication(memorialProg, members);
     expect(result.isValid).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it("bloquea una semana de asamblea sin aviso ni nota identificable", () => {
+    const result = validateProgramForPublication(program({ weekType: "assembly", notes: undefined, slots: [] }), members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors.some((error) => error.includes("aviso"))).toBe(true);
+  });
+
+  it("exige presidente anciano y nota del evento para la Conmemoración", () => {
+    const wrongChairman = validateProgramForPublication(program({
+      weekType: "memorial",
+      chairmanId: "m1",
+      notes: "Semana de la Conmemoración.",
+      slots: [],
+    }), members);
+    expect(wrongChairman.isValid).toBe(false);
+    expect(wrongChairman.errors.some((error) => error.includes("anciano"))).toBe(true);
+
+    const missingNotice = validateProgramForPublication(program({
+      weekType: "memorial",
+      chairmanId: "m3",
+      notes: undefined,
+      slots: [],
+    }), members);
+    expect(missingNotice.isValid).toBe(false);
+    expect(missingNotice.errors.some((error) => error.includes("evento especial"))).toBe(true);
+  });
+
+  it("bloquea una visita del superintendente sin título real del discurso", () => {
+    const result = validateProgramForPublication(program({
+      weekType: "circuit_overseer",
+      circuitOverseerTalkTitle: " ",
+      chairmanId: "m3",
+    }), members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors.some((error) => error.includes("título real"))).toBe(true);
   });
 
   it("invalida la confirmación de elegibilidad cuando cambia el participante titular", () => {
@@ -72,6 +108,14 @@ describe("validación de publicación de programas", () => {
     const updatedSlot = invalidateReviewIfChanged(originalSlot, { primaryParticipantId: "m2" });
     expect(updatedSlot.eligibilityConfirmed).toBe(false);
     expect(updatedSlot.eligibilityConfirmedBy).toBeUndefined();
+
+    const titleChanged = invalidateReviewIfChanged({
+      title: "Título original",
+      eligibilityConfirmed: true,
+      eligibilityConfirmedBy: "user-1",
+    }, { title: "Título modificado" });
+    expect(titleChanged.eligibilityConfirmed).toBe(false);
+    expect(titleChanged.eligibilityConfirmedBy).toBeUndefined();
   });
 
   it("bloquea una intervención sin titular", () => {
