@@ -6,7 +6,7 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **CI de referencia:** el commit `3b0ed89` aprobó 54 pruebas reportadas, TypeScript y build. La corrección posterior requiere nuevo CI.
+- **CI verificado:** el commit `a20a677` pasó 58 pruebas en 7 archivos, `npm run typecheck` y `npm run build` en GitHub Actions.
 - **Estado de despliegue:** migración 006 preparada en Git; no aplicada ni ejecutada contra una instancia Supabase real.
 - **Avance global estimado:** no se declara porcentaje hasta validar las RPC, RLS, persistencia real y la salida visual S-140.
 
@@ -45,7 +45,7 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [x] Validación para semanas especiales y requisitos de aviso; falta contrastar el comportamiento final contra una instancia real y las instrucciones aplicables.
 - [x] Pruebas del Route Handler S-140 con Supabase simulado para respuestas 503, 401, 403, 404, 500 y 200; la inspección visual frente a la plantilla sigue pendiente.
 - [x] Modo demo aislado con datos ficticios exclusivamente.
-- [ ] El código posterior a la Fase 5 requiere nuevo CI verde después de la corrección de pruebas.
+- [x] CI del commit `a20a677`: 58 pruebas aprobadas, TypeScript y build de producción correctos.
 
 ### Pendientes / Siguientes pasos prioritarios
 - [ ] Confirmar la instancia Supabase de destino y ejecutar las migraciones 001-006 en un entorno autorizado.
