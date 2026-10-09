@@ -1,5 +1,5 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { MeetingProgramDetail, AssignmentSlotDetail, BimonthlyPlanSummary } from "./program-types";
+import { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 
@@ -25,6 +25,7 @@ interface DbAssignmentSlotRow {
   duration_minutes: number;
   order_index: number;
   is_student_part: boolean;
+  assignment_type: string | null;
   primary_participant_id: string | null;
   assistant_participant_id: string | null;
   notes: string | null;
@@ -68,6 +69,7 @@ export async function getMeetingProgramsFromSupabase(
       durationMinutes: slot.duration_minutes,
       orderIndex: slot.order_index,
       isStudentPart: slot.is_student_part,
+      assignmentType: (slot.assignment_type as AssignmentSlotDetail["assignmentType"]) || undefined,
       primaryParticipantId: slot.primary_participant_id || undefined,
       assistantParticipantId: slot.assistant_participant_id || undefined,
       notes: slot.notes || undefined,
@@ -103,6 +105,8 @@ export async function saveMeetingProgramToSupabase(
       id: program.id,
       meeting_date: program.meetingDate,
       week_type: program.weekType,
+      planning_cycle_id: program.bimonthCycle,
+      history_period_id: program.historyPeriod,
       chairman_id: program.chairmanId || null,
       auxiliary_counselor_id: program.auxiliaryCounselorId || null,
       circuit_overseer_talk_title: program.circuitOverseerTalkTitle || null,
@@ -113,6 +117,26 @@ export async function saveMeetingProgramToSupabase(
 
   if (progError) {
     throw new Error("No se pudo guardar el programa en la base de datos.");
+  }
+
+  // Cleanup removed slots from draft
+  const currentSlotIds = program.slots.map((s) => s.id);
+  const { data: existingSlots } = await supabase
+    .from("assignment_slots")
+    .select("id")
+    .eq("meeting_program_id", program.id);
+
+  if (existingSlots && existingSlots.length > 0) {
+    const toDelete = existingSlots
+      .map((s: { id: string }) => s.id)
+      .filter((id: string) => !currentSlotIds.includes(id));
+
+    if (toDelete.length > 0) {
+      await supabase
+        .from("assignment_slots")
+        .delete()
+        .in("id", toDelete);
+    }
   }
 
   for (const slot of program.slots) {
@@ -126,6 +150,7 @@ export async function saveMeetingProgramToSupabase(
         duration_minutes: slot.durationMinutes,
         order_index: slot.orderIndex,
         is_student_part: slot.isStudentPart,
+        assignment_type: slot.assignmentType || null,
         primary_participant_id: slot.primaryParticipantId || null,
         assistant_participant_id: slot.assistantParticipantId || null,
         notes: slot.notes || null,

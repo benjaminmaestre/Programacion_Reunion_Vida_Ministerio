@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle, Archive, ArrowDownUp, CalendarDays, Check, ChevronRight,
-  CircleHelp, Clock3, FileText, History, LayoutDashboard, ListChecks,
+  CircleHelp, Clock3, Download, FileText, History, LayoutDashboard, ListChecks,
   LockKeyhole, LogOut, Plus, Search, ShieldCheck, SlidersHorizontal,
   Users, X,
 } from "lucide-react";
@@ -20,20 +20,12 @@ import type {
   AssignmentHistoryEntry, DirectoryMember, HistoryCategory,
   MemberAppointment, MemberGender,
 } from "./demo-data";
-
+import {
+  executeOfficialImportToSupabase,
+  previewMemberImport,
+  validateOfficialImportData,
+} from "./member-importer";
 import { OFFICIAL_CONGREGATION_MEMBERS } from "./official-directory-data";
-
-const OFFICIAL_MEMBERS_INIT: DirectoryMember[] = OFFICIAL_CONGREGATION_MEMBERS.map((m, idx) => ({
-  id: `las-violetas-${idx + 1}`,
-  firstName: m.firstName,
-  lastName: m.lastName,
-  gender: m.gender,
-  appointment: m.appointment,
-  isRegularPioneer: m.isRegularPioneer,
-  additionalRoles: m.additionalRoles,
-  isActive: true,
-  isBaptized: true,
-}));
 
 const STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
@@ -51,6 +43,11 @@ function appointmentLabel(appointment: MemberAppointment) {
   if (appointment === "elder") return "Anciano";
   if (appointment === "ministerial_servant") return "Siervo ministerial";
   return "Publicador(a)";
+}
+function baptismLabel(isBaptized: boolean | null) {
+  if (isBaptized === true) return "Bautizado/a";
+  if (isBaptized === false) return "No bautizado/a";
+  return "Desconocido / Pendiente";
 }
 function formatDate(value?: string) {
   if (!value) return "Sin registro";
@@ -75,6 +72,7 @@ export function MembersWorkspace() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<DirectoryMember | null>(null);
   const [formError, setFormError] = useState("");
   const [pageError, setPageError] = useState("");
@@ -82,8 +80,8 @@ export function MembersWorkspace() {
   const [isReady, setIsReady] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
-
-
+  const [importing, setImporting] = useState(false);
+  const [importResultMsg, setImportResultMsg] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +90,7 @@ export function MembersWorkspace() {
       if (!isSupabaseConfigured()) {
         try {
           const saved = window.localStorage.getItem(STORAGE_KEY);
-          let initialMembers = OFFICIAL_MEMBERS_INIT;
+          let initialMembers = DEMO_MEMBERS;
           if (saved) {
             const parsed: unknown = JSON.parse(saved);
             if (Array.isArray(parsed) && parsed.length > 0) initialMembers = parsed as DirectoryMember[];
@@ -103,8 +101,8 @@ export function MembersWorkspace() {
           setMode("demo");
         } catch {
           if (cancelled) return;
-          setMembers(OFFICIAL_MEMBERS_INIT);
-          setSelectedMemberId(OFFICIAL_MEMBERS_INIT[0]?.id ?? "");
+          setMembers(DEMO_MEMBERS);
+          setSelectedMemberId(DEMO_MEMBERS[0]?.id ?? "");
           setMode("demo");
         } finally {
           if (!cancelled) setIsReady(true);
@@ -145,8 +143,7 @@ export function MembersWorkspace() {
     return () => { cancelled = true; };
   }, []);
 
-  // Solo se persiste localmente el modo demostración. Nunca se escribe una copia de datos reales
-  // de congregación en localStorage como mecanismo alternativo a las políticas del servidor.
+  // Persistir solo datos de demostración en localStorage en modo demo
   useEffect(() => {
     if (mode !== "demo" || !isReady) return;
     try {
@@ -166,7 +163,7 @@ export function MembersWorkspace() {
       if (activeFilter === "active" && !member.isActive) return false;
       if (activeFilter === "inactive" && member.isActive) return false;
       if (!query) return true;
-      return [member.firstName, member.lastName, fullName(member), appointmentLabel(member.appointment)]
+      return [member.firstName, member.lastName, fullName(member), appointmentLabel(member.appointment), member.additionalRoles ?? ""]
         .some((value) => value.toLocaleLowerCase("es").includes(query));
     }).sort((a, b) => fullName(a).localeCompare(fullName(b), "es"));
   }, [members, search, activeFilter]);
@@ -213,7 +210,10 @@ export function MembersWorkspace() {
 
   const elderCount = activeMembers.filter((member) => member.appointment === "elder").length;
   const servantCount = activeMembers.filter((member) => member.appointment === "ministerial_servant").length;
+  const pioneerCount = activeMembers.filter((member) => member.isRegularPioneer).length;
   const inactiveCount = members.length - activeMembers.length;
+
+  const importPreview = useMemo(() => previewMemberImport(members, OFFICIAL_CONGREGATION_MEMBERS), [members]);
 
   function openNewMemberForm() {
     setEditingMember(null);
@@ -236,13 +236,18 @@ export function MembersWorkspace() {
       return;
     }
 
+    const baptizedValue = form.get("isBaptized");
+    const isBaptized = baptizedValue === "true" ? true : baptizedValue === "false" ? false : null;
+
     const input = {
       firstName,
       lastName,
       gender: (form.get("gender") === "female" ? "female" : "male") as MemberGender,
       appointment: (form.get("appointment") as MemberAppointment) || "none",
+      isRegularPioneer: form.has("isRegularPioneer"),
+      additionalRoles: String(form.get("additionalRoles") ?? "").trim() || undefined,
       isActive: form.has("isActive"),
-      isBaptized: form.has("isBaptized"),
+      isBaptized,
       phone: String(form.get("phone") ?? "").trim() || undefined,
       email: String(form.get("email") ?? "").trim() || undefined,
       notes: String(form.get("notes") ?? "").trim() || undefined,
@@ -274,6 +279,39 @@ export function MembersWorkspace() {
       setFormError(error instanceof Error ? error.message : "No se pudieron guardar los cambios.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleExecuteImport() {
+    setImporting(true);
+    setImportResultMsg("");
+    try {
+      if (mode === "connected" && client) {
+        const result = await executeOfficialImportToSupabase(client, OFFICIAL_CONGREGATION_MEMBERS, false);
+        setMembers(result.members);
+        setSelectedMemberId(result.members[0]?.id ?? "");
+        setImportResultMsg(`¡Importación completada! Se insertaron ${result.insertedCount} registros nuevos (${result.skippedCount} conservados sin duplicar).`);
+      } else {
+        // Simulación en modo demo
+        const importedMembers: DirectoryMember[] = OFFICIAL_CONGREGATION_MEMBERS.map((m, idx) => ({
+          id: `imp-${idx + 1}`,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          gender: m.gender,
+          appointment: m.appointment,
+          isRegularPioneer: m.isRegularPioneer,
+          additionalRoles: m.additionalRoles,
+          isActive: true,
+          isBaptized: null,
+        }));
+        setMembers(importedMembers);
+        setSelectedMemberId(importedMembers[0].id);
+        setImportResultMsg(`Modo demostración: Se cargaron los 125 registros oficiales en memoria local.`);
+      }
+    } catch (err) {
+      setImportResultMsg(err instanceof Error ? err.message : "Error al ejecutar la importación.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -374,11 +412,14 @@ export function MembersWorkspace() {
         <div className="page-content">
           <div className="page-heading">
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
-            <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="button" onClick={() => setIsImportModalOpen(true)} type="button"><Download size={16} /> Importar 125 personas</button>
+              <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
+            </div>
           </div>
 
           {demoMode ? (
-            <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: datos ficticios</strong><p>Los cambios se guardan solo en este navegador. Configura Supabase y asigna una membresía para usar datos reales con autenticación y RLS.</p></div></div>
+            <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: nombres ficticios</strong><p>Los nombres desplegados por defecto son estrictamente ficticios. Para cargar los 125 registros de la congregación de forma controlada, utiliza la opción de importación administrativa.</p></div></div>
           ) : (
             <div className="connected-banner" role="status"><ShieldCheck size={17} /><div><strong>Sesión autenticada</strong><p>Las operaciones se ejecutan con tu sesión de Supabase. La base de datos aplica las políticas de acceso y el rol que te fue asignado.</p></div></div>
           )}
@@ -386,10 +427,10 @@ export function MembersWorkspace() {
           {pageError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}
 
           <section className="stats-grid" aria-label="Resumen del directorio">
-            <StatCard icon={<Users size={16} />} label="Personas registradas" value={members.length} caption="Incluye registros activos e inactivos" />
+            <StatCard icon={<Users size={16} />} label="Personas registradas" value={members.length} caption="Incluye activos e inactivos" />
             <StatCard icon={<Check size={16} />} label="Registros activos" value={activeMembers.length} caption="Disponibles para consulta" />
-            <StatCard icon={<ShieldCheck size={16} />} label="Ancianos" value={elderCount} caption="Nombramiento registrado" />
-            <StatCard icon={<Archive size={16} />} label="Inactivos" value={inactiveCount} caption={`${servantCount} siervos ministeriales activos`} />
+            <StatCard icon={<ShieldCheck size={16} />} label="Ancianos / SM" value={elderCount + servantCount} caption={`${elderCount} ancianos · ${servantCount} siervos ministeriales`} />
+            <StatCard icon={<Archive size={16} />} label="Precursores / Inactivos" value={pioneerCount} caption={`${pioneerCount} precursores · ${inactiveCount} inactivos`} />
           </section>
 
           <section className="workspace-grid" id="directorio">
@@ -397,7 +438,7 @@ export function MembersWorkspace() {
               <div className="panel-header"><div><h2 className="panel-title">Personas</h2><p className="panel-subtitle">Selecciona un registro para consultar su historial.</p></div><span className="panel-count">{filteredMembers.length} resultados</span></div>
               <div className="panel-content">
                 <div className="search-row">
-                  <label className="search-field"><Search size={16} aria-hidden="true" /><input className="field" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre o nombramiento..." aria-label="Buscar personas" /></label>
+                  <label className="search-field"><Search size={16} aria-hidden="true" /><input className="field" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, nombramiento o rol..." aria-label="Buscar personas" /></label>
                   <button className="button" type="button" onClick={() => { setSearch(""); setActiveFilter("active"); }} title="Restablecer búsqueda y filtros"><ArrowDownUp size={14} /> Limpiar</button>
                 </div>
                 <div className="filter-row" role="group" aria-label="Filtrar por estado">
@@ -409,8 +450,20 @@ export function MembersWorkspace() {
                   {filteredMembers.length === 0 ? <div className="empty-state"><strong>No hay resultados</strong>Prueba con otro nombre o cambia el filtro.</div> : filteredMembers.map((member) => (
                     <button className={`member-row ${selectedMember?.id === member.id ? "selected" : ""}`} type="button" key={member.id} onClick={() => setSelectedMemberId(member.id)} aria-pressed={selectedMember?.id === member.id}>
                       <span className={`member-avatar ${member.gender === "female" ? "female" : ""}`}>{initials(member)}</span>
-                      <span className="member-main"><span className="member-name">{fullName(member)}</span><span className="member-meta"><span>{appointmentLabel(member.appointment)}</span><span>·</span><span>{member.isBaptized ? "Bautizado/a" : "No bautizado/a"}</span></span></span>
-                      <span className={`member-status ${member.isActive ? "" : "inactive"}`}>{member.isActive ? "Activo" : "Inactivo"}</span><ChevronRight size={15} className="member-row-arrow" />
+                      <span className="member-main">
+                        <span className="member-name">
+                          {fullName(member)}
+                          {member.isRegularPioneer && <span className="status-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>PR</span>}
+                          {member.additionalRoles && <span className="demo-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>{member.additionalRoles}</span>}
+                        </span>
+                        <span className="member-meta">
+                          <span>{appointmentLabel(member.appointment)}</span>
+                          <span>·</span>
+                          <span>{baptismLabel(member.isBaptized)}</span>
+                        </span>
+                      </span>
+                      <span className={`member-status ${member.isActive ? "" : "inactive"}`}>{member.isActive ? "Activo" : "Inactivo"}</span>
+                      <ChevronRight size={15} className="member-row-arrow" />
                     </button>
                   ))}
                 </div>
@@ -429,7 +482,19 @@ export function MembersWorkspace() {
                 </div>
                 {selectedMember ? (
                   <>
-                    <div className="history-person"><span className={`member-avatar ${selectedMember.gender === "female" ? "female" : ""}`}>{initials(selectedMember)}</span><div className="history-person-meta"><h3 className="history-name">{fullName(selectedMember)}</h3><p className="history-role">{appointmentLabel(selectedMember.appointment)} · {selectedMember.isActive ? "Registro activo" : "Registro inactivo"}</p></div><button type="button" className="button" onClick={() => openEditMemberForm(selectedMember)}>Editar</button></div>
+                    <div className="history-person">
+                      <span className={`member-avatar ${selectedMember.gender === "female" ? "female" : ""}`}>{initials(selectedMember)}</span>
+                      <div className="history-person-meta">
+                        <h3 className="history-name">{fullName(selectedMember)}</h3>
+                        <p className="history-role">
+                          {appointmentLabel(selectedMember.appointment)}
+                          {selectedMember.isRegularPioneer ? " · Precursor(a) regular" : ""}
+                          {selectedMember.additionalRoles ? ` · ${selectedMember.additionalRoles}` : ""}
+                          {` · ${baptismLabel(selectedMember.isBaptized)}`}
+                        </p>
+                      </div>
+                      <button type="button" className="button" onClick={() => openEditMemberForm(selectedMember)}>Editar</button>
+                    </div>
 
                     <div className="history-block">
                       <h3 className="history-block-heading"><Clock3 size={14} /> Última asignación registrada</h3>
@@ -460,24 +525,87 @@ export function MembersWorkspace() {
         </div>
       </main>
 
+      {/* Modal de Formulario de Persona */}
       {isFormOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsFormOpen(false); }}>
         <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="member-form-title">
-          <div className="modal-header"><div><h2 className="modal-title" id="member-form-title">{editingMember ? "Editar registro" : "Nuevo hermano/a"}</h2><p className="modal-description">Completa los datos básicos del directorio. Los campos marcados son obligatorios.</p></div><button type="button" className="icon-button" onClick={() => setIsFormOpen(false)} aria-label="Cerrar formulario"><X size={17} /></button></div>
+          <div className="modal-header"><div><h2 className="modal-title" id="member-form-title">{editingMember ? "Editar registro" : "Nuevo hermano/a"}</h2><p className="modal-description">Completa los datos del directorio. Los campos marcados son obligatorios.</p></div><button type="button" className="icon-button" onClick={() => setIsFormOpen(false)} aria-label="Cerrar formulario"><X size={17} /></button></div>
           <form onSubmit={saveMember}>
             <div className="form-grid">
               <div className="form-field"><label className="field-label" htmlFor="firstName">Nombre *</label><input id="firstName" className="field" name="firstName" required maxLength={100} defaultValue={editingMember?.firstName ?? ""} autoFocus /></div>
               <div className="form-field"><label className="field-label" htmlFor="lastName">Apellido *</label><input id="lastName" className="field" name="lastName" required maxLength={100} defaultValue={editingMember?.lastName ?? ""} /></div>
               <div className="form-field"><label className="field-label" htmlFor="gender">Sexo</label><select id="gender" className="select-field" name="gender" defaultValue={editingMember?.gender ?? "male"}><option value="male">Varón</option><option value="female">Mujer</option></select></div>
-              <div className="form-field"><label className="field-label" htmlFor="appointment">Nombramiento</label><select id="appointment" className="select-field" name="appointment" defaultValue={editingMember?.appointment ?? "none"}><option value="none">No aplica / no registrado</option><option value="ministerial_servant">Siervo ministerial</option><option value="elder">Anciano</option></select></div>
+              <div className="form-field"><label className="field-label" htmlFor="appointment">Nombramiento</label><select id="appointment" className="select-field" name="appointment" defaultValue={editingMember?.appointment ?? "none"}><option value="none">No aplica / Publicador</option><option value="ministerial_servant">Siervo ministerial</option><option value="elder">Anciano</option></select></div>
+              <div className="form-field"><label className="field-label" htmlFor="additionalRoles">Responsabilidades adicionales (p.ej. Secretario)</label><input id="additionalRoles" className="field" name="additionalRoles" maxLength={100} defaultValue={editingMember?.additionalRoles ?? ""} placeholder="Ej. Secretario, auxiliar de territorio" /></div>
+              <div className="form-field"><label className="field-label" htmlFor="isBaptized">Estado de bautismo</label><select id="isBaptized" className="select-field" name="isBaptized" defaultValue={editingMember?.isBaptized === true ? "true" : editingMember?.isBaptized === false ? "false" : "unknown"}><option value="unknown">Desconocido / Pendiente de confirmar</option><option value="true">Bautizado/a</option><option value="false">No bautizado/a</option></select></div>
               <div className="form-field"><label className="field-label" htmlFor="phone">Teléfono (opcional)</label><input id="phone" className="field" name="phone" type="tel" maxLength={30} defaultValue={editingMember?.phone ?? ""} /></div>
               <div className="form-field"><label className="field-label" htmlFor="email">Correo (opcional)</label><input id="email" className="field" name="email" type="email" maxLength={150} defaultValue={editingMember?.email ?? ""} /></div>
               <div className="form-field full"><label className="field-label" htmlFor="notes">Notas administrativas (opcional)</label><textarea id="notes" className="field" name="notes" maxLength={500} rows={2} defaultValue={editingMember?.notes ?? ""} /></div>
-              <div className="form-field full"><label className="check-row"><input type="checkbox" name="isBaptized" defaultChecked={editingMember?.isBaptized ?? true} /> Bautizado/a</label><label className="check-row"><input type="checkbox" name="isActive" defaultChecked={editingMember?.isActive ?? true} /> Registro activo</label></div>
-              <div className="form-field full"><p className="small-note">Las autorizaciones y competencias no se deducen de estos datos. Se gestionarán en un módulo específico con acceso autorizado.</p></div>
+              <div className="form-field full">
+                <label className="check-row"><input type="checkbox" name="isRegularPioneer" defaultChecked={editingMember?.isRegularPioneer ?? false} /> Precursor(a) regular</label>
+                <label className="check-row"><input type="checkbox" name="isActive" defaultChecked={editingMember?.isActive ?? true} /> Registro activo (disponible para asignaciones)</label>
+              </div>
+              <div className="form-field full"><p className="small-note">Las autorizaciones y competencias para asignaciones se validan automáticamente con el motor S-38-S.</p></div>
               {formError && <div className="form-field full"><div className="inline-alert" role="alert"><AlertTriangle size={15} />{formError}</div></div>}
             </div>
             <div className="modal-footer"><button type="button" className="button" onClick={() => setIsFormOpen(false)} disabled={isSaving}>Cancelar</button><button type="submit" className="button button-primary" disabled={isSaving}><Check size={15} />{isSaving ? "Guardando…" : editingMember ? "Guardar cambios" : "Añadir al directorio"}</button></div>
           </form>
+        </section>
+      </div>}
+
+      {/* Modal de Importación Administrativa */}
+      {isImportModalOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsImportModalOpen(false); }}>
+        <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" style={{ maxWidth: 650 }}>
+          <div className="modal-header">
+            <div>
+              <h2 className="modal-title" id="import-modal-title">Flujo de importación oficial (125 personas)</h2>
+              <p className="modal-description">Congregación Las Violetas · Validación estructural y detección de duplicados.</p>
+            </div>
+            <button type="button" className="icon-button" onClick={() => setIsImportModalOpen(false)} aria-label="Cerrar modal"><X size={17} /></button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+              <StatCard icon={<Users size={15} />} label="Total personas" value={importPreview.summary.totalRecords} caption="125 registros únicos" />
+              <StatCard icon={<ShieldCheck size={15} />} label="Ancianos / SM" value={importPreview.summary.eldersCount + importPreview.summary.ministerialServantsCount} caption={`${importPreview.summary.eldersCount} anc. / ${importPreview.summary.ministerialServantsCount} SM`} />
+              <StatCard icon={<Check size={15} />} label="Precursores" value={importPreview.summary.regularPioneersCount} caption={`${importPreview.summary.regularPioneersCount} regulares`} />
+            </div>
+
+            <div className="helper-note" style={{ background: "var(--color-bg-subtle, #f8fafc)", padding: 12, borderRadius: 8 }}>
+              <strong>Estructura validada:</strong>
+              <ul style={{ margin: "6px 0 0 16px", padding: 0, fontSize: "0.85em", lineHeight: "1.5" }}>
+                <li>12 Ancianos (incluye 1 con responsabilidad de Secretario y 1 precursor regular combinado)</li>
+                <li>7 Siervos ministeriales (incluye 2 precursores regulares combinados)</li>
+                <li>22 Precursores regulares totales (19 exclusivos + 3 combinados con nombramiento)</li>
+                <li>87 Publicadores sin nombramiento ni precursorado</li>
+                <li>Bautismo inicial: Desconocido / Pendiente de confirmar por usuario autorizado</li>
+              </ul>
+            </div>
+
+            {importPreview.duplicateRecords.length > 0 && (
+              <div className="inline-alert" role="alert" style={{ background: "#fffbeb", borderColor: "#fef3c7", color: "#92400e" }}>
+                <AlertTriangle size={16} />
+                <div>
+                  <strong>{importPreview.duplicateRecords.length} duplicado(s) detectado(s) en el directorio actual.</strong>
+                  <p style={{ margin: 0, fontSize: "0.85em" }}>La importación omitirá automáticamente las personas existentes para no sobrescribir modificaciones sin autorización.</p>
+                </div>
+              </div>
+            )}
+
+            {importResultMsg && (
+              <div className="inline-alert" role="status">
+                <Check size={16} />
+                <span>{importResultMsg}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-footer" style={{ marginTop: 20 }}>
+            <button type="button" className="button" onClick={() => setIsImportModalOpen(false)} disabled={importing}>Cerrar</button>
+            <button type="button" className="button button-primary" onClick={handleExecuteImport} disabled={importing}>
+              <Download size={15} />
+              {importing ? "Importando…" : mode === "connected" ? "Confirmar e importar en Supabase" : "Simular carga (modo demo)"}
+            </button>
+          </div>
         </section>
       </div>}
     </div>

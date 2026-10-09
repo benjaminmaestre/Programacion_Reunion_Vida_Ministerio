@@ -44,8 +44,70 @@ export const ProgramsWorkspace: React.FC = () => {
     setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
   };
 
+  const handleUpdateTitle = (slotId: string, title: string) => {
+    if (!selectedProgram) return;
+
+    const updatedSlots = selectedProgram.slots.map((slot) => {
+      if (slot.id === slotId) {
+        return {
+          ...slot,
+          title,
+        };
+      }
+      return slot;
+    });
+
+    const updatedProgram = { ...selectedProgram, slots: updatedSlots, updatedAt: new Date().toISOString() };
+    setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
+  };
+
+  const [publishError, setPublishError] = useState("");
+
   const handleSaveStatus = (status: "draft" | "published") => {
     if (!selectedProgram) return;
+    setPublishError("");
+
+    if (status === "published") {
+      // Validar si existen errores bloqueantes S-38-S
+      let hasBlockingErrors = false;
+      for (const slot of selectedProgram.slots) {
+        const primary = DEMO_MEMBERS.find((m) => m.id === slot.primaryParticipantId);
+        if (primary) {
+          const fullEligibility = {
+            memberId: primary.id,
+            canDoTreasuresTalk: primary.appointment !== "none",
+            canDoGems: primary.appointment !== "none",
+            canDoBibleReading: primary.gender === "male",
+            canDoStudentTalk: true,
+            canBeAssistant: true,
+            canDoLivingPart: primary.gender === "male",
+            canConductCongregationBibleStudy: primary.appointment === "elder",
+            canReadCongregationBibleStudy: primary.gender === "male",
+            canBeChairman: primary.appointment === "elder",
+            canBeAuxiliaryCounselor: primary.appointment === "elder",
+          };
+
+          let res = null;
+          if (slot.assignmentType === "treasures_talk") {
+            res = S38SRulesEngine.validateTreasuresTalk(primary, fullEligibility);
+          } else if (slot.assignmentType === "gems") {
+            res = S38SRulesEngine.validateGems(primary, fullEligibility);
+          } else if (slot.assignmentType === "bible_reading") {
+            res = S38SRulesEngine.validateBibleReading(primary, fullEligibility);
+          }
+          if (res && !res.isValid) {
+            hasBlockingErrors = true;
+            break;
+          }
+        }
+      }
+
+      if (hasBlockingErrors) {
+        setPublishError("No se puede publicar el programa porque contiene violaciones bloqueantes del reglamento S-38-S.");
+        return;
+      }
+    }
+
     const updatedProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
     setPrograms(programs.map((p) => (p.id === selectedProgramId ? updatedProgram : p)));
   };
@@ -210,11 +272,17 @@ export const ProgramsWorkspace: React.FC = () => {
               return (
                 <div key={slot.id} className="p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 mr-2">
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                         {slot.durationMinutes} min
                       </span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{slot.title}</span>
+                      <input
+                        type="text"
+                        value={slot.title}
+                        onChange={(e) => handleUpdateTitle(slot.id, e.target.value)}
+                        className="px-2 py-1 border border-slate-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 flex-1 font-semibold"
+                        title="Título de la intervención (editable según la Guía de actividades)"
+                      />
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -277,6 +345,13 @@ export const ProgramsWorkspace: React.FC = () => {
               );
             })}
           </div>
+
+          {publishError && (
+            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs flex items-center gap-2" role="alert">
+              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+              <span>{publishError}</span>
+            </div>
+          )}
 
           {/* Acciones de Guardado y Publicación */}
           <div className="flex justify-between items-center pt-2">

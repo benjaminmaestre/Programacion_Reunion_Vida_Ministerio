@@ -48,7 +48,7 @@ export interface MemberWriteInput {
   isRegularPioneer?: boolean;
   additionalRoles?: string;
   isActive: boolean;
-  isBaptized: boolean;
+  isBaptized: boolean | null;
   phone?: string;
   email?: string;
   notes?: string;
@@ -85,7 +85,7 @@ function mapMember(row: DbMemberRow): DirectoryMember {
     isRegularPioneer: row.is_regular_pioneer ?? false,
     additionalRoles: row.additional_roles ?? undefined,
     isActive: row.is_active ?? true,
-    isBaptized: row.is_baptized ?? true,
+    isBaptized: row.is_baptized,
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
     notes: row.notes ?? undefined,

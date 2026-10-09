@@ -12,7 +12,7 @@ export interface Member {
   isRegularPioneer?: boolean;
   additionalRoles?: string;
   isActive: boolean;
-  isBaptized: boolean;
+  isBaptized: boolean | null;
   phone?: string;
   email?: string;
   notes?: string;

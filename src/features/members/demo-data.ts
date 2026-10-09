@@ -20,7 +20,7 @@ export interface DirectoryMember {
   isRegularPioneer?: boolean;
   additionalRoles?: string;
   isActive: boolean;
-  isBaptized: boolean;
+  isBaptized: boolean | null;
   phone?: string;
   email?: string;
   notes?: string;
@@ -59,12 +59,12 @@ export const CATEGORY_OPTIONS: Array<{ value: "all" | HistoryCategory; label: st
 // Datos ficticios para mostrar el comportamiento de la interfaz.
 // No representan a personas reales ni proceden de una congregación.
 export const DEMO_MEMBERS: DirectoryMember[] = [
-  { id: "demo-001", firstName: "David", lastName: "Morales", gender: "male", appointment: "elder", isActive: true, isBaptized: true },
-  { id: "demo-002", firstName: "Miguel", lastName: "Ríos", gender: "male", appointment: "ministerial_servant", isActive: true, isBaptized: true },
-  { id: "demo-003", firstName: "Andrés", lastName: "Herrera", gender: "male", appointment: "none", isActive: true, isBaptized: true },
-  { id: "demo-004", firstName: "Laura", lastName: "Vega", gender: "female", appointment: "none", isActive: true, isBaptized: true },
-  { id: "demo-005", firstName: "Sofía", lastName: "Castro", gender: "female", appointment: "none", isActive: true, isBaptized: true },
-  { id: "demo-006", firstName: "Carlos", lastName: "Jiménez", gender: "male", appointment: "none", isActive: false, isBaptized: true },
+  { id: "demo-001", firstName: "David", lastName: "Morales", gender: "male", appointment: "elder", isRegularPioneer: false, isActive: true, isBaptized: true },
+  { id: "demo-002", firstName: "Miguel", lastName: "Ríos", gender: "male", appointment: "ministerial_servant", isRegularPioneer: true, additionalRoles: "Secretario", isActive: true, isBaptized: true },
+  { id: "demo-003", firstName: "Andrés", lastName: "Herrera", gender: "male", appointment: "none", isRegularPioneer: false, isActive: true, isBaptized: null },
+  { id: "demo-004", firstName: "Laura", lastName: "Vega", gender: "female", appointment: "none", isRegularPioneer: true, isActive: true, isBaptized: true },
+  { id: "demo-005", firstName: "Sofía", lastName: "Castro", gender: "female", appointment: "none", isRegularPioneer: false, isActive: true, isBaptized: false },
+  { id: "demo-006", firstName: "Carlos", lastName: "Jiménez", gender: "male", appointment: "none", isRegularPioneer: false, isActive: false, isBaptized: null },
 ];
 
 export const DEMO_HISTORY: AssignmentHistoryEntry[] = [

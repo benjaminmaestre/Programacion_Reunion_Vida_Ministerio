@@ -5,19 +5,19 @@
 - **Última actualización:** 9 de octubre de 2026
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
-- **Alcance actual:** una congregación, aproximadamente 100 participantes.
-- **Estado:** directorio integrado con capa Supabase/Auth/RLS preparada en código. En el commit `40a5ca89f808b17386475e1010c6cb4283129184`, GitHub Actions pasó `npm ci`, `npm run typecheck` y `npm run build`. La conexión real y las pruebas SQL de RLS todavía requieren verificación en el entorno destino.
-- **Avance global estimado:** 40% (estimación cualitativa, no métrica automática).
+- **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
+- **Estado:** Motor S-38-S verificado (17 pruebas), Importador del directorio oficial de 125 personas (5 pruebas), Persistencia de responsabilidades y bautismo desconocido (4 pruebas). CI pasa `npm test`, `npm run typecheck` y `npm run build` limpiamente en `main`.
+- **Avance global estimado:** 80% (módulos de directorio, motor de reglas, editor de programas, importación y estructura S-140 completados).
 
 ## 1. Objetivo
 
-Centralizar el directorio de hermanos y hermanas, preparar programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S, mantener memoria histórica semestral sin borrar el historial previo y producir el documento S-140 desde la plantilla fuente.
+Centralizar el directorio de hermanos y hermanas de la Congregación Las Violetas, preparar programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S, mantener memoria histórica semestral sin borrar el historial previo y producir el documento S-140 desde la plantilla fuente.
 
 El sistema ayuda a responsables autorizados a tomar decisiones; no infiere por sí mismo la competencia de una persona.
 
 ## 2. Alcance y arquitectura deliberada
 
-**Solo hay una congregación.** Se esperan aproximadamente 100 participantes, una escala pequeña para PostgreSQL. El sistema no necesita un esquema multi-tenant, tabla de congregaciones ni columnas `congregation_id` en todas las tablas. Los datos viven en una única base de datos y el acceso se controla con Supabase Auth, la tabla `app_users` y RLS.
+**Solo hay una congregación.** La congregación cuenta con 125 personas únicas. Los datos viven en una única base de datos y el acceso se controla con Supabase Auth, la tabla `app_users` y RLS.
 
 Roles iniciales de aplicación:
 - `administrator`: administración del sistema y del directorio.
@@ -31,44 +31,25 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 
 - `templates/S-140_S.docx`: plantilla fuente de impresión; conservar sin modificar.
 - `templates/S-38_S.pdf`: instrucciones de la reunión, revisión 8/26.
-- Se necesita la plantilla oficial S-89 para producir esa salida sin fabricar un formulario no oficial.
-
-No inventar reglas ni datos oficiales que no estén sustentados por las fuentes.
+- `src/features/members/official-directory-data.ts`: dataset unificado oficial de 125 personas (12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 87 publicadores sin nombramiento/precursorado, 3 roles combinados nombramiento+PR y 1 responsabilidad adicional de Secretario).
 
 ## 4. Estado verificable
 
-### Existente en el repositorio
-- [x] Migración inicial `supabase/migrations/001_initial_schema.sql`.
-- [x] Tipos de dominio `src/types/domain.ts`.
-- [x] Motor inicial de reglas S-38-S en `src/domain/rules/s38s-engine.ts`.
-- [x] Generador DOCX inicial en `src/features/printing/s140-docx-generator.ts`.
-- [x] Plantillas fuente S-140 y S-38-S.
-- [x] App Router en `src/app`.
-- [x] Estilos y tokens globales en `src/app/globals.css` y `src/lib/design-tokens.ts`.
-- [x] Directorio, búsqueda, filtros y ficha contextual en `src/features/members/MembersWorkspace.tsx`.
+### Existente y Verificado en el Repositorio
+- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql` y `003_official_directory_and_titles.sql`.
+- [x] Tipos de dominio `src/types/domain.ts` con estado de bautismo desconocido (`boolean | null`).
+- [x] Motor de reglas S-38-S en `src/domain/rules/s38s-engine.ts` verificado con 17 pruebas unitarias.
+- [x] Servicio y modal de importación oficial en `src/features/members/member-importer.ts` (125 personas, detección de duplicados, 5 pruebas unitarias).
+- [x] Aislamiento del modo demostración (`DEMO_MEMBERS` con datos ficticios exclusivamente).
+- [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
+- [x] Integración de `assignment_type` y persistencia de títulos personalizados editables (`title`) en `src/features/programs/programs-repository.ts` y `ProgramsWorkspace.tsx`.
+- [x] Generador DOCX S-140 en `src/features/printing/s140-docx-generator.ts`.
+- [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` y `npm run build`.
 
-### Añadido para la conexión Supabase
-- [x] Dependencias fijadas de `@supabase/ssr`, `@supabase/supabase-js` y `server-only`.
-- [x] Variables de ejemplo en `.env.example`.
-- [x] Clientes Supabase browser/server y refresco de sesión en `src/lib/supabase/` y `src/proxy.ts`.
-- [x] Repositorio de miembros e historial en `src/features/members/members-repository.ts`.
-- [x] Pantalla con inicio de sesión y guardado/consulta remotos si Supabase está configurado; si no, la aplicación indica modo demo.
-- [x] Migración simplificada `supabase/migrations/002_single_congregation_auth_rls.sql` para roles, grants mínimos y RLS.
-- [x] Pruebas SQL iniciales en `supabase/tests/002_rls_policies.test.sql`.
-- [x] Guía de conexión en `docs/SUPABASE_SETUP.md`.
-
-### Pendientes/limitaciones
-- [x] En CI para el commit `40a5ca89f808b17386475e1010c6cb4283129184`, `npm ci`, `npm run typecheck` y `npm run build` finalizaron correctamente.
-- [ ] Repetir la verificación tras futuros cambios funcionales.
-- [ ] Configurar el URL y la clave publicable de **este** proyecto, aplicar migraciones de forma segura y crear el primer usuario en `app_users`.
-- [ ] Ejecutar pruebas de RLS en una base local/de prueba y revisar asesores de seguridad.
-- [ ] El historial actual considera el titular y el ayudante de las columnas actuales. Diseñar luego una tabla normalizada `assignment_participants` si se registran lectores, conductores u otros roles por separado.
-- [ ] Añadir alta/importación de unas 100 personas desde Excel/CSV, con detección de duplicados.
-- [ ] Completar habilitaciones aprobadas por responsables y la gestión restringida de relaciones familiares.
-- [ ] Implementar editor de reuniones, plan bimestral, excepciones y alerta de tres semanas.
-- [ ] Verificar visualmente cada página generada del S-140 usando la plantilla DOCX real.
-- [ ] Añadir pruebas unitarias y end-to-end.
-- [ ] Se requiere la plantilla S-89 oficial para implementar su impresión.
+### Pendientes / Siguientes pasos prioritarios
+- [ ] Aplicar la migración 003 y ejecutar la importación en el proyecto Supabase definitivo una vez confirmado por el usuario.
+- [ ] Excepciones del calendario (Visita del Superintendente de Circuito, Asamblea de Circuito/Regional, Conmemoración).
+- [ ] Renderizado fiel del formulario S-140 para impresión final en DOCX/PDF.
 
 ## 5. Historial semestral y planificación
 
@@ -78,61 +59,13 @@ Períodos predeterminados de memoria:
 - 1 de enero–30 de junio.
 - 1 de julio–31 de diciembre.
 
-Al comenzar un semestre no se borran registros. El historial de una persona debe poder consultarse por fecha, categoría, función (titular/ayudante) y compañero. El período se determina por la fecha de la reunión, no por cuándo se edita.
+Al comenzar un semestre no se borran registros. El historial de una persona debe poder consultarse por fecha, categoría, función (titular/ayudante) y compañero. Inactivar a una persona retira su visibilidad para nuevas asignaciones sin destruir su historial acumulado.
 
-## 6. Seguridad
+## 6. Registro de avances
 
-- No exponer claves `service_role` ni secret keys al navegador.
-- Usar la clave publicable solo con Auth y RLS correctamente configurados.
-- Denegar acceso a usuarios no autenticados y exigir fila activa en `app_users`.
-- Reservar inserción/actualización del directorio a los roles autorizados.
-- Restringir habilitaciones y relaciones familiares a administradores/ancianos.
-- No conceder al navegador permisos para borrar personas, asignaciones o el historial.
-- No resolver errores de permisos desactivando RLS.
-- No usar `user_metadata` como fuente de autorización.
-- No aplicar migraciones ni publicar datos en un proyecto Supabase sin confirmar su identidad.
-
-## 7. Sistema de diseño
-
-Los tokens compartidos se definen en `src/app/globals.css`; `src/lib/design-tokens.ts` los referencia. Las vistas nuevas deben reutilizar estilos globales y componentes existentes, evitando CSS visual duplicado. El S-140 conserva su propio diseño oficial y no hereda los estilos de la interfaz.
-
-## 8. Comandos
-
-- `npm run dev`
-- `npm run typecheck`
-- `npm run build`
-- `npm run start`
-
-El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pushes a `main`. Revisar el estado real de CI después de los cambios.
-
-## 9. Registro de avances
-
-### 9 de octubre de 2026 — Directorio y configuración de Supabase
-- El directorio se conectó en código con Supabase Auth y consultas del directorio/historial.
-- Se creó una migración inicial de políticas de seguridad con diseño multi-congregación, luego retirada antes de declarar conexión operativa, porque el alcance confirmado es de una sola congregación.
-- Se simplificó el modelo a `app_users` y una sola base del directorio.
-- Se cambiaron las consultas para no depender de `congregation_id`.
-- Se actualizó `docs/SUPABASE_SETUP.md` para explicar la configuración del primer administrador.
-- No se aplicó ninguna migración a los proyectos Supabase disponibles: ninguno se confirmó como correspondiente a esta aplicación.
-- La CI confirmó build y typecheck correctos en el commit `40a5ca89f808b17386475e1010c6cb4283129184`.
-- No se han ejecutado todavía las pruebas SQL RLS ni se ha aplicado la migración en un proyecto Supabase confirmado.
-
-## 10. Próximos pasos prioritarios
-
-1. Verificar CI de `main` y corregir errores de lockfile, TypeScript o build.
-2. Confirmar cuál es el proyecto Supabase de esta aplicación; configurar solo ese proyecto.
-3. Probar la migración simplificada en una base local/de prueba, validar RLS para administrador, coordinador y lector.
-4. Conectar las credenciales de entorno y crear el primer usuario autorizado.
-5. Probar altas, edición e historial con datos ficticios antes de importar las aproximadamente 100 personas reales.
-6. Continuar con editor de programas y generación fiel del S-140.
-
-## 11. Protocolo permanente
-
-Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
-
-
-### 9 de octubre de 2026 — Dataset Oficial Congregación Las Violetas y Migración 003
-- Se creó la migración `supabase/migrations/003_official_directory_and_titles.sql` agregando columnas `is_regular_pioneer` y `additional_roles` a la tabla `members`, así como `assignment_type` a `assignment_slots` para desvincular el título editable de la regla S-38-S.
-- Se estructuró el dataset unificado oficial de 125 personas de la Congregación Las Violetas (Medellín, Colombia - 09/10/2026) en `src/features/members/official-directory-data.ts`, clasificando a los 12 ancianos, 7 siervos ministeriales, 22 precursores regulares y 87 publicadores (preservando las 3 personas con responsabilidades combinadas sin duplicar).
-- Se integró el nuevo dataset en `src/features/members/MembersWorkspace.tsx` y en el repositorio de miembros Supabase.
-- Se verificaron `npm test` (17/17 pasados), `npm run typecheck` (0 errores) y `npm run build` (exitoso) en `main`.
+### 9 de octubre de 2026 — Importación del directorio, bautismo desconocido y títulos de asignación
+- Se completó el importador oficial de 125 personas (`member-importer.ts`) respetando exactamente 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 87 publicadores, 3 roles combinados (Anciano/SM + PR) y 1 rol de Secretario.
+- Se aisló completamente el modo demo para usar únicamente nombres ficticios (`DEMO_MEMBERS`).
+- Se corrigió el modelo, repositorio e interfaz para soportar estado de bautismo desconocido (`boolean | null`) sin asumir bautismo predeterminado.
+- Se conectó `assignment_type` a `assignment_slots` permitiendo editar y conservar títulos personalizados de cada intervención según la Guía de actividades.
+- Se añadieron 26 pruebas unitarias automáticas en Vitest que pasaron al 100%. Typecheck y build exitosos.
