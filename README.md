@@ -2,7 +2,7 @@
 
 Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL y Supabase para administrar el directorio de la congregación (125 personas), preparar los programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S y generar el documento impreso S-140 desde la plantilla oficial.
 
-## Estado Actual del Proyecto (Fase 5 Completada)
+## Estado Actual del Proyecto (Endurecimiento posterior a Fase 5)
 
 - **Congregación Objetivo:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas.
 - **Rama principal:** `main` (desarrollo directo en `main`).
@@ -47,3 +47,11 @@ Toda la especificación técnica, decisiones arquitectónicas, esquema SQL y reg
 - `templates/S-140_S.docx`: plantilla oficial de impresión S-140.
 - `templates/S-38_S.pdf`: instrucciones oficiales de la reunión Vida y Ministerio.
 - `src/features/members/official-directory-data.ts`: dataset unificado oficial de 125 personas de la Congregación Las Violetas.
+
+
+## Pendientes antes de producción
+
+- La migración 006 está en Git, pero todavía no se ha aplicado a un proyecto Supabase real.
+- Falta probar permisos RLS/RPC, atomicidad y concurrencia contra una instancia autorizada.
+- Falta la inspección visual del DOCX S-140 en Word o LibreOffice.
+- No importar el directorio oficial de 125 personas hasta confirmar y validar el proyecto Supabase de destino.
