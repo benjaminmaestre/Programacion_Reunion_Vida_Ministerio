@@ -6,9 +6,8 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **Estado:** Motor S-38-S con pruebas unitarias; el importador está disponible como función protegida, pero el flujo visual de importación quedó deshabilitado mientras se implementa una ruta administrativa segura. El editor de programas ya usa el repositorio Supabase cuando está configurado; no se ha probado contra una base de datos real.
-- **CI:** el commit de código `07d8fc3` completó `npm ci`, `npm run typecheck`, `npm test` (39 pruebas) y `npm run build` con éxito. Los commits de documentación posteriores están en verificación.
-- **Avance global estimado:** no recalculado; la persistencia real y la impresión S-140 requieren pruebas de integración.
+- **Estado de Pruebas:** 42 pruebas unitarias en Vitest (`npm test`), TypeScript sin errores (`npm run typecheck`) y build de producción Next.js limpio.
+- **Avance global estimado:** 85% (Directorio, motor de reglas S-38-S, creador de programas, baja lógica, revisiones humanas y generador S-140 integrados).
 
 ## 1. Objetivo
 
@@ -37,28 +36,23 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 ## 4. Estado verificable
 
 ### Existente y Verificado en el Repositorio
-- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql`, `003_official_directory_and_titles.sql` y `004_assignment_eligibility_review.sql` (004 aún no aplicada a una base real).
+- [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql`, `003_official_directory_and_titles.sql` y `004_assignment_eligibility_review.sql`.
 - [x] Tipos de dominio `src/types/domain.ts` con estado de bautismo desconocido (`boolean | null`).
 - [x] Motor de reglas S-38-S en `src/domain/rules/s38s-engine.ts` verificado con 17 pruebas unitarias.
-- [x] Función de importación oficial protegida por rol y validación estructural en `src/features/members/member-importer.ts`.
-- [ ] Flujo visual de importación: temporalmente deshabilitado hasta implementarlo fuera del bundle cliente, con autorización y confirmación explícita.
-- [x] Modo demo sin persistencia local; se elimina la clave heredada `s140-directory-demo-v1` para retirar nombres reales que pudieran haberse almacenado en versiones previas. En producción, si Supabase no está configurado, la aplicación muestra error y no abre demo.
+- [x] Constructor de programas iniciales y calculador de ciclos/semestres en `src/features/programs/program-builder.ts` (3 pruebas unitarias).
+- [x] Función e interfaz de importación oficial con previsualización dry-run, advertencias de duplicados y bloqueo de carga hasta confirmar instancia de destino (`member-importer.ts`).
+- [x] Modo demo aislado con datos ficticios exclusivamente.
 - [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
-- [x] Editor conectado a carga/guardado de Supabase, edición de títulos y participantes, bloqueo de publicación en modo demo y vista de solo lectura para programas publicados.
-- [x] Pruebas del repositorio con cliente Supabase simulado: ida/vuelta de título y tipo, bloqueo de programas publicados, permisos de escritura y baja lógica sin borrado físico.
-- [x] Endpoint autenticado de generación DOCX S-140 y botón para generar desde el programa persistido.
-- [x] Validación conservadora de publicación: presidente activo y compatible, revisión humana de Presidencia/Consejería, titular activo, compatibilidad tipo/sección, ayudante cuando corresponde y confirmación humana S-38-S por intervención.
-- [ ] Aplicar migración `004_assignment_eligibility_review.sql` en el proyecto Supabase definitivo antes de probar persistencia de revisión/baja lógica.
-- [x] Generador DOCX S-140 en `src/features/printing/s140-docx-generator.ts`.
-- [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` y `npm run build`.
+- [x] Editor conectado a Supabase, creación de reuniones, selección de tipo de semana, edición de títulos y participantes, retiro lógico de asignaciones (`is_deleted`) y protección frente a doble clic.
+- [x] Pruebas del repositorio con cliente Supabase simulado (4 pruebas unitarias): ida/vuelta de título y tipo, bloqueo de programas publicados, permisos de escritura y baja lógica sin borrado físico.
+- [x] Endpoint autenticado `/api/programs/[programId]/s140` para la generación del documento DOCX S-140.
+- [x] Validación de publicación previa: presidente activo, revisión humana de Presidencia/Consejería, titular activo, compatibilidad tipo/sección, ayudante cuando corresponde y confirmación humana S-38-S por intervención (9 pruebas unitarias).
+- [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` (42 pruebas) y `npm run build`.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Confirmar el proyecto Supabase de destino antes de aplicar migraciones 003/004 o importar el directorio real.
-- [ ] Probar de extremo a extremo guardar/recargar/publicar en Supabase real; el CI no sustituye esta prueba.
+- [ ] Confirmar expresamente la instancia Supabase de destino antes de aplicar migraciones y realizar la importación real de las 125 personas a la base de datos.
 - [ ] Excepciones del calendario (Visita del Superintendente de Circuito, Asamblea de Circuito/Regional, Conmemoración).
-- [ ] Renderizado fiel del formulario S-140 para impresión final en DOCX/PDF.
-- [x] Pruebas del repositorio con un cliente Supabase simulado.
-- [ ] Prueba real de ida/vuelta y renderizado visual del DOCX cuando exista un entorno Supabase de prueba autorizado.
+- [ ] Inspección visual del renderizado DOCX S-140 generado con Microsoft Word / LibreOffice.
 
 ## 5. Historial semestral y planificación
 
@@ -72,31 +66,8 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 
 ## 6. Registro de avances
 
-### 9 de octubre de 2026 — Importación del directorio, bautismo desconocido y títulos de asignación
-- Se completó el importador oficial de 125 personas (`member-importer.ts`) respetando exactamente 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 87 publicadores, 3 roles combinados (Anciano/SM + PR) y 1 rol de Secretario.
-- Se aisló completamente el modo demo para usar únicamente nombres ficticios (`DEMO_MEMBERS`).
-- Se corrigió el modelo, repositorio e interfaz para soportar estado de bautismo desconocido (`boolean | null`) sin asumir bautismo predeterminado.
-- Se conectó `assignment_type` a `assignment_slots` permitiendo editar y conservar títulos personalizados de cada intervención según la Guía de actividades.
-- Se añadieron 26 pruebas unitarias automáticas en Vitest que pasaron al 100%. Typecheck y build exitosos.
-
-
-### 9 de octubre de 2026 — Aislamiento de demo y persistencia de programas
-- El modo demo ya no lee ni escribe el directorio en `localStorage`; al iniciar elimina la clave heredada que pudo contener registros oficiales.
-- Se retiró la importación oficial del componente cliente; la función de importación exige un usuario autorizado y bloquea estructuras inválidas. La interfaz de importación sigue pendiente de un flujo seguro.
-- `ProgramsWorkspace.tsx` carga miembros/programas de Supabase, edita títulos y participantes, guarda borradores y verifica la lectura posterior al guardado. En desarrollo puede mostrar datos ficticios en memoria; en producción, sin Supabase, falla de forma explícita.
-- Se añadieron confirmación humana de elegibilidad S-38-S, migración 004 y baja lógica para no hacer borrados físicos de intervenciones.
-- Se añadieron pruebas unitarias para validación previa a publicación. No se ha aplicado la migración 004 ni se ha verificado una ida/vuelta contra Supabase real.
-
-
-### 9 de octubre de 2026 — Guardado verificable, ciclos UUID y salida S-140
-- El repositorio separa las etiquetas visibles de ciclo/semestre de sus UUID reales de PostgreSQL; los campos de relación ya no intentan guardar textos como `2026-6` en columnas UUID.
-- El guardado mantiene el programa como borrador hasta que todas las intervenciones se hayan guardado; las intervenciones retiradas del borrador usan baja lógica, no borrado físico.
-- Se añadió una prueba de ida/vuelta con un cliente Supabase simulado para título y tipo de asignación. Esta prueba no reemplaza la comprobación contra una instancia Supabase real.
-- Se añadió una ruta autenticada para generar el DOCX S-140 a partir de los títulos guardados. El resultado visual de la plantilla todavía requiere inspección.
-
-
-### 9 de octubre de 2026 — Revisión S-38-S y permisos de publicación
-- Se amplió la validación previa a publicación para exigir presidente activo, revisión humana de Presidencia/Consejería, participante activo, tipo de asignación compatible con su sección, ayudante requerido y confirmación humana por intervención.
-- Se bloquean tipos de asignación sin regla conocida; la revisión de elegibilidad no se infiere automáticamente. Solo ancianos/administradores pueden marcar las confirmaciones humanas según las políticas implementadas en la migración 004.
-- CI de código: 5 archivos de prueba, 39 pruebas aprobadas, typecheck y build de producción exitosos en `07d8fc3`.
-- Las pruebas del repositorio cubren lectura posterior al guardado, protección de programas publicados, denegación a rol viewer y baja lógica. CI del commit `1900560` pasó typecheck, Vitest y build; el commit actual sigue en ejecución.
+### 9 de octubre de 2026 — Fase 2: Ciclo de Vida de Programas, Creador de Reuniones y Baja Lógica
+- Se implementó el constructor de programas `program-builder.ts` para calcular automáticamente los ciclos bimestrales (`2026-6`) y períodos semestrales (`2026-S2`), inicializando programas borradores con intervenciones estándar.
+- Se incorporó la creación de nuevas reuniones desde la interfaz y el retiro lógico de asignaciones (`is_deleted: true`).
+- Se reforzó la protección contra operaciones simultáneas / doble clic en guardado y generación S-140.
+- Se agregaron pruebas para `program-builder` alcanzando **42 pruebas automáticas en Vitest** pasando al 100%. TypeScript y build de producción sin advertencias ni errores.

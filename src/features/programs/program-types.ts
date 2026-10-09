@@ -37,6 +37,7 @@ export interface AssignmentSlotDetail {
   eligibilityConfirmed?: boolean;
   eligibilityConfirmedBy?: string;
   eligibilityConfirmedAt?: string;
+  isDeleted?: boolean;
   notes?: string;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle, Download, LockKeyhole, Save, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -11,6 +11,8 @@ import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 import { getMeetingProgramsFromSupabase, saveMeetingProgramToSupabase } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
+import { buildDefaultMeetingProgram } from "./program-builder";
+import type { WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
@@ -32,6 +34,11 @@ export const ProgramsWorkspace: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
+
+  // Modal para crear un programa nuevo
+  const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
+  const [newMeetingDate, setNewMeetingDate] = useState("");
+  const [newWeekType, setNewWeekType] = useState<WeekType>("normal");
 
   const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
@@ -55,7 +62,6 @@ export const ProgramsWorkspace: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     async function initialize() {
-      // La demostración solo existe en desarrollo; nunca se presenta como persistencia real.
       if (!isSupabaseConfigured()) {
         if (process.env.NODE_ENV === "production") {
           if (!cancelled) {
@@ -115,8 +121,42 @@ export const ProgramsWorkspace: React.FC = () => {
     setPageError("");
   }
 
+  function handleRemoveSlot(slotId: string) {
+    if (!selectedProgram || (mode === "connected" && selectedProgram.status === "published")) return;
+    const slot = selectedProgram.slots.find((s) => s.id === slotId);
+    if (!slot) return;
+    if (!confirm(`¿Deseas retirar la intervención "${slot.title}" de este borrador?`)) return;
+
+    const updatedProgram: MeetingProgramDetail = {
+      ...selectedProgram,
+      updatedAt: new Date().toISOString(),
+      slots: selectedProgram.slots.filter((s) => s.id !== slotId),
+    };
+    updateProgram(updatedProgram);
+    setFeedback(`Intervención "${slot.title}" retirada del borrador.`);
+  }
+
+  function handleCreateNewProgram(event: React.FormEvent) {
+    event.preventDefault();
+    if (!newMeetingDate) {
+      setPageError("Selecciona una fecha válida para la reunión.");
+      return;
+    }
+    if (programs.some((p) => p.meetingDate === newMeetingDate)) {
+      setPageError(`Ya existe un programa registrado para la fecha ${newMeetingDate}.`);
+      return;
+    }
+
+    const newProgram = buildDefaultMeetingProgram(newMeetingDate, newWeekType);
+    setPrograms((current) => [newProgram, ...current]);
+    setSelectedProgramId(newProgram.id);
+    setIsNewProgramModalOpen(false);
+    setNewMeetingDate("");
+    setFeedback(`Nuevo programa borrador creado para la reunión del ${newMeetingDate}.`);
+  }
+
   async function handleSave(status: "draft" | "published") {
-    if (!selectedProgram) return;
+    if (!selectedProgram || saving) return;
     setPageError("");
     setFeedback("");
 
@@ -167,7 +207,7 @@ export const ProgramsWorkspace: React.FC = () => {
   }
 
   async function handleGenerateS140() {
-    if (!selectedProgram || mode !== "connected" || !client || !userId) {
+    if (!selectedProgram || generating || mode !== "connected" || !client || !userId) {
       setPageError("La generación del S-140 requiere una sesión conectada a Supabase.");
       return;
     }
@@ -175,7 +215,6 @@ export const ProgramsWorkspace: React.FC = () => {
     setPageError("");
     setFeedback("");
     try {
-      // Si el borrador es editable, guardar primero para que el documento use los títulos actuales.
       if (selectedProgram.status === "draft" && canManage) {
         await saveMeetingProgramToSupabase(client, userId, selectedProgram);
       }
@@ -243,7 +282,6 @@ export const ProgramsWorkspace: React.FC = () => {
 
   const readOnly = mode === "connected" && (selectedProgram?.status === "published" || !canManage);
   const cycleLabels = [...new Set(programs.map((program) => program.bimonthCycle))];
-  const selectedCycle = selectedProgram?.bimonthCycle ?? cycleLabels[0];
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
@@ -252,9 +290,20 @@ export const ProgramsWorkspace: React.FC = () => {
           <h1 className="flex items-center gap-2 text-2xl font-bold"><Calendar className="h-7 w-7 text-blue-600" />Programación Vida y Ministerio</h1>
           <p className="mt-1 text-sm text-slate-500">Títulos editables, participantes, revisión S-38-S y guardado verificado.</p>
         </div>
-        <span className={mode === "demo" ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800" : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"}>
-          {mode === "demo" ? "DEMO · SOLO MEMORIA" : "CONECTADO A SUPABASE"}
-        </span>
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button
+              onClick={() => setIsNewProgramModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+              type="button"
+            >
+              <Plus className="h-4 w-4" /> Crear programa
+            </button>
+          )}
+          <span className={mode === "demo" ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800" : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"}>
+            {mode === "demo" ? "DEMO · SOLO MEMORIA" : "CONECTADO A SUPABASE"}
+          </span>
+        </div>
       </header>
 
       {mode === "demo" && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="note">
@@ -295,7 +344,20 @@ export const ProgramsWorkspace: React.FC = () => {
             {selectedProgram && <div className="text-sm text-slate-500">Ciclo {selectedProgram.bimonthCycle} · {selectedProgram.weekType}</div>}
           </div>
 
-          {!selectedProgram ? <div className="rounded-xl border p-8 text-center text-slate-500">No hay reuniones para mostrar. Crea los programas iniciales cuando esté definido el flujo de planificación.</div> : (
+          {!selectedProgram ? (
+            <div className="rounded-xl border p-8 text-center text-slate-500 space-y-3">
+              <p>No hay reuniones para mostrar.</p>
+              {canManage && (
+                <button
+                  onClick={() => setIsNewProgramModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" /> Crear primera reunión
+                </button>
+              )}
+            </div>
+          ) : (
             <>
               {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{selectedProgram.status === "published" ? "Programa publicado: vista de solo lectura para proteger el historial." : "Tu rol tiene permisos de consulta. El programa está en modo de solo lectura."}</div>}
               <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
@@ -323,6 +385,16 @@ export const ProgramsWorkspace: React.FC = () => {
                       <span className="shrink-0 rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{slot.durationMinutes} min</span>
                       <input aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { title: event.target.value }, true)} className="min-w-0 flex-1 rounded-lg border p-2 font-semibold disabled:bg-slate-100" />
                       <span className="text-xs text-slate-500">{slot.assignmentType ?? "Tipo sin definir"}</span>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlot(slot.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
+                          title="Retirar intervención de este borrador"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="text-sm">Titular
@@ -359,6 +431,63 @@ export const ProgramsWorkspace: React.FC = () => {
             </>
           )}
         </section>
+      )}
+
+      {/* Modal Crear Programa */}
+      {isNewProgramModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h2 className="text-lg font-bold">Crear nueva reunión</h2>
+              <button type="button" onClick={() => setIsNewProgramModalOpen(false)} className="rounded p-1 hover:bg-slate-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewProgram} className="space-y-4">
+              <label className="block text-sm font-medium">
+                Fecha de la reunión *
+                <input
+                  type="date"
+                  required
+                  value={newMeetingDate}
+                  onChange={(e) => setNewMeetingDate(e.target.value)}
+                  className="mt-1 w-full rounded-lg border p-2 text-sm"
+                />
+              </label>
+
+              <label className="block text-sm font-medium">
+                Tipo de semana
+                <select
+                  value={newWeekType}
+                  onChange={(e) => setNewWeekType(e.target.value as WeekType)}
+                  className="mt-1 w-full rounded-lg border p-2 text-sm bg-white"
+                >
+                  <option value="normal">Normal (Reunión ordinaria)</option>
+                  <option value="circuit_overseer">Visita del Superintendente de Circuito</option>
+                  <option value="assembly">Asamblea de Circuito / Regional</option>
+                  <option value="memorial">Conmemoración</option>
+                </select>
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsNewProgramModalOpen(false)}
+                  className="rounded-lg border px-4 py-2 text-sm font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Crear programa
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </main>
   );
