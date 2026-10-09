@@ -184,6 +184,7 @@ export const ProgramsWorkspace: React.FC = () => {
       try {
         await saveMeetingProgramToSupabase(client, userId, newProgram);
         const freshPrograms = await getMeetingProgramsFromSupabase(client);
+        verifyProgramRoundTrip(newProgram, freshPrograms.find((program) => program.id === newProgram.id));
         setPrograms(freshPrograms);
         setSelectedProgramId(newProgram.id);
         setIsNewProgramModalOpen(false);
