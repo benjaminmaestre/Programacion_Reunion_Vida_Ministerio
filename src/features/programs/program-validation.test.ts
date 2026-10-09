@@ -18,6 +18,9 @@ function program(overrides: Partial<MeetingProgramDetail> = {}): MeetingProgramD
     bimonthCycle: "2026-6",
     historyPeriod: "2026-S2",
     status: "draft",
+    chairmanId: "m3",
+    leadershipReviewConfirmed: true,
+    leadershipReviewConfirmedBy: "responsable-1",
     updatedAt: "2026-10-09T00:00:00.000Z",
     slots: [{
       id: "00000000-0000-4000-8000-000000000002",
