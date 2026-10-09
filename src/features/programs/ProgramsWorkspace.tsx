@@ -395,6 +395,20 @@ export const ProgramsWorkspace: React.FC = () => {
                     {members.filter((member) => member.isActive && member.appointment === "elder").map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
                   </select>
                 </label>
+                {selectedProgram.weekType === "circuit_overseer" && (
+                  <label className="text-sm md:col-span-2">Título real del discurso del Superintendente de Circuito
+                    <input
+                      value={selectedProgram.circuitOverseerTalkTitle ?? ""}
+                      disabled={!!readOnly}
+                      onChange={(event) => {
+                        updateProgram({ ...selectedProgram, circuitOverseerTalkTitle: event.target.value, updatedAt: new Date().toISOString() });
+                        setFeedback("");
+                      }}
+                      placeholder="Escribe el título asignado del discurso de servicio"
+                      className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100"
+                    />
+                  </label>
+                )}
                 <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm md:col-span-2">
                   <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, leadershipReviewConfirmedAt: event.target.checked ? selectedProgram.leadershipReviewConfirmedAt : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
                   <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Solo un anciano o administrador debe confirmar la elegibilidad antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
