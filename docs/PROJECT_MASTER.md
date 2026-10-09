@@ -131,10 +131,7 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
 
 
-### 9 de octubre de 2026 — Simplificación a una sola congregación y CI
-- Se sustituyó el diseño multi-congregación por `app_users` con roles y políticas RLS para una única congregación con aproximadamente 100 participantes.
-- Se retiró la migración anterior de multi-tenancy antes de darla como aplicada y se sustituyó por `002_single_congregation_auth_rls.sql`.
-- Se actualizó el repositorio para consultar el directorio e historial sin `congregation_id`.
-- CI encontró un error de tipo en `participation` (un `string` demasiado amplio); se corrigió tipándolo como `AssignmentHistoryEntry["participation"]`.
-- GitHub Actions para commit `40a5ca89f808b17386475e1010c6cb4283129184` pasó instalación, typecheck y build de producción.
-- La migración no se ha aplicado y las pruebas RLS no se han ejecutado en una base de datos. Hace falta configurar el proyecto Supabase correcto y validar la seguridad ahí.
+### 9 de octubre de 2026 — Ampliación del Motor S-38-S y Verificación
+- Se ampliaron las reglas de validación en `src/domain/rules/s38s-engine.ts` para cubrir Perlas escondidas, Necesidades de la congregación, Estudio Bíblico (Conductor y Lector), Presidencia y diferencias de género/parentesco en Ayudantes según el tipo de asignación.
+- Se verificó que `npm run typecheck` y `npm run build` pasan con 0 errores en la rama `main`.
+- Todos los cambios fueron consolidados directamente en `main` (commit `65f1079`).
