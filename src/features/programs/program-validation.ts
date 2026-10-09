@@ -27,7 +27,7 @@ export function validateProgramForPublication(
       switch (slot.assignmentType) {
         case "treasures_talk":
         case "gems":
-          if (primary.gender !== "male" || !["elder", "ministerial_servant"].includes(primary.appointment)) {
+          if (primary.gender !== "male" || (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant")) {
             errors.push(`${label}: esta intervención requiere un anciano o siervo ministerial varón.`);
           }
           break;
