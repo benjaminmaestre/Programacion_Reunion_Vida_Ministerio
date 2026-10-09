@@ -1,57 +1,43 @@
 # Gestión de Asignaciones — Vida y Ministerio Cristianos (S-140 / S-38-S)
 
-Aplicación web profesional desarrollada con Next.js App Router, TypeScript, Tailwind CSS, PostgreSQL y Supabase para administrar el directorio de la congregación (125 personas), preparar los programas de la reunión Vida y Ministerio Cristianos, validar las instrucciones S-38-S y generar el documento impreso S-140 desde la plantilla oficial.
+Aplicación web para administrar el directorio de la congregación, preparar programas de la reunión Vida y Ministerio Cristianos, validar reglas S-38-S y generar el documento S-140.
 
-## Estado Actual del Proyecto (Endurecimiento posterior a Fase 5)
+## Estado de infraestructura — 9 de octubre de 2026
 
-- **Congregación Objetivo:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas.
-- **Rama principal:** `main` (desarrollo directo en `main`).
-- **CI verificado:** commit `a20a677` pasó 58 pruebas en 7 archivos, `npm run typecheck` y `npm run build` en GitHub Actions.
-- **Seguridad RPC SECURITY DEFINER:** la migración `006_rpc_security_and_publication_guards.sql` incorpora endurecimiento de permisos, auditoría y validación de publicación. Está preparada en Git, pero aún no se ha aplicado ni probado en un proyecto Supabase real.
-- **Eliminación del Fallback Inseguro:** Remoción total de escrituras directas múltiples no atómicas en `programs-repository.ts`, exigiendo exclusivamente la llamada RPC `save_meeting_program_transaction`.
-- **Identificadores UUID:** Cumplimiento estricto con UUID v4 RFC 4122 para `meeting_programs` y `assignment_slots` compatibles con PostgreSQL.
-- **Auto-creación de Ciclos y Semestres:** Resolución y creación automática de UUIDs para `planning_cycles` y `history_periods` impidiendo registros huérfanos.
-- **Semanas Especiales y Revisiones:** Manejo explícito por tipo de semana (`normal`, `circuit_overseer`, `assembly`, `memorial`) e invalidación de aprobaciones de elegibilidad al cambiar asignaciones (`invalidateReviewIfChanged`).
-- **Endpoint y API S-140:** Cobertura de pruebas completa en `s140-route.test.ts` para respuestas 503, 401, 403, 404, 500 y 200 (con validación de cabeceras HTTP y bytes mágicos `PK\x03\x04` del contenedor DOCX).
-- **Motor S-38-S:** Validaciones citando párrafos oficiales del S-38-S y revisiones humanas de elegibilidad.
+- **Base de datos Neon creada:** proyecto `Programacion_Vida_Ministerio`, región AWS São Paulo (`aws-sa-east-1`).
+- **Base PostgreSQL:** `programacion_vida_ministerio` (PostgreSQL convierte los nombres no entrecomillados a minúsculas).
+- **Autenticación Neon Auth y Data API:** configuradas.
+- **Esquema:** migraciones 001 a 006 aplicadas, incluidas reglas de autorización por rol y la RPC transaccional para guardar programas.
+- **Directorio importado y verificado:** 139 personas únicas: 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 128 activos y 11 inactivos. El estado de bautismo está en `NULL` para las 139 personas porque la fuente no lo especificaba.
+- **Seguridad:** RLS está habilitado en las ocho tablas públicas de la aplicación. El acceso de usuarios requiere una cuenta Neon Auth y una fila activa en `public.app_users` con el rol correspondiente.
 
-## Requisitos e Instalación
+## Integración de la aplicación pendiente
 
-- Node.js 18+ o superior.
-- npm.
+La infraestructura y los datos ya están en Neon, pero el código de la interfaz todavía usa el cliente de Supabase (`@supabase/supabase-js` y `@supabase/ssr`). **No apuntes el sitio a los datos reales hasta completar y probar la sustitución del cliente y la autenticación por Neon.** Las URLs públicas de Neon están documentadas en `docs/NEON_SETUP.md`; las cadenas de conexión y secretos no se guardan en Git.
+
+## Migraciones SQL
+
+Las migraciones adaptadas para Neon están en `neon/migrations/`. Aplicarlas en orden a una base Neon nueva:
+
+1. `001_initial_schema.sql`
+2. `002_neon_auth_rls.sql`
+3. `003_official_directory_and_titles.sql`
+4. `004_assignment_eligibility_review.sql`
+5. `005_save_meeting_program_transaction.sql`
+6. `006_rpc_security_and_publication_guards.sql`
+
+La importación validada está en `neon/imports/listado_unificado_las_violetas_2026_10_09.sql`. Requiere las migraciones 001 y 003 y aborta si `public.members` ya contiene registros; no borra ni sobreescribe datos existentes.
+
+## Desarrollo
+
+Requisitos: Node.js y npm.
 
 ```bash
-# Instalación de dependencias
 npm install
-
-# Ejecutar servidor de desarrollo
 npm run dev
-
-# Ejecutar pruebas unitarias
 npm test
-
-# Comprobar tipos TypeScript y build de producción
 npm run typecheck
 npm run build
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
-
-## Documentación Principal
-
-Toda la especificación técnica, decisiones arquitectónicas, esquema SQL y registro de avances se encuentran documentados en:
-📍 [docs/PROJECT_MASTER.md](docs/PROJECT_MASTER.md)
-
-## Fuentes Funcionales Oficiales
-
-- `templates/S-140_S.docx`: plantilla oficial de impresión S-140.
-- `templates/S-38_S.pdf`: instrucciones oficiales de la reunión Vida y Ministerio.
-- `src/features/members/official-directory-data.ts`: dataset unificado oficial de 125 personas de la Congregación Las Violetas.
-
-
-## Pendientes antes de producción
-
-- La migración 006 está en Git, pero todavía no se ha aplicado a un proyecto Supabase real.
-- Falta probar permisos RLS/RPC, atomicidad y concurrencia contra una instancia autorizada.
-- Falta la inspección visual del DOCX S-140 en Word o LibreOffice.
-- No importar el directorio oficial de 125 personas hasta confirmar y validar el proyecto Supabase de destino.
+La conexión real de la interfaz y las pruebas integrales de autenticación deben completarse antes de producción.
