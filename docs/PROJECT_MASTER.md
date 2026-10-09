@@ -6,8 +6,9 @@
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
-- **Estado:** Motor S-38-S verificado (17 pruebas), Importador del directorio oficial de 125 personas (5 pruebas), Persistencia de responsabilidades y bautismo desconocido (4 pruebas). CI pasa `npm test`, `npm run typecheck` y `npm run build` limpiamente en `main`.
-- **Avance global estimado:** 80% (módulos de directorio, motor de reglas, editor de programas, importación y estructura S-140 completados).
+- **Estado:** Motor S-38-S con pruebas unitarias; el importador está disponible como función protegida, pero el flujo visual de importación quedó deshabilitado mientras se implementa una ruta administrativa segura. El editor de programas ya usa el repositorio Supabase cuando está configurado; no se ha probado contra una base de datos real.
+- **CI:** los últimos cambios están en verificación; no declarar éxito hasta que termine la ejecución del commit actual.
+- **Avance global estimado:** no recalculado; la persistencia real y la impresión S-140 requieren pruebas de integración.
 
 ## 1. Objetivo
 
@@ -39,17 +40,22 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [x] Migraciones `001_initial_schema.sql`, `002_single_congregation_auth_rls.sql` y `003_official_directory_and_titles.sql`.
 - [x] Tipos de dominio `src/types/domain.ts` con estado de bautismo desconocido (`boolean | null`).
 - [x] Motor de reglas S-38-S en `src/domain/rules/s38s-engine.ts` verificado con 17 pruebas unitarias.
-- [x] Servicio y modal de importación oficial en `src/features/members/member-importer.ts` (125 personas, detección de duplicados, 5 pruebas unitarias).
-- [x] Aislamiento del modo demostración (`DEMO_MEMBERS` con datos ficticios exclusivamente).
+- [x] Función de importación oficial protegida por rol y validación estructural en `src/features/members/member-importer.ts`.
+- [ ] Flujo visual de importación: temporalmente deshabilitado hasta implementarlo fuera del bundle cliente, con autorización y confirmación explícita.
+- [x] Modo demo sin persistencia local; se elimina la clave heredada `s140-directory-demo-v1` para retirar nombres reales que pudieran haberse almacenado en versiones previas. En producción, si Supabase no está configurado, la aplicación muestra error y no abre demo.
 - [x] Gestión de nombramientos, precursorado regular, responsabilidades adicionales (Secretario) e inactivación/reactivación en `MembersWorkspace.tsx`.
-- [x] Integración de `assignment_type` y persistencia de títulos personalizados editables (`title`) en `src/features/programs/programs-repository.ts` y `ProgramsWorkspace.tsx`.
+- [x] Editor conectado a carga/guardado de Supabase, edición de títulos y participantes, bloqueo de publicación en modo demo y vista de solo lectura para programas publicados.
+- [x] Validación conservadora de publicación: titular activo, compatibilidad básica, ayudante cuando corresponde y confirmación humana S-38-S.
+- [ ] Aplicar migración `004_assignment_eligibility_review.sql` en el proyecto Supabase definitivo antes de probar persistencia de revisión/baja lógica.
 - [x] Generador DOCX S-140 en `src/features/printing/s140-docx-generator.ts`.
 - [x] Workflow `.github/workflows/ci.yml` ejecutando `npm ci`, `npm run typecheck`, `npm test` y `npm run build`.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Aplicar la migración 003 y ejecutar la importación en el proyecto Supabase definitivo una vez confirmado por el usuario.
+- [ ] Confirmar el proyecto Supabase de destino antes de aplicar migraciones 003/004 o importar el directorio real.
+- [ ] Probar de extremo a extremo guardar/recargar/publicar en Supabase real; el CI no sustituye esta prueba.
 - [ ] Excepciones del calendario (Visita del Superintendente de Circuito, Asamblea de Circuito/Regional, Conmemoración).
 - [ ] Renderizado fiel del formulario S-140 para impresión final en DOCX/PDF.
+- [ ] Completar pruebas de integración del repositorio con un cliente Supabase simulado y prueba real de ida/vuelta cuando exista un entorno de prueba autorizado.
 
 ## 5. Historial semestral y planificación
 
@@ -69,3 +75,11 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 - Se corrigió el modelo, repositorio e interfaz para soportar estado de bautismo desconocido (`boolean | null`) sin asumir bautismo predeterminado.
 - Se conectó `assignment_type` a `assignment_slots` permitiendo editar y conservar títulos personalizados de cada intervención según la Guía de actividades.
 - Se añadieron 26 pruebas unitarias automáticas en Vitest que pasaron al 100%. Typecheck y build exitosos.
+
+
+### 9 de octubre de 2026 — Aislamiento de demo y persistencia de programas
+- El modo demo ya no lee ni escribe el directorio en `localStorage`; al iniciar elimina la clave heredada que pudo contener registros oficiales.
+- Se retiró la importación oficial del componente cliente; la función de importación exige un usuario autorizado y bloquea estructuras inválidas. La interfaz de importación sigue pendiente de un flujo seguro.
+- `ProgramsWorkspace.tsx` carga miembros/programas de Supabase, edita títulos y participantes, guarda borradores y verifica la lectura posterior al guardado. En desarrollo puede mostrar datos ficticios en memoria; en producción, sin Supabase, falla de forma explícita.
+- Se añadieron confirmación humana de elegibilidad S-38-S, migración 004 y baja lógica para no hacer borrados físicos de intervenciones.
+- Se añadieron pruebas unitarias para validación previa a publicación. No se ha aplicado la migración 004 ni se ha verificado una ida/vuelta contra Supabase real.
