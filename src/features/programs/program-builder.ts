@@ -212,6 +212,7 @@ export function buildDefaultMeetingProgram(
     bimonthCycle: cycle,
     historyPeriod: period,
     status: "draft",
+    notes: weekType === "assembly" ? "Semana de asamblea" : weekType === "memorial" ? "Semana de Conmemoración" : undefined,
     updatedAt: new Date().toISOString(),
     slots: defaultSlots,
   };
