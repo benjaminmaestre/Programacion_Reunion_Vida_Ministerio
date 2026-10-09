@@ -20,18 +20,33 @@ AS $$
 DECLARE
   current_role public.app_user_role;
 BEGIN
-  IF NEW.eligibility_confirmed IS DISTINCT FROM OLD.eligibility_confirmed
-     OR (TG_OP = 'INSERT' AND NEW.eligibility_confirmed = TRUE) THEN
-    SELECT au.role INTO current_role
-    FROM public.app_users AS au
-    WHERE au.user_id = (SELECT auth.uid()) AND au.is_active = TRUE;
-
-    IF NEW.eligibility_confirmed = TRUE
-       AND (current_role IS NULL OR current_role NOT IN ('administrator', 'elder')) THEN
-      RAISE EXCEPTION 'Solo un administrador o anciano puede confirmar la revisión S-38-S.';
-    END IF;
-
+  IF TG_OP = 'INSERT' THEN
     IF NEW.eligibility_confirmed = TRUE THEN
+      SELECT au.role INTO current_role
+      FROM public.app_users AS au
+      WHERE au.user_id = (SELECT auth.uid()) AND au.is_active = TRUE;
+
+      IF current_role IS NULL OR current_role NOT IN ('administrator', 'elder') THEN
+        RAISE EXCEPTION 'Solo un administrador o anciano puede confirmar la revisión S-38-S.';
+      END IF;
+      NEW.eligibility_confirmed_by := (SELECT auth.uid());
+      NEW.eligibility_confirmed_at := NOW();
+    ELSE
+      NEW.eligibility_confirmed_by := NULL;
+      NEW.eligibility_confirmed_at := NULL;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.eligibility_confirmed IS DISTINCT FROM OLD.eligibility_confirmed THEN
+    IF NEW.eligibility_confirmed = TRUE THEN
+      SELECT au.role INTO current_role
+      FROM public.app_users AS au
+      WHERE au.user_id = (SELECT auth.uid()) AND au.is_active = TRUE;
+
+      IF current_role IS NULL OR current_role NOT IN ('administrator', 'elder') THEN
+        RAISE EXCEPTION 'Solo un administrador o anciano puede confirmar la revisión S-38-S.';
+      END IF;
       NEW.eligibility_confirmed_by := (SELECT auth.uid());
       NEW.eligibility_confirmed_at := NOW();
     ELSE
