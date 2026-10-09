@@ -174,6 +174,7 @@ export async function saveMeetingProgramToSupabase(
         assistant_participant_id: slot.assistantParticipantId || null,
         eligibility_confirmed: slot.eligibilityConfirmed === true,
         eligibility_confirmed_by: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedBy || userId) : null,
+        eligibility_confirmed_at: slot.eligibilityConfirmed ? new Date().toISOString() : null,
         notes: slot.notes || null,
       });
 
