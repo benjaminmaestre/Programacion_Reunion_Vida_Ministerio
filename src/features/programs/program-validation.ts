@@ -50,6 +50,7 @@ export function validateProgramForPublication(
         case "bible_reading":
         case "student_talk":
         case "bible_study_reader":
+        case "living_part":
           if (primary.gender !== "male") errors.push(`${label}: la asignación requiere un participante varón.`);
           break;
         case "living_needs":
@@ -65,12 +66,16 @@ export function validateProgramForPublication(
           const assistant = slot.assistantParticipantId ? activeMembers.get(slot.assistantParticipantId) : undefined;
           if (!assistant) errors.push(`${label}: selecciona un ayudante activo.`);
           else if (assistant.id === primary.id) errors.push(`${label}: titular y ayudante deben ser personas distintas.`);
+          else if ((slot.assignmentType === "revisit" || slot.assignmentType === "disciples") && assistant.gender !== primary.gender) {
+            errors.push(`${label}: para revisitas y hacer discípulos, titular y ayudante deben ser del mismo sexo.`);
+          }
           break;
         }
         case undefined:
           errors.push(`${label}: el tipo de asignación no está definido; requiere revisión.`);
           break;
         default:
+          errors.push(`${label}: el tipo de asignación no tiene una regla de validación definida.`);
           break;
       }
     }
