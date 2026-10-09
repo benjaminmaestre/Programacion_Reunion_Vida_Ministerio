@@ -96,6 +96,8 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       weekType: "normal",
       bimonthCycle: "2026-6",
       historyPeriod: "2026-S2",
+      planningCycleId: "00000000-0000-4000-8000-000000000003",
+      historyPeriodId: "00000000-0000-4000-8000-000000000004",
       status: "draft",
       updatedAt: "2026-10-09T00:00:00.000Z",
       slots: [{
