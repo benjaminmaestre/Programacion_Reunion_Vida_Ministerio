@@ -21,6 +21,20 @@ import type {
   MemberAppointment, MemberGender,
 } from "./demo-data";
 
+import { OFFICIAL_CONGREGATION_MEMBERS } from "./official-directory-data";
+
+const OFFICIAL_MEMBERS_INIT: DirectoryMember[] = OFFICIAL_CONGREGATION_MEMBERS.map((m, idx) => ({
+  id: `las-violetas-${idx + 1}`,
+  firstName: m.firstName,
+  lastName: m.lastName,
+  gender: m.gender,
+  appointment: m.appointment,
+  isRegularPioneer: m.isRegularPioneer,
+  additionalRoles: m.additionalRoles,
+  isActive: true,
+  isBaptized: true,
+}));
+
 const STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
 type CategoryFilter = "all" | HistoryCategory;
@@ -69,6 +83,8 @@ export function MembersWorkspace() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+
+
   useEffect(() => {
     let cancelled = false;
 
@@ -76,10 +92,10 @@ export function MembersWorkspace() {
       if (!isSupabaseConfigured()) {
         try {
           const saved = window.localStorage.getItem(STORAGE_KEY);
-          let initialMembers = DEMO_MEMBERS;
+          let initialMembers = OFFICIAL_MEMBERS_INIT;
           if (saved) {
             const parsed: unknown = JSON.parse(saved);
-            if (Array.isArray(parsed)) initialMembers = parsed as DirectoryMember[];
+            if (Array.isArray(parsed) && parsed.length > 0) initialMembers = parsed as DirectoryMember[];
           }
           if (cancelled) return;
           setMembers(initialMembers);
@@ -87,8 +103,8 @@ export function MembersWorkspace() {
           setMode("demo");
         } catch {
           if (cancelled) return;
-          setMembers(DEMO_MEMBERS);
-          setSelectedMemberId(DEMO_MEMBERS[0]?.id ?? "");
+          setMembers(OFFICIAL_MEMBERS_INIT);
+          setSelectedMemberId(OFFICIAL_MEMBERS_INIT[0]?.id ?? "");
           setMode("demo");
         } finally {
           if (!cancelled) setIsReady(true);

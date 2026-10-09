@@ -22,6 +22,8 @@ interface DbMemberRow {
   last_name: string;
   gender: MemberGender;
   appointment: MemberAppointment | null;
+  is_regular_pioneer?: boolean | null;
+  additional_roles?: string | null;
   is_active: boolean | null;
   is_baptized: boolean | null;
   phone: string | null;
@@ -43,6 +45,8 @@ export interface MemberWriteInput {
   lastName: string;
   gender: MemberGender;
   appointment: MemberAppointment;
+  isRegularPioneer?: boolean;
+  additionalRoles?: string;
   isActive: boolean;
   isBaptized: boolean;
   phone?: string;
@@ -78,6 +82,8 @@ function mapMember(row: DbMemberRow): DirectoryMember {
     lastName: row.last_name,
     gender: row.gender,
     appointment: row.appointment ?? "none",
+    isRegularPioneer: row.is_regular_pioneer ?? false,
+    additionalRoles: row.additional_roles ?? undefined,
     isActive: row.is_active ?? true,
     isBaptized: row.is_baptized ?? true,
     phone: row.phone ?? undefined,
@@ -92,6 +98,8 @@ function toDatabaseRow(input: MemberWriteInput) {
     last_name: input.lastName.trim(),
     gender: input.gender,
     appointment: input.appointment,
+    is_regular_pioneer: input.isRegularPioneer ?? false,
+    additional_roles: input.additionalRoles?.trim() || null,
     is_active: input.isActive,
     is_baptized: input.isBaptized,
     phone: input.phone?.trim() || null,
@@ -129,7 +137,7 @@ export async function listMembers(
   await getCurrentAppUser(supabase, userId);
   const { data, error } = await supabase
     .from("members")
-    .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
+    .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
     .order("first_name", { ascending: true })
     .order("last_name", { ascending: true });
 
@@ -148,7 +156,7 @@ export async function createMember(
   const { data, error } = await supabase
     .from("members")
     .insert(toDatabaseRow(input))
-    .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
+    .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
     .single();
 
   throwIfError(error, "guardar la persona");
@@ -169,7 +177,7 @@ export async function updateMember(
     .from("members")
     .update(toDatabaseRow(input))
     .eq("id", memberId)
-    .select("id, first_name, last_name, gender, appointment, is_active, is_baptized, phone, email, notes")
+    .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
     .single();
 
   throwIfError(error, "actualizar la persona");
