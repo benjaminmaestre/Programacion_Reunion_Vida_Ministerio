@@ -1,0 +1,41 @@
+{
+  "name": "programacion_reunion_vida_ministerio",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio/issues"
+  },
+  "homepage": "https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio#readme",
+  "dependencies": {
+    "@tanstack/react-table": "^9.2.8",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "docxtemplater": "^3.71.0",
+    "lucide-react": "^1.54.0",
+    "next": "^16.4.0",
+    "pizzip": "^3.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-hook-form": "^7.89.0",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^7.0.2",
+    "zod": "^4.6.5"
+  }
+}
