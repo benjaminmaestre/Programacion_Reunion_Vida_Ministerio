@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { assertCanManageDirectory } from "../members/members-repository";
 import { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
@@ -28,6 +29,8 @@ interface DbAssignmentSlotRow {
   assignment_type: string | null;
   primary_participant_id: string | null;
   assistant_participant_id: string | null;
+  eligibility_confirmed?: boolean | null;
+  eligibility_confirmed_by?: string | null;
   notes: string | null;
 }
 
@@ -72,6 +75,8 @@ export async function getMeetingProgramsFromSupabase(
       assignmentType: (slot.assignment_type as AssignmentSlotDetail["assignmentType"]) || undefined,
       primaryParticipantId: slot.primary_participant_id || undefined,
       assistantParticipantId: slot.assistant_participant_id || undefined,
+      eligibilityConfirmed: slot.eligibility_confirmed === true,
+      eligibilityConfirmedBy: slot.eligibility_confirmed_by || undefined,
       notes: slot.notes || undefined,
     });
     slotsByProgram.set(slot.meeting_program_id, list);
@@ -95,10 +100,35 @@ export async function getMeetingProgramsFromSupabase(
 
 export async function saveMeetingProgramToSupabase(
   supabase: SupabaseBrowserClient,
+  userId: string,
   program: MeetingProgramDetail
 ): Promise<void> {
-  const isDraft = program.status === "draft";
+  await assertCanManageDirectory(supabase, userId);
+  const { data: existingProgram, error: existingProgramError } = await supabase
+    .from("meeting_programs")
+    .select("is_draft")
+    .eq("id", program.id)
+    .maybeSingle();
 
+  if (existingProgramError) throw new Error("No se pudo comprobar el estado actual del programa.");
+  if (existingProgram && existingProgram.is_draft === false) {
+    throw new Error("Este programa ya está publicado y se protege contra modificaciones. No se guardaron cambios.");
+  }
+
+  const { data: existingSlots, error: existingSlotsError } = await supabase
+    .from("assignment_slots")
+    .select("id")
+    .eq("meeting_program_id", program.id);
+  if (existingSlotsError) throw new Error("No se pudo comprobar la integridad de las intervenciones.");
+
+  const currentSlotIds = program.slots.map((slot) => slot.id);
+  const existingSlotIds = (existingSlots ?? []).map((slot: { id: string }) => slot.id);
+  const toDelete = existingSlotIds.filter((id: string) => !currentSlotIds.includes(id));
+  if (program.status === "published" && toDelete.length > 0) {
+    throw new Error("No se pueden eliminar intervenciones al publicar. Guarda el borrador y revisa los cambios.");
+  }
+
+  const isDraft = program.status === "draft";
   const { error: progError } = await supabase
     .from("meeting_programs")
     .upsert({
@@ -119,24 +149,13 @@ export async function saveMeetingProgramToSupabase(
     throw new Error("No se pudo guardar el programa en la base de datos.");
   }
 
-  // Cleanup removed slots from draft
-  const currentSlotIds = program.slots.map((s) => s.id);
-  const { data: existingSlots } = await supabase
-    .from("assignment_slots")
-    .select("id")
-    .eq("meeting_program_id", program.id);
-
-  if (existingSlots && existingSlots.length > 0) {
-    const toDelete = existingSlots
-      .map((s: { id: string }) => s.id)
-      .filter((id: string) => !currentSlotIds.includes(id));
-
-    if (toDelete.length > 0) {
-      await supabase
-        .from("assignment_slots")
-        .delete()
-        .in("id", toDelete);
-    }
+  // Solo se eliminan intervenciones que pertenecen a un borrador existente.
+  if (isDraft && toDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("assignment_slots")
+      .delete()
+      .in("id", toDelete);
+    if (deleteError) throw new Error("No se pudieron eliminar las intervenciones del borrador.");
   }
 
   for (const slot of program.slots) {
@@ -153,6 +172,8 @@ export async function saveMeetingProgramToSupabase(
         assignment_type: slot.assignmentType || null,
         primary_participant_id: slot.primaryParticipantId || null,
         assistant_participant_id: slot.assistantParticipantId || null,
+        eligibility_confirmed: slot.eligibilityConfirmed === true,
+        eligibility_confirmed_by: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedBy || userId) : null,
         notes: slot.notes || null,
       });
 
