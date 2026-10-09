@@ -3,15 +3,16 @@ import { OFFICIAL_CONGREGATION_MEMBERS } from "./official-directory-data";
 import { previewMemberImport, validateOfficialImportData } from "./member-importer";
 import type { DirectoryMember } from "./demo-data";
 
-describe("Importación real del directorio de 125 personas (Congregación Las Violetas)", () => {
-  it("valida correctamente la estructura del listado oficial de 125 personas", () => {
+describe("Importación real del directorio de 139 personas (Congregación Las Violetas)", () => {
+  it("valida correctamente la estructura del listado oficial de 139 personas", () => {
     const validation = validateOfficialImportData(OFFICIAL_CONGREGATION_MEMBERS);
 
-    expect(validation.totalRecords).toBe(125);
+    expect(validation.totalRecords).toBe(139);
     expect(validation.eldersCount).toBe(12);
     expect(validation.ministerialServantsCount).toBe(7);
     expect(validation.regularPioneersCount).toBe(22);
-    expect(validation.publishersCount).toBe(87);
+    expect(validation.publishersCount).toBe(90);
+    expect(validation.inactiveCount).toBe(11);
     expect(validation.isValidStructure).toBe(true);
     expect(validation.errors).toHaveLength(0);
   });
@@ -23,15 +24,15 @@ describe("Importación real del directorio de 125 personas (Congregación Las Vi
 
     expect(combinedPioneers).toHaveLength(3);
     const names = combinedPioneers.map((m) => `${m.firstName} ${m.lastName}`);
-    expect(names).toContain("Widmar Grisales"); // Anciano + PR
+    expect(names).toContain("Widmar Alberto Grisales"); // Anciano + PR
     expect(names).toContain("Heriberto Hernández"); // SM + PR
-    expect(names).toContain("Yomar Márquez"); // SM + PR
+    expect(names).toContain("Stirwen Yomar Marquez Salazar"); // SM + PR
   });
 
   it("conserva las responsabilidades adicionales específicas como Secretario", () => {
     const secretary = OFFICIAL_CONGREGATION_MEMBERS.find((m) => m.additionalRoles === "secretario");
     expect(secretary).toBeDefined();
-    expect(secretary?.firstName).toBe("Luis");
+    expect(secretary?.firstName).toBe("Luis Guillermo");
     expect(secretary?.lastName).toBe("Castrillo");
     expect(secretary?.appointment).toBe("elder");
   });
@@ -57,8 +58,31 @@ describe("Importación real del directorio de 125 personas (Congregación Las Vi
     expect(preview.duplicateRecords[0].newRecord.firstName).toBe("Abrahán");
   });
 
+  it("reconcilia nombres corregidos contra identidades antiguas sin crear duplicados", () => {
+    const existingMembers: DirectoryMember[] = [{
+      id: "ex-elder",
+      firstName: "Dúver",
+      lastName: "Garzón",
+      gender: "male",
+      appointment: "elder",
+      isActive: true,
+      isBaptized: null,
+    }];
+
+    const updatedRecord = OFFICIAL_CONGREGATION_MEMBERS.find(
+      (m) => m.firstName === "Dúber Antonio" && m.lastName === "Garzón",
+    );
+    expect(updatedRecord).toBeDefined();
+    const preview = previewMemberImport(existingMembers, updatedRecord ? [updatedRecord] : []);
+
+    expect(preview.toUpdateCount).toBe(1);
+    expect(preview.toInsertCount).toBe(0);
+    expect(preview.duplicateRecords[0].existingMember.id).toBe("ex-elder");
+    expect(preview.duplicateRecords[0].newRecord.firstName).toBe("Dúber Antonio");
+  });
+
   it("no fusiona personas con nombres similares o apellidos compartidos", () => {
-    // Verificar que personas como "Gonzalo Adolfo Álvarez" y "Gonzalo Álvarez Ramírez" se mantengan separadas
+    // Verificar que personas como "Gonzalo Adolfo Álvarez" y "Gonzalo Álvarez Puerta" se mantengan separadas
     const gonzalos = OFFICIAL_CONGREGATION_MEMBERS.filter((m) => m.firstName.startsWith("Gonzalo"));
     expect(gonzalos).toHaveLength(2);
     expect(gonzalos[0].lastName).not.toBe(gonzalos[1].lastName);
