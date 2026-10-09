@@ -1,13 +1,16 @@
 {
   "name": "programacion_reunion_vida_ministerio",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema de gestión de asignaciones para la reunión Vida y Ministerio Cristianos",
   "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
