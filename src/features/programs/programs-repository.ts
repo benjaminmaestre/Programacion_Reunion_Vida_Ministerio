@@ -31,6 +31,7 @@ interface DbAssignmentSlotRow {
   assistant_participant_id: string | null;
   eligibility_confirmed?: boolean | null;
   eligibility_confirmed_by?: string | null;
+  is_deleted?: boolean | null;
   notes: string | null;
 }
 
@@ -55,6 +56,7 @@ export async function getMeetingProgramsFromSupabase(
     .from("assignment_slots")
     .select("*")
     .in("meeting_program_id", programIds)
+    .eq("is_deleted", false)
     .order("order_index", { ascending: true });
 
   if (slotsError) {
@@ -117,8 +119,9 @@ export async function saveMeetingProgramToSupabase(
 
   const { data: existingSlots, error: existingSlotsError } = await supabase
     .from("assignment_slots")
-    .select("id")
-    .eq("meeting_program_id", program.id);
+    .select("id, is_deleted")
+    .eq("meeting_program_id", program.id)
+    .eq("is_deleted", false);
   if (existingSlotsError) throw new Error("No se pudo comprobar la integridad de las intervenciones.");
 
   const currentSlotIds = program.slots.map((slot) => slot.id);
@@ -152,11 +155,12 @@ export async function saveMeetingProgramToSupabase(
 
   // Solo se eliminan intervenciones que pertenecen a un borrador existente.
   if (isDraft && toDelete.length > 0) {
+    // Baja lógica: se preservan los registros para auditoría y nunca se hace DELETE físico.
     const { error: deleteError } = await supabase
       .from("assignment_slots")
-      .delete()
+      .update({ is_deleted: true })
       .in("id", toDelete);
-    if (deleteError) throw new Error("No se pudieron eliminar las intervenciones del borrador.");
+    if (deleteError) throw new Error("No se pudieron retirar las intervenciones del borrador.");
   }
 
   for (const slot of program.slots) {
@@ -176,6 +180,7 @@ export async function saveMeetingProgramToSupabase(
         eligibility_confirmed: slot.eligibilityConfirmed === true,
         eligibility_confirmed_by: slot.eligibilityConfirmed ? (slot.eligibilityConfirmedBy || userId) : null,
         eligibility_confirmed_at: slot.eligibilityConfirmed ? new Date().toISOString() : null,
+        is_deleted: false,
         notes: slot.notes || null,
       });
 
