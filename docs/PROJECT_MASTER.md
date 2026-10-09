@@ -7,7 +7,7 @@
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
 - **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
 - **Estado:** Motor S-38-S con pruebas unitarias; el importador está disponible como función protegida, pero el flujo visual de importación quedó deshabilitado mientras se implementa una ruta administrativa segura. El editor de programas ya usa el repositorio Supabase cuando está configurado; no se ha probado contra una base de datos real.
-- **CI:** el commit `1900560` completó `npm ci`, `npm run typecheck`, `npm test` y `npm run build` con éxito; el commit posterior que añade coherencia tipo/sección está en verificación.
+- **CI:** el commit de código `07d8fc3` completó `npm ci`, `npm run typecheck`, `npm test` (39 pruebas) y `npm run build` con éxito. Los commits de documentación posteriores están en verificación.
 - **Avance global estimado:** no recalculado; la persistencia real y la impresión S-140 requieren pruebas de integración.
 
 ## 1. Objetivo
@@ -98,4 +98,5 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 ### 9 de octubre de 2026 — Revisión S-38-S y permisos de publicación
 - Se amplió la validación previa a publicación para exigir presidente activo, revisión humana de Presidencia/Consejería, participante activo, tipo de asignación compatible con su sección, ayudante requerido y confirmación humana por intervención.
 - Se bloquean tipos de asignación sin regla conocida; la revisión de elegibilidad no se infiere automáticamente. Solo ancianos/administradores pueden marcar las confirmaciones humanas según las políticas implementadas en la migración 004.
+- CI de código: 5 archivos de prueba, 39 pruebas aprobadas, typecheck y build de producción exitosos en `07d8fc3`.
 - Las pruebas del repositorio cubren lectura posterior al guardado, protección de programas publicados, denegación a rol viewer y baja lógica. CI del commit `1900560` pasó typecheck, Vitest y build; el commit actual sigue en ejecución.
