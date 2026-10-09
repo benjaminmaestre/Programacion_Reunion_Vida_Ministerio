@@ -298,6 +298,24 @@ export const ProgramsWorkspace: React.FC = () => {
           {!selectedProgram ? <div className="rounded-xl border p-8 text-center text-slate-500">No hay reuniones para mostrar. Crea los programas iniciales cuando esté definido el flujo de planificación.</div> : (
             <>
               {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{selectedProgram.status === "published" ? "Programa publicado: vista de solo lectura para proteger el historial." : "Tu rol tiene permisos de consulta. El programa está en modo de solo lectura."}</div>}
+              <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
+                <label className="text-sm">Presidente de la reunión
+                  <select value={selectedProgram.chairmanId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, chairmanId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                    <option value="">Seleccionar presidente…</option>
+                    {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName} · {member.appointment === "elder" ? "Anciano" : member.appointment === "ministerial_servant" ? "Siervo ministerial" : "Publicador"}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm">Consejero auxiliar (opcional)
+                  <select value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, auxiliaryCounselorId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                    <option value="">Sin consejero auxiliar</option>
+                    {members.filter((member) => member.isActive && member.appointment === "elder").map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm md:col-span-2">
+                  <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
+                  <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Solo un anciano o administrador debe confirmar la elegibilidad antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
+                </label>
+              </div>
               <div className="overflow-hidden rounded-xl border divide-y">
                 {selectedProgram.slots.map((slot) => (
                   <article key={slot.id} className="space-y-3 p-4">
