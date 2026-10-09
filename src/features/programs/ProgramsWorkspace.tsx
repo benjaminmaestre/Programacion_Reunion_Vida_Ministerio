@@ -417,7 +417,7 @@ export const ProgramsWorkspace: React.FC = () => {
                   </select>
                 </label>
                 <label className="text-sm">Consejero auxiliar (opcional)
-                  <select value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, auxiliaryCounselorId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
+                  <select value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, auxiliaryCounselorId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
                     <option value="">Sin consejero auxiliar</option>
                     {members.filter((member) => member.isActive && member.appointment === "elder").map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
                   </select>
