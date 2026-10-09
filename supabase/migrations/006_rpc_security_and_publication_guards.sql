@@ -283,7 +283,10 @@ BEGIN
   END IF;
 
   -- Reglas específicas para las semanas sin programa ordinario.
-  IF p_is_draft IS FALSE AND p_week_type = 'assembly'::public.week_type_enum THEN
+  IF p_is_draft IS TRUE THEN
+    -- Los borradores pueden guardarse incompletos; las reglas se aplican al publicar.
+    NULL;
+  ELSIF p_week_type = 'assembly'::public.week_type_enum THEN
     IF NOT (LOWER(COALESCE(p_notes, '')) LIKE '%asamblea%'
       OR EXISTS (
         SELECT 1 FROM jsonb_array_elements(p_slots) AS item(element)
@@ -291,7 +294,7 @@ BEGIN
       )) THEN
       RAISE EXCEPTION 'Asamblea: registra un aviso o nota que identifique la semana de asamblea.';
     END IF;
-  ELSIF p_is_draft IS FALSE AND p_week_type = 'memorial'::public.week_type_enum THEN
+  ELSIF p_week_type = 'memorial'::public.week_type_enum THEN
     SELECT m.appointment::text INTO v_chair_appointment FROM public.members AS m
     WHERE m.id = p_chairman_id AND m.is_active IS TRUE;
     IF NOT FOUND OR v_chair_appointment <> 'elder' THEN
@@ -307,7 +310,7 @@ BEGIN
     IF p_leadership_review_confirmed IS NOT TRUE OR v_review_by IS NULL OR v_review_at IS NULL THEN
       RAISE EXCEPTION 'Conmemoración: falta la revisión válida de Presidencia y Consejería.';
     END IF;
-  ELSIF p_is_draft IS FALSE THEN
+  ELSE
     SELECT m.appointment::text INTO v_chair_appointment FROM public.members AS m
     WHERE m.id = p_chairman_id AND m.is_active IS TRUE;
     IF NOT FOUND THEN RAISE EXCEPTION 'Selecciona un presidente activo.'; END IF;
