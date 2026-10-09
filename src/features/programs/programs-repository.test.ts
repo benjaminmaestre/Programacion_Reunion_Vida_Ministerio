@@ -58,12 +58,39 @@ class FakeQuery {
 
 class FakeDatabase {
   tables: Record<string, Row[]> = {};
+  rpcCalls = 0;
+  rpcFailure: { message: string; code?: string } | null = null;
   from(table: string) { return new FakeQuery(this, table); }
   rpc(fnName: string, args: Record<string, any>) {
+    this.rpcCalls += 1;
+    if (this.rpcFailure) return Promise.resolve({ data: null, error: this.rpcFailure });
     if (fnName === "save_meeting_program_transaction") {
       const existingProg = (this.tables.meeting_programs ?? []).find((p) => p.id === args.p_program_id);
       if (existingProg && existingProg.is_draft === false) {
         return Promise.resolve({ data: null, error: { message: "El programa ya está publicado y se encuentra protegido contra modificaciones." } });
+      }
+
+      const date = new Date(`${args.p_meeting_date}T12:00:00Z`);
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth() + 1;
+      const bimonth = Math.ceil(month / 2);
+      const semester = month <= 6 ? 1 : 2;
+      const cycleRows = this.tables.planning_cycles ?? (this.tables.planning_cycles = []);
+      let cycle = cycleRows.find((row) => row.year === year && row.bimonth_number === bimonth);
+      if (!cycle) {
+        cycle = { id: `20000000-0000-4000-8000-${String(year * 10 + bimonth).padStart(12, "0")}`, year, bimonth_number: bimonth };
+        cycleRows.push(cycle);
+      }
+      const periodRows = this.tables.history_periods ?? (this.tables.history_periods = []);
+      let period = periodRows.find((row) => row.year === year && row.semester === semester);
+      if (!period) {
+        period = {
+          id: `30000000-0000-4000-8000-${String(year * 10 + semester).padStart(12, "0")}`,
+          year, semester,
+          start_date: semester === 1 ? `${year}-01-01` : `${year}-07-01`,
+          end_date: semester === 1 ? `${year}-06-30` : `${year}-12-31`,
+        };
+        periodRows.push(period);
       }
 
       const progRows = this.tables.meeting_programs ?? (this.tables.meeting_programs = []);
@@ -72,8 +99,8 @@ class FakeDatabase {
         id: args.p_program_id,
         meeting_date: args.p_meeting_date,
         week_type: args.p_week_type,
-        planning_cycle_id: (this.tables.planning_cycles ?? [])[0]?.id || "00000000-0000-4000-8000-000000000003",
-        history_period_id: (this.tables.history_periods ?? [])[0]?.id || "00000000-0000-4000-8000-000000000004",
+        planning_cycle_id: cycle.id,
+        history_period_id: period.id,
         chairman_id: args.p_chairman_id,
         auxiliary_counselor_id: args.p_auxiliary_counselor_id,
         leadership_review_confirmed: args.p_leadership_review_confirmed,
@@ -263,6 +290,35 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       slots: [],
     };
     await expect(saveMeetingProgramToSupabase(client, "user-elder", program)).rejects.toThrow(/ya está publicado/);
+  });
+
+  it("no hace escrituras directas ni crea ciclos si falla la RPC atómica", async () => {
+    const db = new FakeDatabase();
+    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.planning_cycles = [];
+    db.tables.history_periods = [];
+    db.tables.meeting_programs = [];
+    db.tables.assignment_slots = [];
+    db.rpcFailure = { message: "permission denied", code: "42501" };
+
+    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const program: MeetingProgramDetail = {
+      id: "00000000-0000-4000-8000-000000000099",
+      meetingDate: "2026-11-16",
+      weekType: "normal",
+      bimonthCycle: "2026-6",
+      historyPeriod: "2026-S2",
+      status: "draft",
+      updatedAt: new Date().toISOString(),
+      slots: [],
+    };
+
+    await expect(saveMeetingProgramToSupabase(client, "user-elder", program)).rejects.toThrow("permission denied");
+    expect(db.rpcCalls).toBe(1);
+    expect(db.tables.meeting_programs).toHaveLength(0);
+    expect(db.tables.assignment_slots).toHaveLength(0);
+    expect(db.tables.planning_cycles).toHaveLength(0);
+    expect(db.tables.history_periods).toHaveLength(0);
   });
 
   it("crea automáticamente el ciclo bimestral y período semestral si no existen previamente", async () => {
