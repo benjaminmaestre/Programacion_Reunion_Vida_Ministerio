@@ -131,8 +131,8 @@ El workflow `.github/workflows/ci.yml` ejecuta `npm ci`, typecheck y build en pu
 Trabajar directamente sobre `main`; no crear ramas ni PRs. Inspeccionar el estado antes de editar. Después de cada etapa, comprobar el código, ejecutar las pruebas disponibles, actualizar este documento y dejar claramente separado lo implementado, lo verificado y lo pendiente.
 
 
-### 9 de octubre de 2026 — Programación Bimestral, Persistencia Supabase y Cobertura Vitest en CI
-- Se creó la capa de persistencia real de programas de la reunión y asignaciones en Supabase (`src/features/programs/programs-repository.ts`).
-- Se ampliaron las pruebas unitarias Vitest a **17 pruebas automatizadas** en `src/domain/rules/s38s-engine.test.ts` con cobertura del 100% de reglas S-38-S (Tesoros, Perlas, Lectura, Ayudantes por tipo/parentesco, Necesidades, Estudio Bíblico y Presidencia).
-- Se añadió el script `"test": "vitest run"` en `package.json` y se integró el paso de ejecución de pruebas unitarias en el workflow de CI (`.github/workflows/ci.yml`).
-- Se verificó que `npm test`, `npm run typecheck` y `npm run build` pasan limpiamente con resultado 0 errores en `main`.
+### 9 de octubre de 2026 — Dataset Oficial Congregación Las Violetas y Migración 003
+- Se creó la migración `supabase/migrations/003_official_directory_and_titles.sql` agregando columnas `is_regular_pioneer` y `additional_roles` a la tabla `members`, así como `assignment_type` a `assignment_slots` para desvincular el título editable de la regla S-38-S.
+- Se estructuró el dataset unificado oficial de 125 personas de la Congregación Las Violetas (Medellín, Colombia - 09/10/2026) en `src/features/members/official-directory-data.ts`, clasificando a los 12 ancianos, 7 siervos ministeriales, 22 precursores regulares y 87 publicadores (preservando las 3 personas con responsabilidades combinadas sin duplicar).
+- Se integró el nuevo dataset en `src/features/members/MembersWorkspace.tsx` y en el repositorio de miembros Supabase.
+- Se verificaron `npm test` (17/17 pasados), `npm run typecheck` (0 errores) y `npm run build` (exitoso) en `main`.
