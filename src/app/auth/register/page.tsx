@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 
 type BootstrapState = "checking" | "available" | "closed" | "error";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [bootstrap, setBootstrap] = useState<BootstrapState>("checking");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -70,7 +68,6 @@ export default function RegisterPage() {
       }
       setBootstrap("closed");
       setMessage("Cuenta de identidad creada. Todavía no tienes acceso a los datos de la plataforma. Comparte con el administrador supremo el correo usado para asignar el único rol administrador.");
-      setTimeout(() => router.replace("/"), 1800);
     } catch {
       setError("No se pudo crear la cuenta inicial. Comprueba la conexión e inténtalo de nuevo.");
     } finally {
