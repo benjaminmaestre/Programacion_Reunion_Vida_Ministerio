@@ -13,6 +13,8 @@ describe("findExistingAssignment", () => {
     updatedAt: "2026-03-01T00:00:00Z",
     chairmanId: "member-elder-1",
     auxiliaryCounselorId: "member-elder-2",
+    openingPrayerParticipantId: "member-elder-3",
+    closingPrayerParticipantId: "member-brother-2",
     slots: [
       {
         id: "slot-reading",
@@ -60,6 +62,16 @@ describe("findExistingAssignment", () => {
   it("detecta duplicado si el consejero auxiliar intenta ser asignado a un slot", () => {
     const result = findExistingAssignment(sampleProgram, "member-elder-2", "primary", "slot-talk");
     expect(result).toEqual({ title: "Consejero auxiliar" });
+  });
+
+  it("detecta duplicado si la persona asignada a la oración inicial se intenta asignar a un slot", () => {
+    const result = findExistingAssignment(sampleProgram, "member-elder-3", "primary", "slot-talk");
+    expect(result).toEqual({ title: "Oración inicial" });
+  });
+
+  it("detecta duplicado si la persona asignada a la oración final se intenta asignar a la oración inicial", () => {
+    const result = findExistingAssignment(sampleProgram, "member-brother-2", "opening_prayer");
+    expect(result).toEqual({ title: "Oración final" });
   });
 
   it("detecta duplicado si un titular ya asignado se selecciona como ayudante en otro slot", () => {

@@ -819,7 +819,7 @@ export const ProgramsWorkspace: React.FC = () => {
 
 
   function applyAssignment(
-    targetRole: "chairman" | "auxiliary" | "primary" | "assistant",
+    targetRole: "chairman" | "auxiliary" | "opening_prayer" | "closing_prayer" | "primary" | "assistant",
     memberId: string | undefined,
     slotId?: string
   ) {
@@ -829,6 +829,10 @@ export const ProgramsWorkspace: React.FC = () => {
       updateProgram({ ...selectedProgram, chairmanId: memberId, ...resetLeadership });
     } else if (targetRole === "auxiliary") {
       updateProgram({ ...selectedProgram, auxiliaryCounselorId: memberId, ...resetLeadership });
+    } else if (targetRole === "opening_prayer") {
+      updateProgram({ ...selectedProgram, openingPrayerParticipantId: memberId, ...resetLeadership });
+    } else if (targetRole === "closing_prayer") {
+      updateProgram({ ...selectedProgram, closingPrayerParticipantId: memberId, ...resetLeadership });
     } else if (targetRole === "primary" && slotId) {
       updateSlot(slotId, { primaryParticipantId: memberId }, true);
     } else if (targetRole === "assistant" && slotId) {
@@ -839,7 +843,7 @@ export const ProgramsWorkspace: React.FC = () => {
   }
 
   function handleParticipantSelect(
-    targetRole: "chairman" | "auxiliary" | "primary" | "assistant",
+    targetRole: "chairman" | "auxiliary" | "opening_prayer" | "closing_prayer" | "primary" | "assistant",
     newMemberId: string | undefined,
     slotId?: string
   ) {
@@ -1044,6 +1048,16 @@ export const ProgramsWorkspace: React.FC = () => {
                       <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
                     </select>
                   </label>
+                  <label className="lbl">Oración inicial
+                    <select className="select-field" aria-label="Oración inicial" value={selectedProgram.openingPrayerParticipantId ?? ""} disabled={readOnly}
+                      onFocus={() => { setPreviewMemberId(selectedProgram.openingPrayerParticipantId ?? null); }}
+                      onChange={(e) => {
+                        const val = e.target.value || undefined;
+                        handleParticipantSelect("opening_prayer", val);
+                      }}>
+                      <option value="">Seleccionar oración inicial…</option>{people(activeMembers)}
+                    </select>
+                  </label>
                   {selectedProgram.weekType === "circuit_overseer" && (
                     <label className="lbl full">Título del discurso del superintendente de circuito
                       <input className="field" value={selectedProgram.circuitOverseerTalkTitle ?? ""} disabled={readOnly}
@@ -1068,62 +1082,86 @@ export const ProgramsWorkspace: React.FC = () => {
                 {slots.length === 0 ? (
                   <div className="empty-state">Sin intervenciones — Este programa no tiene partes cargadas.</div>
                 ) : (
-                  SECTIONS.map((section) => {
-                    const group = slots.filter((s) => s.section === section.id);
-                    if (group.length === 0) return null;
-                    return (
-                      <section key={section.id} className={`sec sec-${section.id}`}>
-                        <div className="sec-bar">{section.label}<span>{group.reduce((n, s) => n + s.durationMinutes, 0)} min</span></div>
-                        <div className="slots">
-                          {group.map((slot) => (
-                            <article key={slot.id} className="slot">
-                              <div className="slot-time"><b>{slot.durationMinutes}</b><span>min · desde {offsets[slot.id]}</span></div>
-                              <div className="slot-main">
-                                <div className="slot-title">
-                                  <input className="field" aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={readOnly}
-                                    onChange={(e) => updateSlot(slot.id, { title: e.target.value }, true)} />
-                                  {!readOnly && <button type="button" className="icon-button" onClick={() => handleRemoveSlot(slot.id)}
-                                    title="Retirar de este borrador" aria-label={`Retirar ${slot.title}`}><Trash2 size={15} /></button>}
-                                </div>
-                                <div className="slot-people">
-                                  <label className="lbl">Titular
-                                    <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
-                                      onFocus={() => { setPreviewMemberId(slot.primaryParticipantId ?? null); }}
-                                      onChange={(e) => {
-                                        const val = e.target.value || undefined;
-                                        handleParticipantSelect("primary", val, slot.id);
-                                      }}>
-                                      <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
-                                    </select>
-                                  </label>
-                                  {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && (
-                                    <label className="lbl">Ayudante
-                                      <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
-                                        onFocus={() => { setPreviewMemberId(slot.assistantParticipantId ?? null); }}
-                                        onChange={(e) => {
-                                          const val = e.target.value || undefined;
-                                          handleParticipantSelect("assistant", val, slot.id);
-                                        }}>
-                                        <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
-                                      </select>
+                  <>
+                    {SECTIONS.map((section) => {
+                      const group = slots.filter((s) => s.section === section.id);
+                      if (group.length === 0) return null;
+                      return (
+                        <section key={section.id} className={`sec sec-${section.id}`}>
+                          <div className="sec-bar">{section.label}<span>{group.reduce((n, s) => n + s.durationMinutes, 0)} min</span></div>
+                          <div className="slots">
+                            {group.map((slot) => {
+                              const isBibleStudy = slot.assignmentType === "bible_study_conductor"
+                                || slot.assignmentType === "bible_study_reader"
+                                || slot.title.toLowerCase().includes("estudio bíblico")
+                                || slot.title.toLowerCase().includes("estudio biblico");
+                              const primaryLabel = isBibleStudy ? "Conductor" : slot.isStudentPart ? "Estudiante" : "Encargado";
+                              const assistantLabel = isBibleStudy ? "Lector" : "Ayudante";
+
+                              return (
+                                <article key={slot.id} className="slot">
+                                  <div className="slot-time"><b>{slot.durationMinutes}</b><span>min · desde {offsets[slot.id]}</span></div>
+                                  <div className="slot-main">
+                                    <div className="slot-title">
+                                      <input className="field" aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={readOnly}
+                                        onChange={(e) => updateSlot(slot.id, { title: e.target.value }, true)} />
+                                      {!readOnly && <button type="button" className="icon-button" onClick={() => handleRemoveSlot(slot.id)}
+                                        title="Retirar de este borrador" aria-label={`Retirar ${slot.title}`}><Trash2 size={15} /></button>}
+                                    </div>
+                                    <div className="slot-people">
+                                      <label className="lbl">{primaryLabel}
+                                        <select className="select-field" aria-label={`${primaryLabel} de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
+                                          onFocus={() => { setPreviewMemberId(slot.primaryParticipantId ?? null); }}
+                                          onChange={(e) => {
+                                            const val = e.target.value || undefined;
+                                            handleParticipantSelect("primary", val, slot.id);
+                                          }}>
+                                          <option value="">Seleccionar {primaryLabel.toLowerCase()}…</option>{peopleForSlot(slot)}
+                                        </select>
+                                      </label>
+                                      {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId || isBibleStudy) && (
+                                        <label className="lbl">{assistantLabel}
+                                          <select className="select-field" aria-label={`${assistantLabel} de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
+                                            onFocus={() => { setPreviewMemberId(slot.assistantParticipantId ?? null); }}
+                                            onChange={(e) => {
+                                              const val = e.target.value || undefined;
+                                              handleParticipantSelect("assistant", val, slot.id);
+                                            }}>
+                                            <option value="">Seleccionar {assistantLabel.toLowerCase()}…</option>{peopleForSlot(slot)}
+                                          </select>
+                                        </label>
+                                      )}
+                                    </div>
+                                    <label className="slot-check">
+                                      <input type="checkbox" checked={slot.eligibilityConfirmed === true}
+                                        disabled={readOnly || (mode === "connected" && !canConfirmEligibility)}
+                                        onChange={(e) => updateSlot(slot.id, { eligibilityConfirmed: e.target.checked, eligibilityConfirmedBy: e.target.checked ? userId ?? undefined : undefined })} />
+                                      {slot.eligibilityConfirmed
+                                        ? <span className="slot-ok"><CheckCircle size={13} style={{ verticalAlign: "-2px" }} /> Revisada{slot.eligibilityConfirmedBy ? "" : " (demo)"}</span>
+                                        : <span title="Confirmar elegibilidad S-38-S. Cambiar el título o los participantes la invalida.">Por revisar</span>}
                                     </label>
-                                  )}
-                                </div>
-                                <label className="slot-check">
-                                  <input type="checkbox" checked={slot.eligibilityConfirmed === true}
-                                    disabled={readOnly || (mode === "connected" && !canConfirmEligibility)}
-                                    onChange={(e) => updateSlot(slot.id, { eligibilityConfirmed: e.target.checked, eligibilityConfirmedBy: e.target.checked ? userId ?? undefined : undefined })} />
-                                  {slot.eligibilityConfirmed
-                                    ? <span className="slot-ok"><CheckCircle size={13} style={{ verticalAlign: "-2px" }} /> Revisada{slot.eligibilityConfirmedBy ? "" : " (demo)"}</span>
-                                    : <span title="Confirmar elegibilidad S-38-S. Cambiar el título o los participantes la invalida.">Por revisar</span>}
-                                </label>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  })
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      );
+                    })}
+
+                    <div className="leaders" style={{ marginTop: 20 }}>
+                      <label className="lbl">Oración final
+                        <select className="select-field" aria-label="Oración final" value={selectedProgram.closingPrayerParticipantId ?? ""} disabled={readOnly}
+                          onFocus={() => { setPreviewMemberId(selectedProgram.closingPrayerParticipantId ?? null); }}
+                          onChange={(e) => {
+                            const val = e.target.value || undefined;
+                            handleParticipantSelect("closing_prayer", val);
+                          }}>
+                          <option value="">Seleccionar oración final…</option>{people(activeMembers)}
+                        </select>
+                      </label>
+                    </div>
+                  </>
                 )}
               </div>
 

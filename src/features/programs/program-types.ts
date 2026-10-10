@@ -16,6 +16,8 @@ export interface MeetingProgramDetail {
   historyPeriodId?: string; // UUID real de history_periods
   chairmanId?: string;
   auxiliaryCounselorId?: string;
+  openingPrayerParticipantId?: string;
+  closingPrayerParticipantId?: string;
   leadershipReviewConfirmed?: boolean;
   leadershipReviewConfirmedBy?: string;
   leadershipReviewConfirmedAt?: string;
