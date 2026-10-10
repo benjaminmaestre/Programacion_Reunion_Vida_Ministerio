@@ -126,16 +126,16 @@ export async function getCurrentAppUser(
   neon: NeonBrowserClient,
   userId: string,
 ): Promise<AppUserRow> {
-  const { data, error } = await neon
-    .from("app_users")
-    .select("user_id, role, is_active")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .maybeSingle();
+  // La función SECURITY DEFINER lee exclusivamente la membresía de la identidad
+  // de la sesión actual, evitando depender de un SELECT directo sujeto a la política RLS.
+  const { data, error } = await neon.rpc("get_current_app_user", {});
 
   if (error) throw new Error("No se pudo comprobar tu acceso a la aplicación.");
-  const appUser = data as AppUserRow | null;
-  if (!appUser) throw new MembershipRequiredError();
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  const appUser = (rows[0] ?? null) as AppUserRow | null;
+  if (!appUser || appUser.user_id !== userId || appUser.is_active !== true) {
+    throw new MembershipRequiredError();
+  }
   return appUser;
 }
 

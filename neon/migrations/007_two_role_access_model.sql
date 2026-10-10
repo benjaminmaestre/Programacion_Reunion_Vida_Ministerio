@@ -134,6 +134,23 @@ $function$;
 REVOKE ALL ON FUNCTION public.current_app_user_id() FROM PUBLIC, anonymous;
 GRANT EXECUTE ON FUNCTION public.current_app_user_id() TO authenticated;
 
+-- Obtiene únicamente la membresía activa asociada al JWT de la sesión actual.
+CREATE OR REPLACE FUNCTION public.get_current_app_user()
+RETURNS TABLE (user_id uuid, role text, is_active boolean)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+AS $function$
+  SELECT au.user_id, au.role::text, au.is_active
+  FROM public.app_users AS au
+  WHERE au.user_id = public.current_app_user_id()
+    AND au.is_active IS TRUE
+  LIMIT 1;
+$function$;
+REVOKE ALL ON FUNCTION public.get_current_app_user() FROM PUBLIC, anonymous;
+GRANT EXECUTE ON FUNCTION public.get_current_app_user() TO authenticated;
+
 -- app_users: una persona activa solo puede leer su propia fila.
 -- Únicamente el administrador supremo puede crear o gestionar cuentas ordinarias.
 CREATE POLICY app_users_select_self
