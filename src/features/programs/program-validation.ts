@@ -80,7 +80,6 @@ export function validateProgramForPublication(
     errors.push("El programa no tiene intervenciones.");
   }
 
-  const eldersCount = members.filter((member) => member.isActive && member.appointment === "elder").length;
   const chairman = program.chairmanId ? activeMembers.get(program.chairmanId) : undefined;
   if (program.weekType === "circuit_overseer") {
     if (!chairman || chairman.appointment !== "elder") {
