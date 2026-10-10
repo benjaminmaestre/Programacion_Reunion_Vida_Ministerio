@@ -1,5 +1,6 @@
 import type { DirectoryMember } from "../members/demo-data";
 import type { MeetingProgramDetail } from "./program-types";
+import { isWhatWouldYouSayAssignment } from "./assignment-eligibility";
 
 export interface ProgramPublicationValidation {
   isValid: boolean;
@@ -87,8 +88,8 @@ export function validateProgramForPublication(
     }
   } else if (!chairman) {
     errors.push("Selecciona un presidente activo para la reunión.");
-  } else if (chairman.appointment !== "elder" && !(eldersCount < 3 && chairman.appointment === "ministerial_servant")) {
-    errors.push("El presidente debe ser anciano; solo en congregaciones con menos de tres ancianos puede considerarse un siervo ministerial capacitado.");
+  } else if (chairman.appointment !== "elder") {
+    errors.push("El presidente de la reunión debe ser un anciano activo.");
   }
 
   if (program.leadershipReviewConfirmed !== true) {
@@ -148,6 +149,10 @@ export function validateProgramForPublication(
         case "bible_study_reader":
         case "living_part":
           if (primary.gender !== "male") errors.push(`${label}: la asignación requiere un participante varón.`);
+          if (slot.assignmentType === "student_talk" && isWhatWouldYouSayAssignment(slot)
+            && primary.appointment !== "elder" && primary.appointment !== "ministerial_servant") {
+            errors.push(`${label}: la parte «¿Qué diría?» requiere un anciano o siervo ministerial activo.`);
+          }
           break;
         case "living_needs":
           if (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant") {
