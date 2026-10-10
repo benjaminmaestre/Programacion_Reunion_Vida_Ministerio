@@ -324,7 +324,7 @@ function openNewMemberForm() {
           <div className="page-heading">
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A SUPABASE"}</span>
+              <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A NEON"}</span>
               {!demoMode && <button className="button" type="button" onClick={() => void signOut()}><LogOut size={14} /> Salir</button>}
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
