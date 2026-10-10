@@ -136,12 +136,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .cycle-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0 8px;color:var(--color-text-muted);font-size:12px}
   .cycle-line strong{color:var(--color-text)}
   .date-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:28px}
-  .date-chip{flex:1 0 108px;padding:10px 14px;border:1px solid #d5dcdb;border-radius:6px;background:#fff;text-align:left}
-  .date-chip b{display:block;font-family:var(--font-display);font-size:22px;font-weight:600;line-height:1}
-  .date-chip span{display:flex;align-items:center;gap:6px;margin-top:5px;color:var(--color-text-muted);font-size:11px;font-weight:600}
+  .date-chip{flex:1 0 135px;padding:10px 12px;border:1px solid #d5dcdb;border-radius:8px;background:#fff;text-align:left;transition:all 0.15s ease}
+  .date-chip b.date-chip-meeting{display:block;font-family:var(--font-sans);font-size:14px;font-weight:700;line-height:1.2;color:var(--color-text)}
+  .date-chip small.date-chip-week{display:block;margin-top:3px;font-size:10px;font-style:italic;color:var(--color-text-muted);white-space:nowrap}
+  .date-chip span{display:flex;align-items:center;gap:6px;margin-top:6px;color:var(--color-text-muted);font-size:11px;font-weight:600}
   .date-chip i{width:7px;height:7px;border-radius:50%;background:var(--color-warning)}
   .date-chip.pub i{background:var(--color-success)}
   .date-chip[aria-pressed=true]{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+  .date-chip[aria-pressed=true] b.date-chip-meeting{color:#ffffff}
+  .date-chip[aria-pressed=true] small.date-chip-week{color:#dbeafe}
   .date-chip[aria-pressed=true] span{color:#c9d6e6}
   .date-chip.empty{border-style:dashed;background:#f0f2f1}
   .date-chip.empty i{background:#fff;border:1.5px solid #8795a0;box-sizing:border-box}

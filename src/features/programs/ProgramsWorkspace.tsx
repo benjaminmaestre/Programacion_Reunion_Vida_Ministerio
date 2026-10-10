@@ -48,6 +48,30 @@ function addDays(value: string, days: number) {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+function formatMeetingDateLabel(meetingDateIso: string) {
+  const d = new Date(`${meetingDateIso}T12:00:00Z`);
+  const rawWeekday = new Intl.DateTimeFormat("es-CO", { weekday: "short", timeZone: "UTC" }).format(d);
+  const weekday = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).replace(".", "");
+  const day = d.getUTCDate();
+  const rawMonth = new Intl.DateTimeFormat("es-CO", { month: "short", timeZone: "UTC" }).format(d);
+  const month = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1).replace(".", "");
+  return `${weekday} ${day} ${month}`;
+}
+function formatWeekSpanLabel(mondayIso: string) {
+  const dStart = new Date(`${mondayIso}T12:00:00Z`);
+  const dEnd = new Date(`${addDays(mondayIso, 6)}T12:00:00Z`);
+  const startDay = dStart.getUTCDate();
+  const endDay = dEnd.getUTCDate();
+  const rawMonthStart = new Intl.DateTimeFormat("es-CO", { month: "short", timeZone: "UTC" }).format(dStart);
+  const monthStart = rawMonthStart.charAt(0).toUpperCase() + rawMonthStart.slice(1).replace(".", "");
+  const rawMonthEnd = new Intl.DateTimeFormat("es-CO", { month: "short", timeZone: "UTC" }).format(dEnd);
+  const monthEnd = rawMonthEnd.charAt(0).toUpperCase() + rawMonthEnd.slice(1).replace(".", "");
+
+  if (monthStart === monthEnd) {
+    return `(Semana ${startDay} - ${endDay} ${monthEnd})`;
+  }
+  return `(Semana ${startDay} ${monthStart} - ${endDay} ${monthEnd})`;
+}
 function Gate({ children }: { children: React.ReactNode }) {
   return <div className="gate-page" style={{ minHeight: "100vh" }}><section className="gate-panel">{children}</section></div>;
 }
@@ -1050,10 +1074,12 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                     value={meetingHour}
                     onChange={(e) => setMeetingHour(e.target.value)}
                   >
-                    <option value="17">17 (5 PM)</option>
-                    <option value="18">18 (6 PM)</option>
-                    <option value="19">19 (7 PM)</option>
-                    <option value="20">20 (8 PM)</option>
+                    <option value="16">04 PM</option>
+                    <option value="17">05 PM</option>
+                    <option value="18">06 PM</option>
+                    <option value="19">07 PM</option>
+                    <option value="20">08 PM</option>
+                    <option value="21">09 PM</option>
                   </select>
                   <span>:</span>
                   <select
@@ -1078,20 +1104,23 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
               <div className="date-strip" role="group" aria-label="Semanas del ciclo">
                 {cycleWeeks.map(({ date, program }) => {
                   const actualDate = addDays(date, meetingDayOffset);
-                  const { day, month } = shortDate(actualDate);
+                  const meetingDateLabel = formatMeetingDateLabel(actualDate);
+                  const weekSpanLabel = formatWeekSpanLabel(date);
                   if (program) {
                     const isPub = program.status === "published";
                     const isSelected = program.id === selectedProgramId;
                     return (
                       <button key={date} type="button" className={`date-chip ${isPub ? "pub" : ""}`} aria-pressed={isSelected} onClick={() => { setSelectedProgramId(program.id); setPageError(""); setFeedback(""); setPreviewMemberId(null); }}>
-                        <b>{day} {month}</b>
+                        <b className="date-chip-meeting">{meetingDateLabel}</b>
+                        <small className="date-chip-week">{weekSpanLabel}</small>
                         <span><i />{isPub ? "Publicada" : "Borrador"}</span>
                       </button>
                     );
                   }
                   return (
                     <button key={date} type="button" className="date-chip empty" disabled={!canManage} onClick={() => { setNewMeetingDate(date); setIsNewProgramModalOpen(true); setPreviewMemberId(null); }}>
-                      <b>{day} {month}</b>
+                      <b className="date-chip-meeting">{meetingDateLabel}</b>
+                      <small className="date-chip-week">{weekSpanLabel}</small>
                       <span><i />Sin programar</span>
                     </button>
                   );
