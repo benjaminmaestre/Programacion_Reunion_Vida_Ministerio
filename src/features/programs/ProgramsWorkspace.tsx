@@ -163,10 +163,11 @@ export const ProgramsWorkspace: React.FC = () => {
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
-  // Estado para previsualización de historial de los últimos 3 meses
+  // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewHistory, setPreviewHistory] = useState<AssignmentHistoryEntry[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [warningModalMessage, setWarningModalMessage] = useState<string | null>(null);
 
   // Modal para crear un programa nuevo
   const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
@@ -879,8 +880,8 @@ export const ProgramsWorkspace: React.FC = () => {
         // Mensaje informativo si es el presidente
         setFeedback(`Nota: ${member.firstName} ${member.lastName} es el presidente de la reunión y tiene más de una asignación este día.`);
       } else {
-        // Advertencia si es cualquier otro participante
-        setPageError(`⚠️ Advertencia: ${member.firstName} ${member.lastName} ya tiene otra asignación en este mismo programa (${longDate(selectedProgram.meetingDate)}).`);
+        // Ventana modal de advertencia emergente
+        setWarningModalMessage(`${member.firstName} ${member.lastName} ya tiene otra asignación en este mismo programa (${longDate(selectedProgram.meetingDate)}).`);
       }
     }
   }
@@ -1211,6 +1212,32 @@ export const ProgramsWorkspace: React.FC = () => {
               <button type="button" className="button button-primary" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0}>
                 <Upload size={15} /> {guideImporting ? "Activando guía…" : "Guardar guía y aplicar estructura"}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Modal emergente de advertencia para asignación duplicada */}
+      {warningModalMessage && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setWarningModalMessage(null); }}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="warning-dialog-title" style={{ maxWidth: 460 }}>
+            <div className="modal-header" style={{ borderBottom: "1px solid #f0c7c3", background: "#fff5f5" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--color-danger)" }}>
+                <AlertTriangle size={22} />
+                <h2 className="modal-title" id="warning-dialog-title" style={{ color: "var(--color-danger)", fontSize: 16 }}>
+                  Advertencia de asignación doble
+                </h2>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setWarningModalMessage(null)} aria-label="Cerrar advertencia"><X size={17} /></button>
+            </div>
+            <div style={{ padding: "20px 24px", fontSize: 13, lineHeight: 1.6, color: "var(--color-text)" }}>
+              <p style={{ margin: 0 }}>{warningModalMessage}</p>
+              <p style={{ margin: "12px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
+                <em>Nota: Salvo en el caso del presidente de la reunión, un participante no debe tener dos asignaciones el mismo día. La aplicación permite continuar si es necesario.</em>
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="button button-primary" onClick={() => setWarningModalMessage(null)}>Entendido</button>
             </div>
           </section>
         </div>
