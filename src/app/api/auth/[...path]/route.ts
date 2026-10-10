@@ -1,3 +1,1 @@
-import { auth } from "@/lib/neon/auth-server";
-
-export const { GET, POST, PUT, DELETE, PATCH } = auth.handler();
+"import { NextResponse } from \"next/server\";\nimport { auth } from \"@/lib/neon/auth-server\";\n\nconst handlers = auth.handler();\n\nexport const GET = handlers.GET;\nexport const PUT = handlers.PUT;\nexport const DELETE = handlers.DELETE;\nexport const PATCH = handlers.PATCH;\n\nexport async function POST(request: Request) {\n  const path = new URL(request.url).pathname.toLowerCase().replace(/\\\\/+$/, \"\");\n  // Se bloquea el registro público; la creación de cuentas pasa por admin/create-user.\n  if (/(^|\\\\/)(sign-up|signup)(\\\\/|$)/.test(path)) {\n    return NextResponse.json(\n      { message: \"El registro público está deshabilitado. Solicita una cuenta al administrador supremo.\" },\n      { status: 403 },\n    );\n  }\n  return handlers.POST(request);\n}\n"
