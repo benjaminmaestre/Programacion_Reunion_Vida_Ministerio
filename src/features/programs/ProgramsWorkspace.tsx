@@ -18,6 +18,7 @@ import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLa
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
 import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
 import { findExistingAssignment, type PendingDuplicateAssignment } from "./duplicate-assignment";
+import { isActiveAppointedBrother, slotRequiresAppointedBrother, validateAssignmentRoleRestrictions } from "./assignment-eligibility";
 import type { Section, WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "guide_required" | "membership" | "error";
@@ -586,6 +587,12 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       return;
     }
 
+    const roleErrors = validateAssignmentRoleRestrictions(selectedProgram, members);
+    if (roleErrors.length > 0) {
+      setPageError("No se puede guardar el programa. Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
+      return;
+    }
+
     if (status === "published") {
       const validation = validateProgramForPublication(selectedProgram, members);
       if (!validation.isValid) {
@@ -617,6 +624,11 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     }
     if (findInactiveAssignedIds(selectedProgram, members).length > 0) {
       setPageError("No se puede generar el S-140: hay participantes inactivos asignados. Reemplaza esas asignaciones por personas activas.");
+      return;
+    }
+    const roleErrors = validateAssignmentRoleRestrictions(selectedProgram, members);
+    if (roleErrors.length > 0) {
+      setPageError("No se puede generar el S-140. Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
       return;
     }
     setGenerating(true);
@@ -800,14 +812,11 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const reviewed = slots.filter((s) => s.eligibilityConfirmed).length;
   const resetLeadership = { leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined };
   const people = (opts: DirectoryMember[]) => opts.map((m) => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>);
-  const isAppointedBrother = (member: DirectoryMember) =>
-    member.isActive && member.gender === "male"
-    && (member.appointment === "elder" || member.appointment === "ministerial_servant");
   const peopleForSlot = (slot: AssignmentSlotDetail) => {
-    const requiresAppointment = slot.assignmentType === "treasures_talk"
-      || slot.assignmentType === "gems"
-      || slot.section === "living";
-    return people(requiresAppointment ? activeMembers.filter(isAppointedBrother) : activeMembers);
+    const eligibleMembers = slotRequiresAppointedBrother(slot)
+      ? activeMembers.filter(isActiveAppointedBrother)
+      : activeMembers;
+    return people(eligibleMembers);
   };
 
   // El resumen refleja exactamente las semanas presentes en la guía bimestral activa.
@@ -1045,7 +1054,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                         const val = e.target.value || undefined;
                         handleParticipantSelect("chairman", val);
                       }}>
-                      <option value="">Seleccionar presidente…</option>{people(activeMembers)}
+                      <option value="">Seleccionar presidente…</option>{people(activeMembers.filter((member) => member.appointment === "elder"))}
                     </select>
                   </label>
                   <label className="lbl">Consejero auxiliar (opcional)
