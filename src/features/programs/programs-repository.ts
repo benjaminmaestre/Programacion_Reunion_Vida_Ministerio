@@ -233,3 +233,36 @@ export async function saveMeetingProgramToNeon(
     throw new Error("Neon devolvió un identificador diferente al del programa guardado.");
   }
 }
+
+/**
+ * Reabre un programa publicado como borrador sin borrar sus datos.
+ * La RPC valida el rol y realiza la transición bajo el propietario autorizado
+ * para mantener el bloqueo contra escrituras directas sobre programas publicados.
+ */
+export async function reopenMeetingProgramInNeon(
+  neon: NeonBrowserClient,
+  userId: string,
+  programId: string,
+): Promise<void> {
+  await assertCanManageDirectory(neon, userId);
+
+  if (typeof neon.rpc !== "function") {
+    throw new Error("El cliente de Neon no soporta llamadas RPC transaccionales.");
+  }
+
+  const { data, error } = await neon.rpc("reopen_meeting_program", {
+    p_program_id: programId,
+  });
+
+  if (error) {
+    const rpcError = error as { code?: string; message?: string };
+    if (rpcError.code === "PGRST202" || /could not find the function|schema cache/i.test(rpcError.message ?? "")) {
+      throw new Error("No está desplegada la RPC reopen_meeting_program. Revisa la migración de reapertura de programas.");
+    }
+    throw new Error(rpcError.message || "No se pudo reabrir el programa publicado.");
+  }
+
+  if (typeof data === "string" && data.toLowerCase() !== programId.toLowerCase()) {
+    throw new Error("Neon devolvió un identificador diferente al del programa reabierto.");
+  }
+}

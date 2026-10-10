@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -12,7 +12,7 @@ import type { AssignmentHistoryEntry, DirectoryMember } from "../members/demo-da
 import { CATEGORY_LABELS, DEMO_HISTORY, DEMO_MEMBERS } from "../members/demo-data";
 import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
-import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
+import { getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
@@ -647,6 +647,50 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       setFeedback(status === "published" ? "Programa publicado exitosamente." : "Borrador guardado exitosamente.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo guardar el programa.");
+    } finally {
+      setSaving(false);
+      setSavingAction(null);
+    }
+  }
+
+  async function handleReopenPublishedProgram() {
+    if (!selectedProgram || saving || selectedProgram.status !== "published") return;
+    setPageError("");
+    setFeedback("");
+
+    if (mode === "demo") {
+      const reopenedProgram = { ...selectedProgram, status: "draft" as const, updatedAt: new Date().toISOString() };
+      updateProgram(reopenedProgram);
+      setFeedback("Programa reabierto en modo de demostración; puedes editarlo y volver a publicarlo.");
+      return;
+    }
+
+    if (mode !== "connected" || !client || !userId) {
+      setPageError("No hay una sesión válida para reabrir el programa.");
+      return;
+    }
+    if (!canManage) {
+      setPageError("Tu rol no permite reabrir programas publicados.");
+      return;
+    }
+    if (!confirm(`¿Reabrir el programa del ${longDate(selectedProgram.meetingDate)}? Volverá a borrador para que puedas corregirlo y publicarlo otra vez.`)) {
+      return;
+    }
+
+    setSaving(true);
+    setSavingAction("reopening");
+    try {
+      await reopenMeetingProgramInNeon(client, userId, selectedProgram.id);
+      const freshPrograms = await getMeetingProgramsFromNeon(client);
+      const reopenedProgram = freshPrograms.find((program) => program.id === selectedProgram.id);
+      if (!reopenedProgram || reopenedProgram.status !== "draft") {
+        throw new Error("No se pudo verificar que el programa haya vuelto a borrador.");
+      }
+      setPrograms(freshPrograms);
+      setSelectedProgramId(reopenedProgram.id);
+      setFeedback("Programa reabierto. Puedes corregirlo y volver a publicarlo.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo reabrir el programa.");
     } finally {
       setSaving(false);
       setSavingAction(null);
@@ -1301,17 +1345,23 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                 {renderSideHistoryCard()}
 
                 <div className="card stack">
-                  {canManage && (
+                  {canManage && (readOnly ? (
                     <>
-                      <button type="button" className="button" disabled={saving || readOnly} onClick={() => void handleSave("draft")}>
+                      <button type="button" className="button button-primary" disabled={saving} onClick={() => void handleReopenPublishedProgram()}>
+                        <RotateCcw size={15} /> {savingAction === "reopening" ? "Reabriendo…" : "Reabrir"}
+                      </button>
+                      <p className="small-note">El programa está publicado. Reábrelo para corregirlo y publicarlo nuevamente.</p>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="button" disabled={saving} onClick={() => void handleSave("draft")}>
                         <Save size={15} /> {savingAction === "draft" ? "Guardando…" : "Guardar borrador"}
                       </button>
-                      <button type="button" className="button button-primary" disabled={saving || readOnly} onClick={() => void handleSave("published")}>
+                      <button type="button" className="button button-primary" disabled={saving} onClick={() => void handleSave("published")}>
                         <CheckCircle size={15} /> {savingAction === "published" ? "Publicando…" : "Validar y publicar"}
                       </button>
-                      {readOnly && <p className="small-note">Programa publicado. Los botones se mantienen visibles; la edición está bloqueada para proteger el historial.</p>}
                     </>
-                  )}
+                  ))}
                   <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>
                     <Download size={15} /> {generating ? "Generando…" : "Generar S-140 del bimestre"}
                   </button>

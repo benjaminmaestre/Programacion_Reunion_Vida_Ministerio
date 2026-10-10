@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { createNeonBrowserClient } from "@/lib/neon/client";
 import { MembershipRequiredError } from "../members/members-repository";
 import type { MeetingProgramDetail } from "./program-types";
-import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
+import { getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
 
 type Row = Record<string, any>;
 
@@ -72,6 +72,18 @@ class FakeDatabase {
       });
     }
     if (this.rpcFailure) return Promise.resolve({ data: null, error: this.rpcFailure });
+    if (fnName === "reopen_meeting_program") {
+      const program = (this.tables.meeting_programs ?? []).find((row) => row.id === args.p_program_id);
+      if (!program) {
+        return Promise.resolve({ data: null, error: { message: "No existe el programa que deseas reabrir." } });
+      }
+      if (program.is_draft !== false) {
+        return Promise.resolve({ data: null, error: { message: "El programa ya está en borrador." } });
+      }
+      program.is_draft = true;
+      program.updated_at = new Date().toISOString();
+      return Promise.resolve({ data: program.id, error: null });
+    }
     if (fnName === "save_meeting_program_with_guide") {
       const existingProg = (this.tables.meeting_programs ?? []).find((p) => p.id === args.p_program_id);
       if (existingProg && existingProg.is_draft === false) {
@@ -288,6 +300,39 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     await saveMeetingProgramToNeon(client, "user-user", program);
     expect(db.tables.assignment_slots).toHaveLength(1);
     expect(db.tables.assignment_slots[0].is_deleted).toBe(true);
+  });
+
+  it("reabre un programa publicado como borrador y conserva sus asignaciones", async () => {
+    const programId = "00000000-0000-4000-8000-000000000077";
+    const db = new FakeDatabase();
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
+    db.tables.meeting_programs = [{
+      id: programId,
+      meeting_date: "2026-11-02",
+      is_draft: false,
+      opening_prayer_participant_id: "40000000-0000-4000-8000-000000000001",
+      closing_prayer_participant_id: "40000000-0000-4000-8000-000000000002",
+      weekly_bible_reading: "Levítico 1-3",
+    }];
+    db.tables.assignment_slots = [{
+      id: "00000000-0000-4000-8000-000000000078",
+      meeting_program_id: programId,
+      title: "Discurso de Tesoros",
+      primary_participant_id: "50000000-0000-4000-8000-000000000001",
+      is_deleted: false,
+    }];
+
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
+    await reopenMeetingProgramInNeon(client, "user-user", programId);
+
+    expect(db.tables.meeting_programs[0].is_draft).toBe(true);
+    expect(db.tables.meeting_programs[0].opening_prayer_participant_id)
+      .toBe("40000000-0000-4000-8000-000000000001");
+    expect(db.tables.meeting_programs[0].closing_prayer_participant_id)
+      .toBe("40000000-0000-4000-8000-000000000002");
+    expect(db.tables.meeting_programs[0].weekly_bible_reading).toBe("Levítico 1-3");
+    expect(db.tables.assignment_slots[0].primary_participant_id)
+      .toBe("50000000-0000-4000-8000-000000000001");
   });
 
   it("no permite modificar un programa ya publicado", async () => {
