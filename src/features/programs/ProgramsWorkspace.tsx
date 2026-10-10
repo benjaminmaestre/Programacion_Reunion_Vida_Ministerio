@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, getMemberHistory, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -108,6 +108,7 @@ export const ProgramsWorkspace: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
@@ -616,6 +617,32 @@ export const ProgramsWorkspace: React.FC = () => {
     }
   }
 
+  async function handleSignOut() {
+    if (!client || signingOut) return;
+    setSigningOut(true);
+    setPageError("");
+    setFeedback("");
+    try {
+      const { error } = await client.auth.signOut();
+      if (error) throw new Error("No se pudo cerrar sesión. Inténtalo de nuevo.");
+      setUserId(null);
+      setCanManage(false);
+      setCanConfirmEligibility(false);
+      setActiveGuide(null);
+      setMembers([]);
+      setPrograms([]);
+      setSelectedProgramId(null);
+      setPreviewMemberId(null);
+      setPreviewHistory([]);
+      setLoginError("");
+      setMode("login");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo cerrar sesión.");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   if (mode === "loading") return <Gate><p>Cargando programas…</p></Gate>;
   if (mode === "login") return (
     <Gate>
@@ -657,11 +684,32 @@ export const ProgramsWorkspace: React.FC = () => {
       <button type="button" className="button button-primary gate-submit" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0 || !canManage}>
         <Upload size={15} /> {guideImporting ? "Activando guía…" : "Guardar guía y generar estructura"}
       </button>
+      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut || guideImporting} style={{ marginTop: 10 }}>
+        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+      </button>
     </Gate>
   );
 
-  if (mode === "membership") return <Gate><div className="gate-icon"><AlertTriangle size={22} /></div><h1 className="gate-title">Falta configurar tu acceso</h1><p className="gate-description">Tu cuenta no pertenece aún a la congregación activa. Contacta al administrador para vincularla.</p></Gate>;
-  if (mode === "error") return <Gate><div className="gate-icon"><AlertTriangle size={22} /></div><h1 className="gate-title">No se pudieron cargar los programas</h1><p className="gate-description">{pageError || "Ocurrió un error inesperado al conectar con el servidor."}</p></Gate>;
+  if (mode === "membership") return (
+    <Gate>
+      <div className="gate-icon"><AlertTriangle size={22} /></div>
+      <h1 className="gate-title">Falta configurar tu acceso</h1>
+      <p className="gate-description">Tu cuenta no pertenece aún a la congregación activa. Contacta al administrador para vincularla.</p>
+      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut} style={{ marginTop: 18 }}>
+        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+      </button>
+    </Gate>
+  );
+  if (mode === "error") return (
+    <Gate>
+      <div className="gate-icon"><AlertTriangle size={22} /></div>
+      <h1 className="gate-title">No se pudieron cargar los programas</h1>
+      <p className="gate-description">{pageError || "Ocurrió un error inesperado al conectar con el servidor."}</p>
+      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut} style={{ marginTop: 18 }}>
+        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+      </button>
+    </Gate>
+  );
 
   const readOnly = !!(mode === "connected" && (selectedProgram?.status === "published" || !canManage));
   const cycleLabels = [...new Set(programs.map((p) => p.bimonthCycle))];
@@ -750,6 +798,9 @@ export const ProgramsWorkspace: React.FC = () => {
           {activeGuide && mode === "connected" && <span className="small-note">Guía activa: <strong>{activeGuide.periodLabel}</strong></span>}
           {canManage && mode === "connected" && <button type="button" className="button" onClick={() => void handleBeginGuideReplacement()} disabled={guideImporting}><Upload size={16} /> Iniciar nuevo ciclo bimestral</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
+          {mode === "connected" && <button type="button" className="button" onClick={() => void handleSignOut()} disabled={signingOut || saving || generating || guideImporting} title="Cerrar la sesión actual">
+            <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+          </button>}
         </div>
       </header>
 
