@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { createNeonBrowserClient } from "@/lib/neon/client";
+import { MembershipRequiredError } from "../members/members-repository";
 import type { MeetingProgramDetail } from "./program-types";
 import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 
@@ -159,7 +160,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     const programId = "00000000-0000-4000-8000-000000000001";
     const slotId = "00000000-0000-4000-8000-000000000002";
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
     db.tables.planning_cycles = [{ id: "00000000-0000-4000-8000-000000000003", year: 2026, bimonth_number: 6 }];
     db.tables.history_periods = [{ id: "00000000-0000-4000-8000-000000000004", year: 2026, semester: 2 }];
     db.tables.meeting_programs = [{
@@ -216,7 +217,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       }],
     };
 
-    await saveMeetingProgramToNeon(client, "user-elder", program);
+    await saveMeetingProgramToNeon(client, "user-user", program);
     const reloaded = await getMeetingProgramsFromNeon(client);
     expect(reloaded).toHaveLength(1);
     expect(reloaded[0].slots[0].title).toBe("Levítico 17:1-16 — La santidad de la sangre");
@@ -227,9 +228,9 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     expect(reloaded[0].planningCycleId).toBe("00000000-0000-4000-8000-000000000003");
   });
 
-  it("no permite guardar cambios con un rol de solo consulta", async () => {
+  it("no permite guardar cambios si la cuenta no tiene membresía activa", async () => {
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-viewer", role: "viewer", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-inactive", role: "user", is_active: false }];
     db.tables.meeting_programs = [];
     db.tables.assignment_slots = [];
     const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
@@ -243,7 +244,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await expect(saveMeetingProgramToNeon(client, "user-viewer", program)).rejects.toThrow(/Tu rol no permite/);
+    await expect(saveMeetingProgramToNeon(client, "user-inactive", program)).rejects.toThrow(MembershipRequiredError);
     expect(db.tables.meeting_programs).toHaveLength(0);
   });
 
@@ -251,7 +252,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     const programId = "00000000-0000-4000-8000-000000000001";
     const slotId = "00000000-0000-4000-8000-000000000002";
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
     db.tables.meeting_programs = [{ id: programId, is_draft: true }];
     db.tables.assignment_slots = [{ id: slotId, meeting_program_id: programId, is_deleted: false }];
     const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
@@ -265,14 +266,14 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await saveMeetingProgramToNeon(client, "user-elder", program);
+    await saveMeetingProgramToNeon(client, "user-user", program);
     expect(db.tables.assignment_slots).toHaveLength(1);
     expect(db.tables.assignment_slots[0].is_deleted).toBe(true);
   });
 
   it("no permite modificar un programa ya publicado", async () => {
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
     db.tables.meeting_programs = [{
       id: "00000000-0000-4000-8000-000000000001",
       is_draft: false,
@@ -289,12 +290,12 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await expect(saveMeetingProgramToNeon(client, "user-elder", program)).rejects.toThrow(/ya está publicado/);
+    await expect(saveMeetingProgramToNeon(client, "user-user", program)).rejects.toThrow(/ya está publicado/);
   });
 
   it("no hace escrituras directas ni crea ciclos si falla la RPC atómica", async () => {
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
     db.tables.planning_cycles = [];
     db.tables.history_periods = [];
     db.tables.meeting_programs = [];
@@ -313,7 +314,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       slots: [],
     };
 
-    await expect(saveMeetingProgramToNeon(client, "user-elder", program)).rejects.toThrow("permission denied");
+    await expect(saveMeetingProgramToNeon(client, "user-user", program)).rejects.toThrow("permission denied");
     expect(db.rpcCalls).toBe(1);
     expect(db.tables.meeting_programs).toHaveLength(0);
     expect(db.tables.assignment_slots).toHaveLength(0);
@@ -323,7 +324,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
 
   it("crea automáticamente el ciclo bimestral y período semestral si no existen previamente", async () => {
     const db = new FakeDatabase();
-    db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
     db.tables.planning_cycles = [];
     db.tables.history_periods = [];
     db.tables.meeting_programs = [];
@@ -341,7 +342,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       slots: [],
     };
 
-    await saveMeetingProgramToNeon(client, "user-elder", program);
+    await saveMeetingProgramToNeon(client, "user-user", program);
     expect(db.tables.planning_cycles).toHaveLength(1);
     expect(db.tables.planning_cycles[0].year).toBe(2026);
     expect(db.tables.planning_cycles[0].bimonth_number).toBe(6);
@@ -354,4 +355,3 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     expect(db.tables.meeting_programs[0].history_period_id).toBeDefined();
   });
 });
-
