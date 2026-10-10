@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, KeyRound, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
 import { LoginScreen } from "@/features/auth/LoginScreen";
@@ -16,6 +17,7 @@ import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
 import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
+import { findExistingAssignment, type PendingDuplicateAssignment } from "./duplicate-assignment";
 import type { Section, WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "guide_required" | "membership" | "error";
@@ -165,11 +167,11 @@ export const ProgramsWorkspace: React.FC = () => {
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
-  // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia
+  // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia flotante
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewHistory, setPreviewHistory] = useState<AssignmentHistoryEntry[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [warningModalMessage, setWarningModalMessage] = useState<string | null>(null);
+  const [pendingDuplicate, setPendingDuplicate] = useState<PendingDuplicateAssignment | null>(null);
 
   // Modal para crear un programa nuevo
   const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
@@ -815,78 +817,119 @@ export const ProgramsWorkspace: React.FC = () => {
     <div className="meter"><div><span>{label}</span><span>{value} de {slots.length}</span></div><p><i style={{ width: `${slots.length ? (value / slots.length) * 100 : 0}%` }} /></p></div>
   );
 
+
+  function applyAssignment(
+    targetRole: "chairman" | "auxiliary" | "primary" | "assistant",
+    memberId: string | undefined,
+    slotId?: string
+  ) {
+    if (!selectedProgram) return;
+
+    if (targetRole === "chairman") {
+      updateProgram({ ...selectedProgram, chairmanId: memberId, ...resetLeadership });
+    } else if (targetRole === "auxiliary") {
+      updateProgram({ ...selectedProgram, auxiliaryCounselorId: memberId, ...resetLeadership });
+    } else if (targetRole === "primary" && slotId) {
+      updateSlot(slotId, { primaryParticipantId: memberId }, true);
+    } else if (targetRole === "assistant" && slotId) {
+      updateSlot(slotId, { assistantParticipantId: memberId }, true);
+    }
+
+    setPreviewMemberId(memberId ?? null);
+  }
+
+  function handleParticipantSelect(
+    targetRole: "chairman" | "auxiliary" | "primary" | "assistant",
+    newMemberId: string | undefined,
+    slotId?: string
+  ) {
+    if (!newMemberId) {
+      applyAssignment(targetRole, undefined, slotId);
+      return;
+    }
+
+    if (!selectedProgram) {
+      applyAssignment(targetRole, newMemberId, slotId);
+      return;
+    }
+
+    const existing = findExistingAssignment(selectedProgram, newMemberId, targetRole, slotId);
+    if (existing) {
+      const member = members.find((m) => m.id === newMemberId);
+      const memberName = member ? `${member.firstName} ${member.lastName}` : "El hermano/a";
+      const isChairman = selectedProgram.chairmanId === newMemberId || targetRole === "chairman";
+
+      setPendingDuplicate({
+        memberId: newMemberId,
+        memberName,
+        existingPartTitle: existing.title,
+        targetRole,
+        slotId,
+        isChairmanAssigningOther: isChairman,
+      });
+      setPreviewMemberId(newMemberId);
+      return;
+    }
+
+    applyAssignment(targetRole, newMemberId, slotId);
+  }
+
   const renderSideHistoryCard = () => {
-    if (!previewMemberId) return null;
     const member = members.find((m) => m.id === previewMemberId);
-    if (!member) return null;
 
     return (
-      <div className="card history-side-card">
-        <div className="popover-header">
-          <span>Historial (últimos 3 meses)</span>
-          <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }} onClick={() => setPreviewMemberId(null)} aria-label="Cerrar historial">
-            <X size={14} />
-          </button>
-        </div>
-        <div style={{ fontWeight: 800, marginBottom: 8, color: "var(--color-primary)" }}>
-          {member.firstName} {member.lastName}
-        </div>
-        {previewLoading ? (
-          <div className="popover-empty">Cargando historial…</div>
-        ) : previewHistory.length === 0 ? (
-          <div className="popover-empty">Sin asignaciones registradas en los últimos 3 meses</div>
-        ) : (
-          <ul className="popover-list">
-            {previewHistory.map((item) => (
-              <li key={item.id} className="popover-item">
-                <div>
-                  <div className="popover-item-title">{item.assignment}</div>
-                  <div className="popover-item-meta">
-                    {CATEGORY_LABELS[item.category] || item.category} · {item.participation}
-                    {item.companionName ? ` (${item.companionName})` : ""}
-                  </div>
-                </div>
-                <div className="popover-item-date">{item.date}</div>
-              </li>
-            ))}
-          </ul>
+      <AnimatePresence mode="wait">
+        {previewMemberId && member && (
+          <motion.div
+            key={member.id}
+            initial={{ opacity: 0, x: -140, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 40, scale: 0.92 }}
+            transition={{ type: "spring", stiffness: 350, damping: 26 }}
+            className="card history-side-card"
+          >
+            <div className="popover-header">
+              <span>
+                <Clock size={14} aria-hidden="true" />
+                Historial (últimos 3 meses)
+              </span>
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }}
+                onClick={() => setPreviewMemberId(null)}
+                aria-label="Cerrar historial"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div style={{ fontWeight: 850, marginBottom: 8, color: "#1d4ed8", fontSize: "12px" }}>
+              {member.firstName} {member.lastName}
+            </div>
+            {previewLoading ? (
+              <div className="popover-empty">Cargando historial…</div>
+            ) : previewHistory.length === 0 ? (
+              <div className="popover-empty">Sin asignaciones registradas en los últimos 3 meses</div>
+            ) : (
+              <ul className="popover-list">
+                {previewHistory.map((item) => (
+                  <li key={item.id} className="popover-item">
+                    <div>
+                      <div className="popover-item-title">{item.assignment}</div>
+                      <div className="popover-item-meta">
+                        {CATEGORY_LABELS[item.category] || item.category} · {item.participation}
+                        {item.companionName ? ` (${item.companionName})` : ""}
+                      </div>
+                    </div>
+                    <div className="popover-item-date">{item.date}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     );
   };
-
-  // Función para comprobar si un participante ya tiene otra asignación en el mismo programa
-  function checkDuplicateAssignment(memberId: string | undefined, currentSlotId?: string, isLeadershipRole?: boolean) {
-    if (!memberId || !selectedProgram) return;
-    const member = members.find((m) => m.id === memberId);
-    if (!member) return;
-
-    // Conteo de asignaciones del participante en el mismo programa
-    let occurrences = 0;
-
-    // Si es presidente, se le permite repetir (oraciones, discursos, etc.)
-    const isChairman = selectedProgram.chairmanId === memberId;
-    if (isLeadershipRole && isChairman) return; // Permitido sin advertencia
-
-    if (selectedProgram.chairmanId === memberId) occurrences++;
-    if (selectedProgram.auxiliaryCounselorId === memberId) occurrences++;
-
-    for (const slot of selectedProgram.slots) {
-      if (slot.primaryParticipantId === memberId) occurrences++;
-      if (slot.assistantParticipantId === memberId) occurrences++;
-    }
-
-    // Si la persona ya figura en otra parte del programa y NO es el presidente que tiene exención
-    if (occurrences > 1) {
-      if (isChairman) {
-        // Mensaje informativo si es el presidente
-        setFeedback(`Nota: ${member.firstName} ${member.lastName} es el presidente de la reunión y tiene más de una asignación este día.`);
-      } else {
-        // Ventana modal de advertencia emergente
-        setWarningModalMessage(`${member.firstName} ${member.lastName} ya tiene otra asignación en este mismo programa (${longDate(selectedProgram.meetingDate)}).`);
-      }
-    }
-  }
 
   return (
     <div className="workspace">
@@ -986,9 +1029,7 @@ export const ProgramsWorkspace: React.FC = () => {
                       onFocus={() => { setPreviewMemberId(selectedProgram.chairmanId ?? null); }}
                       onChange={(e) => {
                         const val = e.target.value || undefined;
-                        updateProgram({ ...selectedProgram, chairmanId: val, ...resetLeadership });
-                        setPreviewMemberId(val ?? null);
-                        checkDuplicateAssignment(val, undefined, true);
+                        handleParticipantSelect("chairman", val);
                       }}>
                       <option value="">Seleccionar presidente…</option>{people(activeMembers)}
                     </select>
@@ -998,9 +1039,7 @@ export const ProgramsWorkspace: React.FC = () => {
                       onFocus={() => { setPreviewMemberId(selectedProgram.auxiliaryCounselorId ?? null); }}
                       onChange={(e) => {
                         const val = e.target.value || undefined;
-                        updateProgram({ ...selectedProgram, auxiliaryCounselorId: val, ...resetLeadership });
-                        setPreviewMemberId(val ?? null);
-                        checkDuplicateAssignment(val);
+                        handleParticipantSelect("auxiliary", val);
                       }}>
                       <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
                     </select>
@@ -1052,9 +1091,7 @@ export const ProgramsWorkspace: React.FC = () => {
                                       onFocus={() => { setPreviewMemberId(slot.primaryParticipantId ?? null); }}
                                       onChange={(e) => {
                                         const val = e.target.value || undefined;
-                                        updateSlot(slot.id, { primaryParticipantId: val }, true);
-                                        setPreviewMemberId(val ?? null);
-                                        checkDuplicateAssignment(val, slot.id);
+                                        handleParticipantSelect("primary", val, slot.id);
                                       }}>
                                       <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
                                     </select>
@@ -1065,9 +1102,7 @@ export const ProgramsWorkspace: React.FC = () => {
                                         onFocus={() => { setPreviewMemberId(slot.assistantParticipantId ?? null); }}
                                         onChange={(e) => {
                                           const val = e.target.value || undefined;
-                                          updateSlot(slot.id, { assistantParticipantId: val }, true);
-                                          setPreviewMemberId(val ?? null);
-                                          checkDuplicateAssignment(val, slot.id);
+                                          handleParticipantSelect("assistant", val, slot.id);
                                         }}>
                                         <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
                                       </select>
@@ -1222,31 +1257,95 @@ export const ProgramsWorkspace: React.FC = () => {
         </div>
       )}
 
-      {/* Modal emergente de advertencia para asignación duplicada */}
-      {warningModalMessage && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setWarningModalMessage(null); }}>
-          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="warning-dialog-title" style={{ maxWidth: 460 }}>
-            <div className="modal-header" style={{ borderBottom: "1px solid #f0c7c3", background: "#fff5f5" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--color-danger)" }}>
-                <AlertTriangle size={22} />
-                <h2 className="modal-title" id="warning-dialog-title" style={{ color: "var(--color-danger)", fontSize: 16 }}>
-                  Advertencia de asignación doble
+      {/* Ventana flotante roja de advertencia para asignación duplicada */}
+      <AnimatePresence>
+        {pendingDuplicate && (
+          <div
+            className="warning-modal-backdrop"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setPendingDuplicate(null);
+              }
+            }}
+          >
+            <motion.section
+              className="warning-modal-card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="warning-modal-title"
+              initial={{ opacity: 0, scale: 0.9, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 12 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              <div className="warning-modal-header">
+                <h2 className="warning-modal-title" id="warning-modal-title">
+                  <AlertTriangle size={20} aria-hidden="true" />
+                  <span>Advertencia de asignación duplicada</span>
                 </h2>
+                <button
+                  type="button"
+                  className="warning-modal-close"
+                  onClick={() => setPendingDuplicate(null)}
+                  aria-label="Cerrar advertencia"
+                  title="Cerrar (X)"
+                >
+                  <X size={17} />
+                </button>
               </div>
-              <button type="button" className="icon-button" onClick={() => setWarningModalMessage(null)} aria-label="Cerrar advertencia"><X size={17} /></button>
-            </div>
-            <div style={{ padding: "20px 24px", fontSize: 13, lineHeight: 1.6, color: "var(--color-text)" }}>
-              <p style={{ margin: 0 }}>{warningModalMessage}</p>
-              <p style={{ margin: "12px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
-                <em>Nota: Salvo en el caso del presidente de la reunión, un participante no debe tener dos asignaciones el mismo día. La aplicación permite continuar si es necesario.</em>
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="button button-primary" onClick={() => setWarningModalMessage(null)}>Entendido</button>
-            </div>
-          </section>
-        </div>
-      )}
+
+              <div className="warning-modal-body">
+                <p style={{ margin: 0 }}>
+                  <strong>{pendingDuplicate.memberName}</strong> ya tiene una parte asignada este mismo día{selectedProgram ? ` (${longDate(selectedProgram.meetingDate)})` : ""}:
+                </p>
+
+                <div className="warning-modal-badge">
+                  <span className="warning-badge-role">Asignación actual:</span>
+                  <span className="warning-badge-title">{pendingDuplicate.existingPartTitle}</span>
+                </div>
+
+                <p className="warning-modal-subtext">
+                  {pendingDuplicate.isChairmanAssigningOther ? (
+                    <>
+                      <strong>Excepción de presidencia:</strong> El presidente de la reunión puede realizar asignaciones adicionales (oraciones, discursos o secciones especiales). Presiona <strong>Aceptar</strong> para confirmar.
+                    </>
+                  ) : (
+                    <>
+                      Un participante no debe tener dos asignaciones el mismo día. Si deseas asignarlo de todas formas, presiona <strong>Aceptar</strong>. Para cancelar y elegir a otra persona, presiona <strong>Cancelar</strong> o la <strong>X</strong>.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="warning-modal-footer">
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => setPendingDuplicate(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="warning-btn-accept"
+                  onClick={() => {
+                    applyAssignment(
+                      pendingDuplicate.targetRole,
+                      pendingDuplicate.memberId,
+                      pendingDuplicate.slotId
+                    );
+                    setPendingDuplicate(null);
+                  }}
+                >
+                  <CheckCircle size={15} aria-hidden="true" />
+                  Aceptar
+                </button>
+              </div>
+            </motion.section>
+          </div>
+        )}
+      </AnimatePresence>
       {isPasswordDialogOpen && client && (
         <PasswordChangeDialog
           client={client}
