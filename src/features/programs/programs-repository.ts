@@ -114,6 +114,35 @@ export async function getMeetingProgramsFromNeon(
     slotsByProgram.set(slot.meeting_program_id, list);
   }
 
+  function normalizeLegacyBibleStudySlots(slots: AssignmentSlotDetail[]): AssignmentSlotDetail[] {
+    const conductor = slots.find((slot) => slot.assignmentType === "bible_study_conductor");
+    const reader = slots.find((slot) => slot.assignmentType === "bible_study_reader");
+    if (!conductor && !reader) return slots;
+
+    // Los programas guardados antes de la consolidación tenían dos filas.
+    // Se muestran como una sola, preservando conductor y lector.
+    const canonical = conductor ?? reader!;
+    const normalized: AssignmentSlotDetail = {
+      ...canonical,
+      title: "Estudio bíblico de la congregación",
+      assignmentType: "bible_study",
+      section: "living",
+      isStudentPart: false,
+      primaryParticipantId: conductor?.primaryParticipantId ?? canonical.primaryParticipantId,
+      assistantParticipantId: reader?.primaryParticipantId ?? reader?.assistantParticipantId
+        ?? conductor?.assistantParticipantId,
+      eligibilityConfirmed: false,
+      eligibilityConfirmedBy: undefined,
+      eligibilityConfirmedAt: undefined,
+      orderIndex: Math.min(conductor?.orderIndex ?? Number.MAX_SAFE_INTEGER, reader?.orderIndex ?? Number.MAX_SAFE_INTEGER),
+    };
+    return slots
+      .filter((slot) => slot !== conductor && slot !== reader)
+      .concat(normalized)
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((slot, index) => ({ ...slot, orderIndex: index + 1 }));
+  }
+
   return (programsData as DbMeetingProgramRow[]).map((p) => ({
     id: p.id,
     meetingDate: p.meeting_date,
@@ -135,7 +164,7 @@ export async function getMeetingProgramsFromNeon(
     status: p.is_draft ? "draft" : "published",
     notes: p.notes || undefined,
     updatedAt: p.updated_at,
-    slots: slotsByProgram.get(p.id) || [],
+    slots: normalizeLegacyBibleStudySlots(slotsByProgram.get(p.id) || []),
   }));
 }
 
