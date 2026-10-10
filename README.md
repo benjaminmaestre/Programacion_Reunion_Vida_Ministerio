@@ -26,7 +26,8 @@ Las migraciones adaptadas para Neon están en `neon/migrations/`. Aplicarlas en 
 3. `003_official_directory_and_titles.sql`
 4. `004_assignment_eligibility_review.sql`
 5. `005_save_meeting_program_transaction.sql`
-6. `006_rpc_security_and_publication_guards.sql`\n7. `007_two_role_access_model.sql`
+6. `006_rpc_security_and_publication_guards.sql`
+7. `007_two_role_access_model.sql`
 
 La importación validada está en `neon/imports/listado_unificado_las_violetas_2026_10_09.sql`. Requiere las migraciones 001 y 003 y aborta si `public.members` ya contiene registros; no borra ni sobreescribe datos existentes.
 
