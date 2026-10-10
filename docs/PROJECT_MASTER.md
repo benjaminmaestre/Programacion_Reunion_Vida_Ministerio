@@ -65,6 +65,13 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 
 ## 6. Registro de avances
 
+### 9 de octubre de 2026 — Rediseño de UI e Instalación de Tailwind v4
+- **Instalación de Tailwind v4:** Se instaló `@tailwindcss/postcss` y `postcss`, creando `postcss.config.mjs` y configurando `@import "tailwindcss";` en `src/app/globals.css`. Se encapsularon todas las utilidades y componentes en `@layer components` para prevenir conflictos de precedencia. Se eliminó la librería obsoleta `tailwindcss-animate`.
+- **Sistema de Diseño y Tipografía:** Se incorporaron las fuentes Google `Instrument Sans` y `Newsreader` mediante `next/font/google` en `src/app/layout.tsx`. Se actualizaron los tokens de color e imponen bordes finos de 1px sin sombras (`box-shadow: none`) ni degradados decorativos, manteniendo bordes redondeados strictly de 6px en controles.
+- **Navegación Unificada:** Se integró la navegación en `src/app/page.tsx` con una barra lateral / rail común (`VM`, `Programas`, `Directorio` y `Usuarios`) y se eliminó el chrome propio (topbar/sidebar duplicado) en `MembersWorkspace.tsx`.
+- **Rediseño de Programación:** Se transformó `ProgramsWorkspace.tsx` en una hoja de ruta con navegación bimestral por tira de semanas, secciones temáticas ("Tesoros de la Biblia", "Seamos mejores maestros", "Nuestra vida cristiana"), hilo conector vertical y panel lateral con medidores de avance.
+- **Sin Alteración de Lógica Interna:** Se preservaron sin tocar todos los módulos de dominio, funciones de repositorio, RPC, seguridad Neon, validaciones y generación de S-140.
+
 ### 9 de octubre de 2026 — Fase 5: Seguridad RPC, Integridad Transaccional y Validación Final
 - **Seguridad en RPC `SECURITY DEFINER`:** En `005_save_meeting_program_transaction.sql`, se revocó el permiso de ejecución a `PUBLIC` y `anon`, otorgándolo exclusivamente a `authenticated`. Se fijó `search_path = public, pg_temp;` y se incluyeron comprobaciones internas de `auth.uid()` contra la tabla `app_users` para verificar roles activos (`administrator`, `elder`, `coordinator`).
 - **Trazabilidad de Auditoría:** Las confirmaciones de revisión humana sobrescriben la identidad con `auth.uid()` y la fecha con `NOW()`, impidiendo la falsificación de auditoría desde el cliente.
