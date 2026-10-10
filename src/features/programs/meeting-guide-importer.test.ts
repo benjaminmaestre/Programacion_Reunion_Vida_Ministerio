@@ -10,15 +10,15 @@ function makeEpub(weekLabel: string, year = 2026, periodMonths = "noviembre y di
     <html xmlns="http://www.w3.org/1999/xhtml"><body>
       <h1>${weekLabel}</h1><h3><strong>Canción 1 y oración | Palabras de introducción (1 min.)</strong></h3>
       <h2>JEREMÍAS 49, 50</h2><h2>TESOROS DE LA BIBLIA</h2>
-      <h3><strong>1. Tema del discurso principal</strong></h3><p>(10 mins.)</p>
+      <h3><strong>1. Tema del discurso principal (10 mins.)</strong></h3><p>Contenido del discurso.</p>
       <h3><strong>2. Busquemos perlas escondidas</strong></h3><p>(10 mins.)</p>
-      <h3><strong>3. Lectura de la Biblia</strong></h3><p>(4 mins.) Jer 50:24-40 ( th lección 11 ).</p>
+      <h3><strong>3. Lectura de la Biblia (4 mins.)</strong></h3><p>Jer 50:24-40 ( th lección 11 ).</p>
       <h2>SEAMOS MEJORES MAESTROS</h2>
-      <h3><strong>4. Empecemos conversaciones</strong></h3><p>(3 mins.) Indicaciones.</p>
-      <h3><strong>5. Hagamos revisitas</strong></h3><p>(4 mins.) Indicaciones.</p>
-      <h3><strong>6. Discurso</strong></h3><p>(5 mins.) lmd apéndice A punto 21. Título: El Reino de Dios es un gobierno real que está en el cielo ( th lección 7 ).</p>
-      <h3>Canción 44</h3><h2>NUESTRA VIDA CRISTIANA</h2><h3><strong>7. Tema de Nuestra vida cristiana</strong></h3><p>(15 mins.)</p>
-      <h3><strong>8. Estudio bíblico de la congregación</strong></h3><p>(30 mins.)</p>
+      <h3><strong>4. Empecemos conversaciones</strong></h3><p>(2 mins.) Indicaciones.</p>
+      <h3><strong>5. Hagamos revisitas</strong></h3><p>(5 mins.) Indicaciones.</p>
+      <h3><strong>6. Discurso (6 mins.)</strong></h3><p>lmd apéndice A punto 21. Título: El Reino de Dios es un gobierno real que está en el cielo ( th lección 7 ).</p>
+      <h3>Canción 44</h3><h2>NUESTRA VIDA CRISTIANA</h2><h3><strong>7. Tema de Nuestra vida cristiana (12 mins.)</strong></h3><p>Contenido de la asignación.</p>
+      <h3><strong>8. Estudio bíblico de la congregación</strong></h3><p>(25 mins.)</p>
       <h3>Palabras de conclusión (3 mins.) | Canción 33 y oración</h3>
     </body></html>`);
   return zip.generate({ type: "uint8array" }) as Uint8Array;
@@ -29,6 +29,9 @@ describe("meeting guide EPUB importer", () => {
     const weeks = parseMeetingGuideEpub(makeEpub("2-8 DE NOVIEMBRE"), "mwb_S_202611.epub");
     expect(weeks).toHaveLength(1);
     expect(weeks[0].assignments).toHaveLength(8);
+    expect(weeks[0].assignments.map(({ number, durationMinutes }) => [number, durationMinutes])).toEqual([
+      [1, 10], [2, 10], [3, 4], [4, 2], [5, 5], [6, 6], [7, 12], [8, 25],
+    ]);
     expect(weeks[0]).toMatchObject({
       startDate: "2026-11-02",
       endDate: "2026-11-08",
@@ -40,11 +43,12 @@ describe("meeting guide EPUB importer", () => {
       gemsTitle: "Busquemos perlas escondidas",
       bibleReadingTitle: "Jer 50:24-40",
       ministryParts: [
-        { title: "Empecemos conversaciones", assignmentType: "conversation", durationMinutes: 3 },
-        { title: "Hagamos revisitas", assignmentType: "revisit", durationMinutes: 4 },
-        { title: "El Reino de Dios es un gobierno real que está en el cielo", assignmentType: "student_talk", durationMinutes: 5 },
+        { title: "Empecemos conversaciones", assignmentType: "conversation", durationMinutes: 2 },
+        { title: "Hagamos revisitas", assignmentType: "revisit", durationMinutes: 5 },
+        { title: "El Reino de Dios es un gobierno real que está en el cielo", assignmentType: "student_talk", durationMinutes: 6 },
       ],
       livingTitle: "Tema de Nuestra vida cristiana",
+      livingDurationMinutes: 12,
     });
   });
 
@@ -69,7 +73,15 @@ describe("meeting guide EPUB importer", () => {
     expect(updated.leadershipReviewConfirmed).toBe(false);
     expect(updated.slots.find((slot) => slot.assignmentType === "treasures_talk")?.title).toBe("Tema del discurso principal");
     expect(updated.slots.find((slot) => slot.assignmentType === "treasures_talk")?.durationMinutes).toBe(10);
+    expect(updated.slots.find((slot) => slot.assignmentType === "gems")?.durationMinutes).toBe(10);
     expect(updated.slots.find((slot) => slot.assignmentType === "bible_reading")?.title).toBe("Lectura de la Biblia (Jer 50:24-40)");
+    expect(updated.slots.find((slot) => slot.assignmentType === "bible_reading")?.durationMinutes).toBe(4);
+    expect(updated.slots.find((slot) => slot.assignmentType === "conversation")?.durationMinutes).toBe(2);
+    expect(updated.slots.find((slot) => slot.assignmentType === "revisit")?.durationMinutes).toBe(5);
+    expect(updated.slots.find((slot) => slot.assignmentType === "student_talk")?.durationMinutes).toBe(6);
+    expect(updated.slots.find((slot) => slot.assignmentType === "living_part")?.durationMinutes).toBe(12);
+    expect(updated.slots.find((slot) => slot.assignmentType === "bible_study_conductor")?.durationMinutes).toBe(25);
+    expect(updated.slots.find((slot) => slot.assignmentType === "bible_study_reader")?.durationMinutes).toBe(25);
     expect(updated.slots.find((slot) => slot.assignmentType === "living_part")?.title).toBe("Tema de Nuestra vida cristiana");
     expect(updated.slots.find((slot) => slot.assignmentType === "conversation")?.primaryParticipantId)
       .toBe(program.slots.find((slot) => slot.assignmentType === "conversation")?.primaryParticipantId);
