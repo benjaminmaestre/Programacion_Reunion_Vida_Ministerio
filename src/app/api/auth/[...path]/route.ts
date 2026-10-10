@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import { auth } from "@/lib/neon/auth-server";
 
+export const dynamic = "force-dynamic";
+
 const handlers = auth.handler();
 
 // Managed Neon Auth returns the JWT for the Data API in Set-Auth-Jwt.
