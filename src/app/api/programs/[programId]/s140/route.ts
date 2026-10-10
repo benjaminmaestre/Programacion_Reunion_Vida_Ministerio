@@ -13,6 +13,7 @@ type SlotRow = {
   primary_participant_id: string | null;
   assistant_participant_id: string | null;
   order_index: number;
+  duration_minutes: number;
   is_deleted?: boolean;
 };
 
@@ -110,10 +111,11 @@ export async function POST(
           title: slot.title,
           speaker: nameFor(slot.primary_participant_id),
           assistant: nameFor(slot.assistant_participant_id) || undefined,
+          durationMinutes: slot.duration_minutes,
         })),
       livingParts: slots
         .filter((slot) => slot.section === "living" && slot.assignment_type !== "bible_study_conductor" && slot.assignment_type !== "bible_study_reader")
-        .map((slot) => ({ title: slot.title, speaker: nameFor(slot.primary_participant_id) })),
+        .map((slot) => ({ title: slot.title, speaker: nameFor(slot.primary_participant_id), durationMinutes: slot.duration_minutes })),
       congregationStudyConductor: nameFor(conductor?.primary_participant_id),
       congregationStudyReader: nameFor(studyReader?.primary_participant_id),
     });
