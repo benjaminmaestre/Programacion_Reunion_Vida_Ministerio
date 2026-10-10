@@ -41,7 +41,6 @@ export async function POST(
     }
 
     // El Data API valida el JWT de Neon Auth y aplica los permisos y las políticas RLS.
-    // No se usa una credencial administrativa ni se confía en un userId del navegador.
     const neon = createClient({
       dataApi: {
         url: dataApiUrl,
@@ -49,13 +48,13 @@ export async function POST(
       },
     });
 
-    const { data: appUser, error: roleError } = await neon
+    const { data: appUsers, error: roleError } = await neon
       .from("app_users")
       .select("user_id, is_active")
-      .eq("is_active", true)
-      .maybeSingle();
-    if (roleError || !appUser) {
-      return NextResponse.json({ error: "No tienes acceso activo a esta aplicación." }, { status: 403 });
+      .eq("is_active", true);
+
+    if (roleError || !appUsers || appUsers.length === 0) {
+      return NextResponse.json({ error: "Tu usuario no tiene un acceso activo a esta aplicación. Solicita al administrador que configure tu cuenta." }, { status: 403 });
     }
 
     const { programId } = await context.params;

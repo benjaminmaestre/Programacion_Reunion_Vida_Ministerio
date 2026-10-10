@@ -104,13 +104,9 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     const { createClient } = await import("@neondatabase/neon-js");
     vi.mocked(createClient).mockReturnValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
-      },
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
       }),
     } as unknown as ReturnType<typeof createClient>);
 
@@ -119,7 +115,7 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     expect(response.status).toBe(403);
     const json = await response.json();
-    expect(json.error).toContain("No tienes acceso activo");
+    expect(json.error).toContain("Tu usuario no tiene un acceso activo");
   });
 
   it("devuelve 404 si el programa no existe", async () => {
@@ -128,15 +124,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     const { createClient } = await import("@neondatabase/neon-js");
     vi.mocked(createClient).mockReturnValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
-      },
       from: vi.fn((table: string) => {
         if (table === "app_users") {
           return {
             select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+            eq: vi.fn().mockResolvedValue({ data: [{ user_id: "user-123", is_active: true }], error: null }),
           };
         }
         if (table === "meeting_programs") {
@@ -164,15 +156,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     const { createClient } = await import("@neondatabase/neon-js");
     vi.mocked(createClient).mockReturnValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
-      },
       from: vi.fn((table: string) => {
         if (table === "app_users") {
           return {
             select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+            eq: vi.fn().mockResolvedValue({ data: [{ user_id: "user-123", is_active: true }], error: null }),
           };
         }
         if (table === "meeting_programs") {
@@ -207,15 +195,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     const { createClient } = await import("@neondatabase/neon-js");
     vi.mocked(createClient).mockReturnValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
-      },
       from: vi.fn((table: string) => {
         if (table === "app_users") {
           return {
             select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({ data: { user_id: "user-123", is_active: true }, error: null }),
+            eq: vi.fn().mockResolvedValue({ data: [{ user_id: "user-123", is_active: true }], error: null }),
           };
         }
         if (table === "meeting_programs") {
