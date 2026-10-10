@@ -103,6 +103,34 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(xml).toContain("Julián Gómez");
   });
 
+  it("no agrega un formulario vacío cuando el número de reuniones es impar", () => {
+    const buffer = S140DocxGenerator.generateDocx({
+      weekDate: "2026-11-05",
+      weeklyBibleReading: "JEREMÍAS 49, 50",
+      chairman: "Benjamin Pérez Maestre",
+      auxiliaryCounselor: "Félix Aníbal Pérez",
+      openingPrayer: "David Aular",
+      openingSongNumber: 1,
+      livingSongNumber: 44,
+      closingSongNumber: 33,
+      closingPrayer: "Benjamin Pérez Maestre",
+      treasuresTalkTitle: "Ayudamos a otros a beneficiarse de la misericordia de Jehová",
+      treasuresTalkSpeaker: "Gonzalo Adolfo Álvarez",
+      gemsSpeaker: "Luis Horacio Castrillón",
+      bibleReader: "Estiven Díaz",
+      ministersParts: [{ title: "Empecemos conversaciones", speaker: "Benjamin Pérez Maestre", durationMinutes: 3 }],
+      livingParts: [{ title: "Nunca olviden lo que Jehová recuerda", speaker: "Widmar Alberto Grisales", durationMinutes: 15 }],
+      congregationStudyConductor: "Luis Guillermo Castrillo",
+      congregationStudyReader: "Stirwen Yomar Marquez Salazar",
+    });
+    const xml = new PizZip(buffer).file("word/document.xml")?.asText() ?? "";
+    expect(xml).toContain("5 de noviembre de 2026");
+    expect((xml.match(/LECTURA SEMANAL DE LA BIBLIA/g) ?? []).length).toBe(1);
+    expect(xml).not.toContain("[FECHA]");
+    expect(xml).not.toContain("<w:docGrid");
+    expect((xml.match(/LAS VIOLETAS/g) ?? []).length).toBe(1);
+  });
+
   it("devuelve 503 si Neon no está configurado", async () => {
     delete process.env.NEXT_PUBLIC_NEON_DATA_API_URL;
     delete process.env.NEXT_PUBLIC_NEON_AUTH_URL;

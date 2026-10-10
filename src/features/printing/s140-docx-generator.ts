@@ -104,7 +104,10 @@ function addOrReplaceCompactSpacing(pPr: string): string {
 }
 
 function compactS140Body(body: string): string {
-  return body.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (paragraph, attributes: string, content: string) => {
+  const compactRows = body.replace(/<w:trHeight\b[^>]*\/>/g, (height) =>
+    /w:val=["']288["']/.test(height) ? height.replace(/w:val=["']288["']/, 'w:val="220"') : height
+  );
+  return compactRows.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (paragraph, attributes: string, content: string) => {
     const properties = /<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/.exec(content);
     if (!properties) {
       return '<w:p' + attributes + '><w:pPr>' + COMPACT_PARAGRAPH_SPACING + '</w:pPr>' + content + '</w:p>';
@@ -123,6 +126,34 @@ function compactSectionMargins(section: string): string {
   });
 }
 function mapRows(table:string,mapper:(row:string,index:number)=>string):string { let index=0; return table.replace(/<w:tr\b[\s\S]*?<\/w:tr>/g,(row)=>mapper(row,index++)); }
+function setRunFontSize(run: string, size: number): string {
+  const value = String(size);
+  const runProperties = /<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/.exec(run)?.[0];
+  if (runProperties) {
+    let properties = runProperties;
+    for (const tag of ["sz", "szCs"]) {
+      const pattern = new RegExp("<w:" + tag + "\\\\b[^>]*\\\\/>");
+      const replacement = '<w:' + tag + ' w:val="' + value + '"/>';
+      if (pattern.test(properties)) properties = properties.replace(pattern, replacement);
+      else properties = properties.replace(/<\/w:rPr>$/, replacement);
+    }
+    return run.replace(runProperties, properties);
+  }
+  return run.replace(/^(<w:r\b[^>]*>)/, '$1<w:rPr><w:sz w:val="' + value + '"/><w:szCs w:val="' + value + '"/></w:rPr>');
+}
+
+function compactAssignmentTable(table: string): string {
+  return mapRows(table, (row, rowIndex) => {
+    const text = visibleText(row);
+    if (text.includes("LAS VIOLETAS") || text.includes("Programa para la reunión de entre semana")) return "";
+    if (rowIndex === 0) return row;
+    return row.replace(/<w:r\b[\s\S]*?<\/w:r>/g, (run) => {
+      if (visibleText(run).trim().length < 9) return run;
+      return setRunFontSize(run, 16);
+    });
+  });
+}
+
 function fillDateTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"[FECHA] | LECTURA SEMANAL DE LA BIBLIA",
     data.weeklyBibleReading?.trim()?formatSpanishDate(data.weekDate)+" | LECTURA SEMANAL DE LA BIBLIA: "+data.weeklyBibleReading.trim():formatSpanishDate(data.weekDate)+" | LECTURA SEMANAL DE LA BIBLIA");
@@ -194,6 +225,23 @@ function findS140FormStarts(body: string): S140FormStart[] {
   return starts;
 }
 
+function truncateAfterForm(body: string, formIndex: number): string {
+  const formStarts = findS140FormStarts(body);
+  if (formIndex < 0 || formIndex >= formStarts.length) {
+    throw new Error("No se encontró el formulario S-140 solicitado en la plantilla.");
+  }
+  const targetTableIndex = formStarts[formIndex].tableIndex + 4;
+  let tableIndex = 0;
+  let targetEnd = -1;
+  body.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table, offset: number) => {
+    if (tableIndex === targetTableIndex) targetEnd = offset + table.length;
+    tableIndex += 1;
+    return table;
+  });
+  if (targetEnd < 0) throw new Error("No se pudo delimitar el formulario S-140 en la plantilla.");
+  return body.slice(0, targetEnd);
+}
+
 function stripTemplatePageBreaks(body: string): string {
   return body
     .replace(/<w:br\b[^>]*\bw:type=["']page["'][^>]*\/>/g, "")
@@ -211,62 +259,47 @@ function createTwoMeetingPageTemplate(documentXml: string): { body: string; sect
   if (formStarts.length < 2) {
     throw new Error("La plantilla S-140 no contiene espacio para dos reuniones por página.");
   }
-
-  if (formStarts.length > 1) {
-    // Cada formulario S-140 usa cinco tablas; descartamos el encabezado sobrante
-    // que la plantilla trae inmediatamente después del segundo formulario.
-    const targetTableIndex = formStarts[1].tableIndex + 4;
-    let tableIndex = 0;
-    let targetEnd = -1;
-    body.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table, offset: number) => {
-      if (tableIndex === targetTableIndex) targetEnd = offset + table.length;
-      tableIndex += 1;
-      return table;
-    });
-    if (targetEnd < 0) throw new Error("No se pudo delimitar el segundo formulario de la plantilla S-140.");
-    body = body.slice(0, targetEnd);
-  }
-
+  body = truncateAfterForm(body, 1);
   return { body: stripTemplatePageBreaks(body), section };
 }
 
-function emptyS140AssignmentData(): S140AssignmentData {
-  return {
-    weekDate: "",
-    chairman: "",
-    treasuresTalkTitle: "",
-    treasuresTalkSpeaker: "",
-    gemsSpeaker: "",
-    bibleReader: "",
-    ministersParts: [],
-    livingParts: [],
-    congregationStudyConductor: "",
-    congregationStudyReader: "",
-  };
-}
-
-function renderTwoMeetingPage(templateBody: string, meetings: [S140AssignmentData, S140AssignmentData]): string {
-  const formStarts = findS140FormStarts(templateBody);
-  if (formStarts.length < 2) throw new Error("No se encontraron los dos espacios de reunión en la plantilla S-140.");
+function renderMeetingPage(templateBody: string, meetings: S140AssignmentData[]): string {
+  if (meetings.length < 1 || meetings.length > 2) {
+    throw new Error("Cada página S-140 debe contener una o dos reuniones.");
+  }
+  const activeTemplate = meetings.length === 1 ? truncateAfterForm(templateBody, 0) : templateBody;
+  const formStarts = findS140FormStarts(activeTemplate);
+  if (formStarts.length < meetings.length) {
+    throw new Error("No se encontraron suficientes formularios S-140 en la plantilla.");
+  }
   let tableIndex = 0;
-  const rendered = templateBody.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
+  const rendered = activeTemplate.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
     const currentTableIndex = tableIndex++;
     let formIndex = -1;
     for (let index = 0; index < formStarts.length; index += 1) {
       if (currentTableIndex >= formStarts[index].tableIndex) formIndex = index;
       else break;
     }
-    if (formIndex < 0 || formIndex > 1) return table;
+    if (formIndex < 0) return table;
+    if (formIndex >= meetings.length) return "";
     const relativeIndex = currentTableIndex - formStarts[formIndex].tableIndex;
     const meeting = meetings[formIndex];
     if (relativeIndex === 0) return fillDateTable(table, meeting);
     if (relativeIndex === 1) return fillOpeningTable(table, meeting);
-    if (relativeIndex === 2) return fillTreasuresTable(table, meeting);
-    if (relativeIndex === 3) return fillMinistryTable(table, meeting);
-    if (relativeIndex === 4) return fillLivingTable(table, meeting);
-    return table;
+    if (relativeIndex === 2) return compactAssignmentTable(fillTreasuresTable(table, meeting));
+    if (relativeIndex === 3) return compactAssignmentTable(fillMinistryTable(table, meeting));
+    if (relativeIndex === 4) return compactAssignmentTable(fillLivingTable(table, meeting));
+    return "";
   });
   return compactS140Body(rendered);
+}
+
+function renderTwoMeetingPage(templateBody: string, meetings: [S140AssignmentData, S140AssignmentData]): string {
+  return renderMeetingPage(templateBody, meetings);
+}
+
+function renderSingleMeetingPage(templateBody: string, meeting: S140AssignmentData): string {
+  return renderMeetingPage(templateBody, [meeting]);
 }
 
 export class S140DocxGenerator {
@@ -281,16 +314,13 @@ export class S140DocxGenerator {
 
     const originalXml = file.asText();
     const { body: pageTemplate, section } = createTwoMeetingPageTemplate(originalXml);
-    const completeMeetings = [...meetings];
-    if (completeMeetings.length % 2 !== 0) completeMeetings.push(emptyS140AssignmentData());
-
     const pageBreak = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     const pages: string[] = [];
-    for (let index = 0; index < completeMeetings.length; index += 2) {
-      pages.push(renderTwoMeetingPage(pageTemplate, [
-        completeMeetings[index],
-        completeMeetings[index + 1],
-      ]));
+    for (let index = 0; index < meetings.length; index += 2) {
+      const next = meetings[index + 1];
+      pages.push(next
+        ? renderTwoMeetingPage(pageTemplate, [meetings[index], next])
+        : renderSingleMeetingPage(pageTemplate, meetings[index]));
     }
 
     const congregationName = meetings[0]?.congregationName?.trim()
