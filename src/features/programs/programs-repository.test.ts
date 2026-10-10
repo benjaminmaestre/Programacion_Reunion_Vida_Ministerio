@@ -119,6 +119,8 @@ class FakeDatabase {
         opening_song_number: args.p_opening_song_number,
         living_song_number: args.p_living_song_number,
         closing_song_number: args.p_closing_song_number,
+        opening_prayer_participant_id: args.p_opening_prayer_participant_id,
+        closing_prayer_participant_id: args.p_closing_prayer_participant_id,
         is_draft: args.p_is_draft,
         notes: args.p_notes,
         updated_at: new Date().toISOString(),
@@ -182,6 +184,8 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       history_period_id: "00000000-0000-4000-8000-000000000004",
       chairman_id: null,
       auxiliary_counselor_id: null,
+      opening_prayer_participant_id: null,
+      closing_prayer_participant_id: null,
       circuit_overseer_talk_title: null,
       is_draft: true,
       notes: null,
@@ -214,6 +218,8 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       historyPeriod: "2026-S2",
       planningCycleId: "00000000-0000-4000-8000-000000000003",
       historyPeriodId: "00000000-0000-4000-8000-000000000004",
+      openingPrayerParticipantId: "40000000-0000-4000-8000-000000000001",
+      closingPrayerParticipantId: "40000000-0000-4000-8000-000000000002",
       status: "draft",
       updatedAt: "2026-10-09T00:00:00.000Z",
       slots: [{
@@ -237,6 +243,8 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     expect(reloaded[0].bimonthCycle).toBe("2026-6");
     expect(reloaded[0].historyPeriod).toBe("2026-S2");
     expect(reloaded[0].planningCycleId).toBe("00000000-0000-4000-8000-000000000003");
+    expect(reloaded[0].openingPrayerParticipantId).toBe("40000000-0000-4000-8000-000000000001");
+    expect(reloaded[0].closingPrayerParticipantId).toBe("40000000-0000-4000-8000-000000000002");
   });
 
   it("no permite guardar cambios si la cuenta no tiene membresía activa", async () => {

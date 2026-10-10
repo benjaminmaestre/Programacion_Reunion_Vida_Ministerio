@@ -149,6 +149,10 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
     || expected.closingSongNumber !== actual.closingSongNumber) {
     throw new Error("No se pudieron verificar los números de canción de la guía.");
   }
+  if ((expected.openingPrayerParticipantId ?? "") !== (actual.openingPrayerParticipantId ?? "")
+    || (expected.closingPrayerParticipantId ?? "") !== (actual.closingPrayerParticipantId ?? "")) {
+    throw new Error("No se pudieron verificar los participantes asignados a las oraciones.");
+  }
   if ((expected.bimonthCycle && actual.bimonthCycle !== expected.bimonthCycle)
     || (expected.historyPeriod && actual.historyPeriod !== expected.historyPeriod)) {
     throw new Error("La reunión recuperada no coincide con los ciclos o períodos solicitados.");
@@ -191,6 +195,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const [pageError, setPageError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<"draft" | "published" | null>(null);
   const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -631,6 +636,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     }
 
     setSaving(true);
+    setSavingAction(status);
     try {
       const nextProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
       await saveMeetingProgramToNeon(client, userId, nextProgram);
@@ -643,6 +649,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       setPageError(error instanceof Error ? error.message : "No se pudo guardar el programa.");
     } finally {
       setSaving(false);
+      setSavingAction(null);
     }
   }
 
@@ -1294,14 +1301,15 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                 {renderSideHistoryCard()}
 
                 <div className="card stack">
-                  {canManage && !readOnly && (
+                  {canManage && (
                     <>
-                      <button type="button" className="button" disabled={saving} onClick={() => void handleSave("draft")}>
-                        <Save size={15} /> {saving ? "Guardando…" : "Guardar borrador"}
+                      <button type="button" className="button" disabled={saving || readOnly} onClick={() => void handleSave("draft")}>
+                        <Save size={15} /> {savingAction === "draft" ? "Guardando…" : "Guardar borrador"}
                       </button>
-                      <button type="button" className="button button-primary" disabled={saving} onClick={() => void handleSave("published")}>
-                        <CheckCircle size={15} /> {saving ? "Publicando…" : "Validar y publicar"}
+                      <button type="button" className="button button-primary" disabled={saving || readOnly} onClick={() => void handleSave("published")}>
+                        <CheckCircle size={15} /> {savingAction === "published" ? "Publicando…" : "Validar y publicar"}
                       </button>
+                      {readOnly && <p className="small-note">Programa publicado. Los botones se mantienen visibles; la edición está bloqueada para proteger el historial.</p>}
                     </>
                   )}
                   <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>

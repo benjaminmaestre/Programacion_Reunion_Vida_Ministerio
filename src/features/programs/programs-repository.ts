@@ -12,6 +12,8 @@ interface DbMeetingProgramRow {
   history_period_id: string | null;
   chairman_id: string | null;
   auxiliary_counselor_id: string | null;
+  opening_prayer_participant_id?: string | null;
+  closing_prayer_participant_id?: string | null;
   leadership_review_confirmed?: boolean | null;
   leadership_review_confirmed_by?: string | null;
   leadership_review_confirmed_at?: string | null;
@@ -157,6 +159,8 @@ export async function getMeetingProgramsFromNeon(
     historyPeriodId: p.history_period_id || undefined,
     chairmanId: p.chairman_id || undefined,
     auxiliaryCounselorId: p.auxiliary_counselor_id || undefined,
+    openingPrayerParticipantId: p.opening_prayer_participant_id || undefined,
+    closingPrayerParticipantId: p.closing_prayer_participant_id || undefined,
     leadershipReviewConfirmed: p.leadership_review_confirmed === true,
     leadershipReviewConfirmedBy: p.leadership_review_confirmed_by || undefined,
     leadershipReviewConfirmedAt: p.leadership_review_confirmed_at || undefined,
@@ -213,6 +217,8 @@ export async function saveMeetingProgramToNeon(
     p_opening_song_number: program.openingSongNumber ?? null,
     p_living_song_number: program.livingSongNumber ?? null,
     p_closing_song_number: program.closingSongNumber ?? null,
+    p_opening_prayer_participant_id: program.openingPrayerParticipantId || null,
+    p_closing_prayer_participant_id: program.closingPrayerParticipantId || null,
   });
 
   if (error) {
