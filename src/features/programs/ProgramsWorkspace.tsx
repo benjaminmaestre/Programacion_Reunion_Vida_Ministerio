@@ -804,6 +804,8 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const readOnly = !!(mode === "connected" && (selectedProgram?.status === "published" || !canManage));
   const cycleLabels = [...new Set(programs.map((p) => p.bimonthCycle))];
   const activeMembers = members.filter((m) => m.isActive);
+  // Las oraciones solo pueden asignarse a varones activos; el género ya existe en el directorio.
+  const activeMaleMembers = activeMembers.filter((m) => m.gender === "male");
   const slots = selectedProgram ? [...selectedProgram.slots].sort((x, y) => x.orderIndex - y.orderIndex) : [];
   const offsets: Record<string, number> = {};
   let elapsed = 0;
@@ -1074,7 +1076,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                         const val = e.target.value || undefined;
                         handleParticipantSelect("opening_prayer", val);
                       }}>
-                      <option value="">Seleccionar oración inicial…</option>{people(activeMembers)}
+                      <option value="">Seleccionar oración inicial…</option>{people(activeMaleMembers)}
                     </select>
                   </label>
                   {selectedProgram.weekType === "circuit_overseer" && (
