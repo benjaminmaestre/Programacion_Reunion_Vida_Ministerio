@@ -104,35 +104,120 @@ function fillLivingTable(table:string,data:S140AssignmentData):string {
     return row;
   });
 }
-function keepOneS140Form(documentXml:string):string {
-  const match=documentXml.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
-  if(!match)throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
-  const section=match[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0]??"";
-  let body=match[1].replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/,"");
-  const tables=[...body.matchAll(/<w:tbl\b[\s\S]*?<\/w:tbl>/g)];
-  const dates=tables.filter((t)=>{const text=visibleText(t[0]);return text.includes("[FECHA]")&&text.includes("LECTURA SEMANAL DE LA BIBLIA");});
-  if(dates.length>1)body=body.slice(0,dates[1].index??body.length);
-  return documentXml.replace(match[1],body+section);
+type S140FormStart = { tableIndex: number; offset: number };
+
+function findS140FormStarts(body: string): S140FormStart[] {
+  const starts: S140FormStart[] = [];
+  let tableIndex = 0;
+  body.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table, offset: number) => {
+    const text = visibleText(table);
+    if (text.includes("[FECHA]") && text.includes("LECTURA SEMANAL DE LA BIBLIA")) {
+      starts.push({ tableIndex, offset });
+    }
+    tableIndex += 1;
+    return table;
+  });
+  return starts;
+}
+
+function stripTemplatePageBreaks(body: string): string {
+  return body
+    .replace(/<w:br\b[^>]*\bw:type=["']page["'][^>]*\/>/g, "")
+    .replace(/<w:pageBreakBefore\b[^>]*\/>/g, "");
+}
+
+function createTwoMeetingPageTemplate(documentXml: string): { body: string; section: string } {
+  const match = documentXml.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
+  if (!match) throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
+
+  const section = match[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ?? "";
+  let body = match[1].replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/, "");
+  const formStarts = findS140FormStarts(body);
+  if (formStarts.length < 2) {
+    throw new Error("La plantilla S-140 no contiene espacio para dos reuniones por página.");
+  }
+
+  if (formStarts.length > 2) {
+    const secondStart = formStarts[1].offset;
+    const thirdStart = formStarts[2].offset;
+    const betweenSecondAndThird = body.slice(secondStart, thirdStart);
+    const explicitBreaks = [...betweenSecondAndThird.matchAll(/<w:br\b[^>]*\bw:type=["']page["'][^>]*\/>/g)];
+    const breakBeforeParagraphs = [...betweenSecondAndThird.matchAll(/<w:p\b[^>]*>[\s\S]*?<w:pageBreakBefore\b[^>]*\/>[\s\S]*?<\/w:p>/g)];
+    const lastBreak = [
+      explicitBreaks.length ? { index: explicitBreaks[explicitBreaks.length - 1].index ?? -1 } : null,
+      breakBeforeParagraphs.length ? { index: breakBeforeParagraphs[breakBeforeParagraphs.length - 1].index ?? -1 } : null,
+    ].filter((entry): entry is { index: number } => Boolean(entry && entry.index >= 0))
+      .sort((a, b) => b.index - a.index)[0];
+    body = body.slice(0, lastBreak ? secondStart + lastBreak.index : thirdStart);
+  }
+
+  return { body: stripTemplatePageBreaks(body), section };
+}
+
+function emptyS140AssignmentData(): S140AssignmentData {
+  return {
+    weekDate: "",
+    chairman: "",
+    treasuresTalkTitle: "",
+    treasuresTalkSpeaker: "",
+    gemsSpeaker: "",
+    bibleReader: "",
+    ministersParts: [],
+    livingParts: [],
+    congregationStudyConductor: "",
+    congregationStudyReader: "",
+  };
+}
+
+function renderTwoMeetingPage(templateBody: string, meetings: [S140AssignmentData, S140AssignmentData]): string {
+  const formStarts = findS140FormStarts(templateBody);
+  if (formStarts.length < 2) throw new Error("No se encontraron los dos espacios de reunión en la plantilla S-140.");
+  let tableIndex = 0;
+  return templateBody.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
+    const currentTableIndex = tableIndex++;
+    let formIndex = -1;
+    for (let index = 0; index < formStarts.length; index += 1) {
+      if (currentTableIndex >= formStarts[index].tableIndex) formIndex = index;
+      else break;
+    }
+    if (formIndex < 0 || formIndex > 1) return table;
+    const relativeIndex = currentTableIndex - formStarts[formIndex].tableIndex;
+    const meeting = meetings[formIndex];
+    if (relativeIndex === 0) return fillDateTable(table, meeting);
+    if (relativeIndex === 1) return fillOpeningTable(table, meeting);
+    if (relativeIndex === 2) return fillTreasuresTable(table, meeting);
+    if (relativeIndex === 3) return fillMinistryTable(table, meeting);
+    if (relativeIndex === 4) return fillLivingTable(table, meeting);
+    return table;
+  });
 }
 
 export class S140DocxGenerator {
-  static generateDocx(data: S140AssignmentData): Buffer {
+  static generateDocx(input: S140AssignmentData | S140AssignmentData[]): Buffer {
+    const meetings = Array.isArray(input) ? input : [input];
+    if (meetings.length === 0) throw new Error("Selecciona al menos una reunión para generar el S-140.");
+
     const templatePath = path.join(process.cwd(), "templates", "S-140_S.docx");
     const zip = new PizZip(fs.readFileSync(templatePath, "binary"));
     const file = zip.file("word/document.xml");
     if (!file) throw new Error("La plantilla S-140 no contiene word/document.xml.");
-    const singleForm = keepOneS140Form(file.asText());
-    let tableIndex = 0;
-    const rendered = singleForm.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
-      const index = tableIndex++;
-      if (index === 1) return fillDateTable(table, data);
-      if (index === 2) return fillOpeningTable(table, data);
-      if (index === 3) return fillTreasuresTable(table, data);
-      if (index === 4) return fillMinistryTable(table, data);
-      if (index === 5) return fillLivingTable(table, data);
-      return table;
-    });
-    const clean = rendered
+
+    const originalXml = file.asText();
+    const { body: pageTemplate, section } = createTwoMeetingPageTemplate(originalXml);
+    const completeMeetings = [...meetings];
+    if (completeMeetings.length % 2 !== 0) completeMeetings.push(emptyS140AssignmentData());
+
+    const pageBreak = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    const pages: string[] = [];
+    for (let index = 0; index < completeMeetings.length; index += 2) {
+      pages.push(renderTwoMeetingPage(pageTemplate, [
+        completeMeetings[index],
+        completeMeetings[index + 1],
+      ]));
+    }
+
+    const body = pages.join(pageBreak);
+    const clean = body
       .replace(/<w:t\b([^>]*)>\[Nombre\]<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\[Nombre\/Nombre\]<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\[Consejero\]<\/w:t>/g, "<w:t$1></w:t>")
@@ -141,7 +226,11 @@ export class S140DocxGenerator {
       .replace(/<w:t\b([^>]*)>\(X mins\.\)<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\(XX mins\.\)<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\[FECHA\]<\/w:t>/g, "<w:t$1></w:t>");
-    zip.file("word/document.xml", clean);
+
+    const bodyMatch = originalXml.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
+    if (!bodyMatch) throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
+    const documentXml = originalXml.replace(bodyMatch[1], clean + section);
+    zip.file("word/document.xml", documentXml);
     return zip.generate({ type: "nodebuffer" });
   }
 }

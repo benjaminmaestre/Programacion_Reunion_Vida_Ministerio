@@ -67,6 +67,42 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(findZipSignature([0x50, 0x4b, 0x05, 0x06])).toBeGreaterThan(-1);
   });
 
+  it("incluye dos reuniones diferentes en el mismo S-140", () => {
+    const buffer = S140DocxGenerator.generateDocx([
+      {
+        weekDate: "2026-11-02",
+        chairman: "David Morales",
+        treasuresTalkTitle: "Tesoros de la Biblia",
+        treasuresTalkSpeaker: "David Morales",
+        gemsSpeaker: "Félix Pérez",
+        bibleReader: "Carlos Ruiz",
+        ministersParts: [],
+        livingParts: [],
+        congregationStudyConductor: "",
+        congregationStudyReader: "",
+      },
+      {
+        weekDate: "2026-11-09",
+        chairman: "Julián Gómez",
+        treasuresTalkTitle: "Lecciones de la Biblia",
+        treasuresTalkSpeaker: "Julián Gómez",
+        gemsSpeaker: "Andrés López",
+        bibleReader: "Miguel Torres",
+        ministersParts: [],
+        livingParts: [],
+        congregationStudyConductor: "",
+        congregationStudyReader: "",
+      },
+    ]);
+
+    const archive = new PizZip(buffer);
+    const xml = archive.file("word/document.xml")?.asText() ?? "";
+    expect(xml).toContain("2 de noviembre de 2026");
+    expect(xml).toContain("9 de noviembre de 2026");
+    expect(xml).toContain("David Morales");
+    expect(xml).toContain("Julián Gómez");
+  });
+
   it("devuelve 503 si Neon no está configurado", async () => {
     delete process.env.NEXT_PUBLIC_NEON_DATA_API_URL;
     delete process.env.NEXT_PUBLIC_NEON_AUTH_URL;
@@ -276,7 +312,7 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    expect(response.headers.get("Content-Disposition")).toContain('filename="S-140-2026-11-02.docx"');
+    expect(response.headers.get("Content-Disposition")).toContain('filename="S-140-2026-11-02-2026-11-02.docx"');
     const buffer = await response.arrayBuffer();
     expect(buffer.byteLength).toBeGreaterThan(100);
 

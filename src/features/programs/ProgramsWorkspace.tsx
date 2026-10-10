@@ -660,12 +660,13 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       const objectUrl = URL.createObjectURL(file);
       const anchor = document.createElement("a");
       anchor.href = objectUrl;
-      anchor.download = `S-140-${selectedProgram.meetingDate}.docx`;
+      anchor.download = `S-140-${(selectedProgram.bimonthCycle || selectedProgram.meetingDate).replace(/[^a-zA-Z0-9_-]/g, "")}.docx`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-      setFeedback("S-140 generado exitosamente.");
+      const generatedMeetingCount = programs.filter((program) => selectedProgram.planningCycleId ? program.planningCycleId === selectedProgram.planningCycleId : program.id === selectedProgram.id).length;
+      setFeedback(`S-140 generado exitosamente: ${generatedMeetingCount} reuniones, con dos por página.`);
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo generar el S-140.");
     } finally {
@@ -1257,7 +1258,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                     </>
                   )}
                   <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>
-                    <Download size={15} /> {generating ? "Generando…" : "Generar S-140"}
+                    <Download size={15} /> {generating ? "Generando…" : "Generar S-140 del bimestre"}
                   </button>
                 </div>
               </aside>
