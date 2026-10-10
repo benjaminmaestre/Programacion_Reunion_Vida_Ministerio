@@ -46,11 +46,13 @@ export function LoginScreen({
             width={600}
             height={300}
           />
-          <div className="auth-visual-caption"><ShieldCheck size={15} /> Acceso seguro para usuarios autorizados</div>
         </div>
 
-        <div className="auth-visual-footer">
-          Herramientas para preparar las reuniones con orden y claridad.
+        <div className="auth-visual-bottom">
+          <div className="auth-visual-caption"><ShieldCheck size={15} /> Acceso seguro para usuarios autorizados</div>
+          <div className="auth-visual-footer">
+            Herramientas para preparar las reuniones con orden y claridad.
+          </div>
         </div>
       </div>
 
