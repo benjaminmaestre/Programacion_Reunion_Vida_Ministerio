@@ -9,6 +9,7 @@ import {
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { getActiveMeetingGuide } from "@/features/programs/meeting-guide-repository";
 import { isNeonConfigured } from "@/lib/neon/env";
 import {
   createMember, getMemberHistory, listMembers, MembershipRequiredError, updateMember,
@@ -23,7 +24,7 @@ import type {
 const LEGACY_STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
 type CategoryFilter = "all" | HistoryCategory;
-type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
+type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "guide_required" | "membership" | "error";
 type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 
 function fullName(member: DirectoryMember) {
@@ -106,6 +107,14 @@ export function MembersWorkspace() {
           if (!cancelled) setMode("login");
           return;
         }
+
+        // Gate directory queries until an official bimonthly EPUB has been accepted.
+        const activeGuide = await getActiveMeetingGuide(neon);
+        if (!activeGuide) {
+          if (!cancelled) setMode("guide_required");
+          return;
+        }
+
         const result = await listMembers(neon, user.id);
         if (cancelled) return;
         setUserId(user.id);
@@ -145,7 +154,7 @@ export function MembersWorkspace() {
   }, [members, search, activeFilter]);
 
   useEffect(() => {
-    if (!selectedMember || mode === "loading" || mode === "login" || mode === "membership" || mode === "error") {
+    if (!selectedMember || mode === "loading" || mode === "login" || mode === "guide_required" || mode === "membership" || mode === "error") {
       setHistoryEntries([]);
       return;
     }
@@ -302,6 +311,13 @@ function openNewMemberForm() {
   }
   if (mode === "login") {
     return <LoginGate onSubmit={handleSignIn} loading={isSigningIn} error={loginError} />;
+  }
+  if (mode === "guide_required") {
+    return <GatePage
+      title="Primero carga la guía bimestral"
+      description="El directorio de participantes permanece bloqueado hasta que se cargue y valide la guía EPUB correspondiente a esos dos meses. Ve a Programas para cargar la guía oficial."
+      icon={<AlertTriangle size={22} />}
+    />;
   }
   if (mode === "membership") {
     return <GatePage
