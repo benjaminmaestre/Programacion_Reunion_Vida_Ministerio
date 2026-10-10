@@ -1,5 +1,5 @@
 import type { DirectoryMember } from "../members/demo-data";
-import type { AssignmentSlotDetail, MeetingProgramDetail } from "./program-types";
+import type { MeetingProgramDetail } from "./program-types";
 
 /** Normaliza títulos para detectar nombres de partes sin depender de mayúsculas ni tildes. */
 export function normalizeAssignmentTitle(value: string): string {
