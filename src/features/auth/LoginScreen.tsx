@@ -41,10 +41,10 @@ export function LoginScreen({
         <div className="auth-illustration">
           <img
             className="auth-artwork"
-            src="/images/login-illustrations.webp"
-            alt="Ilustraciones de la congregación, el estudio bíblico, la enseñanza y la traducción."
-            width={600}
-            height={300}
+            src="/images/login-activities.webp"
+            alt="Composición equilibrada: la Biblia abierta como elemento central, acompañada por una gema, un libro y un símbolo de organización."
+            width={720}
+            height={360}
           />
         </div>
 
