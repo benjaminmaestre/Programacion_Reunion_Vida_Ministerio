@@ -127,6 +127,15 @@ export function validateProgramForPublication(
     if (!primary) {
       errors.push(`${label}: selecciona un participante activo.`);
     } else {
+      if (slot.assignmentType === "treasures_talk" && slot.durationMinutes !== 10) {
+        errors.push(`${label}: el discurso inicial de Tesoros de la Biblia debe durar 10 minutos.`);
+      }
+      if (slot.section === "living" && (
+        primary.gender !== "male"
+        || (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant")
+      )) {
+        errors.push(`${label}: Nuestra vida cristiana requiere un anciano o siervo ministerial activo.`);
+      }
       switch (slot.assignmentType) {
         case "treasures_talk":
         case "gems":
@@ -141,10 +150,14 @@ export function validateProgramForPublication(
           if (primary.gender !== "male") errors.push(`${label}: la asignación requiere un participante varón.`);
           break;
         case "living_needs":
-          if (primary.appointment !== "elder") errors.push(`${label}: Necesidades de la congregación debe estar a cargo de un anciano.`);
+          if (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant") {
+            errors.push(`${label}: Nuestra vida cristiana requiere un anciano o siervo ministerial activo.`);
+          }
           break;
         case "bible_study_conductor":
-          if (primary.appointment !== "elder") errors.push(`${label}: el conductor del Estudio Bíblico debe ser un anciano.`);
+          if (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant") {
+            errors.push(`${label}: el conductor debe ser un anciano o siervo ministerial activo.`);
+          }
           break;
         case "conversation":
         case "revisit":
@@ -170,7 +183,13 @@ export function validateProgramForPublication(
     if (slot.assistantParticipantId) {
       const assistant = activeMembers.get(slot.assistantParticipantId);
       if (!assistant) errors.push(`${label}: el ayudante no está activo o no existe en el directorio.`);
-      else if (primary && assistant.id === primary.id) errors.push(`${label}: titular y ayudante deben ser personas distintas.`);
+      else {
+        if (primary && assistant.id === primary.id) errors.push(`${label}: titular y ayudante deben ser personas distintas.`);
+        if ((slot.assignmentType === "treasures_talk" || slot.assignmentType === "gems" || slot.section === "living")
+          && (assistant.gender !== "male" || (assistant.appointment !== "elder" && assistant.appointment !== "ministerial_servant"))) {
+          errors.push(`${label}: los participantes de esta parte deben ser ancianos o siervos ministeriales activos.`);
+        }
+      }
     }
 
     if (slot.eligibilityConfirmed !== true) {

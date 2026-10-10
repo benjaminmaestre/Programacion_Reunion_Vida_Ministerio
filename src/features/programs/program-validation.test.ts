@@ -8,6 +8,7 @@ const members: DirectoryMember[] = [
   { id: "m2", firstName: "Sofía", lastName: "Castro", gender: "female", appointment: "none", isActive: true, isBaptized: null },
   { id: "m3", firstName: "David", lastName: "Morales", gender: "male", appointment: "elder", isActive: true, isBaptized: true },
   { id: "m4", firstName: "Carlos", lastName: "Jiménez", gender: "male", appointment: "none", isActive: false, isBaptized: null },
+  { id: "m5", firstName: "Miguel", lastName: "Ríos", gender: "male", appointment: "ministerial_servant", isActive: true, isBaptized: true },
 ];
 
 function program(overrides: Partial<MeetingProgramDetail> = {}): MeetingProgramDetail {
@@ -145,11 +146,43 @@ describe("validación de publicación de programas", () => {
     expect(result.errors.some((error) => error.includes("anciano o siervo ministerial varón"))).toBe(true);
   });
 
+  it("exige un discurso inicial de 10 minutos a cargo de un anciano o siervo ministerial", () => {
+    const wrongDuration = program({ slots: [{
+      ...program().slots[0], section: "treasures", title: "Discurso inicial",
+      assignmentType: "treasures_talk", durationMinutes: 9, primaryParticipantId: "m5", assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(wrongDuration, members).errors.some((error) => error.includes("10 minutos"))).toBe(true);
+    const correctlyAssigned = program({ slots: [{
+      ...program().slots[0], section: "treasures", title: "Discurso inicial",
+      assignmentType: "treasures_talk", durationMinutes: 10, primaryParticipantId: "m5", assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(correctlyAssigned, members).errors).toEqual([]);
+  });
+
+  it("limita Nuestra vida cristiana a ancianos y siervos ministeriales activos", () => {
+    const publisherPart = program({ slots: [{
+      ...program().slots[0], section: "living", title: "Nuestra vida cristiana",
+      assignmentType: "living_part", durationMinutes: 15, primaryParticipantId: "m1", assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(publisherPart, members).errors.some((error) => error.includes("Nuestra vida cristiana requiere"))).toBe(true);
+    const servantPart = program({ slots: [{
+      ...program().slots[0], section: "living", title: "Nuestra vida cristiana",
+      assignmentType: "living_part", durationMinutes: 15, primaryParticipantId: "m5", assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(servantPart, members).isValid).toBe(true);
+  });
+
   it("bloquea el uso de un participante inactivo", () => {
     const candidate = program({ slots: [{ ...program().slots[0], primaryParticipantId: "m4" }] });
     const result = validateProgramForPublication(candidate, members);
     expect(result.isValid).toBe(false);
     expect(result.errors.some((error) => error.includes("participante activo"))).toBe(true);
+    const inactiveAssistant = program({ slots: [{
+      ...program().slots[0], primaryParticipantId: "m1", assistantParticipantId: "m4",
+    }] });
+    const assistantResult = validateProgramForPublication(inactiveAssistant, members);
+    expect(assistantResult.isValid).toBe(false);
+    expect(assistantResult.errors.some((error) => error.includes("ayudante no está activo"))).toBe(true);
   });
 
   it("bloquea un programa vacío en semana normal", () => {
