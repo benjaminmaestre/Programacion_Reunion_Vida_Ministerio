@@ -199,21 +199,11 @@ export function buildDefaultMeetingProgram(
         id: crypto.randomUUID(),
         meetingProgramId: programId,
         section: "living",
-        title: "Estudio bíblico de la congregación (Conductor)",
+        title: "Estudio bíblico de la congregación",
         durationMinutes: 30,
         orderIndex: 8,
         isStudentPart: false,
-        assignmentType: "bible_study_conductor",
-      },
-      {
-        id: crypto.randomUUID(),
-        meetingProgramId: programId,
-        section: "living",
-        title: "Estudio bíblico de la congregación (Lector)",
-        durationMinutes: 30,
-        orderIndex: 9,
-        isStudentPart: false,
-        assignmentType: "bible_study_reader",
+        assignmentType: "bible_study",
       },
     ];
   }

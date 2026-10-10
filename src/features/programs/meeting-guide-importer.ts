@@ -416,8 +416,7 @@ export function applyMeetingGuideTitles(program: MeetingProgramDetail, week: Mee
 
     if (assignment.assignmentType === "bible_study") {
       const study = { ...assignment, section: "living" as const, isStudentPart: false };
-      buildSlot(study, "bible_study_conductor", "Estudio bíblico de la congregación (Conductor)", study.durationMinutes, nextOrderIndex++, false);
-      buildSlot(study, "bible_study_reader", "Estudio bíblico de la congregación (Lector)", study.durationMinutes, nextOrderIndex++, false);
+      buildSlot(study, "bible_study", "Estudio bíblico de la congregación", study.durationMinutes, nextOrderIndex++, false);
     } else {
       const paired = ["conversation", "revisit", "disciples", "explain_beliefs"].includes(assignment.assignmentType);
       const durationMinutes = assignment.durationMinutes;

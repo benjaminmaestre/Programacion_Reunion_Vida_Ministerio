@@ -50,7 +50,7 @@ describe("Constructor de programas e identificadores UUID válidos", () => {
 
   it("construye la estructura adecuada según el tipo de semana (normal, visita, asamblea, conmemoración)", () => {
     const normalProg = buildDefaultMeetingProgram("2026-11-16", "normal");
-    expect(normalProg.slots).toHaveLength(9);
+    expect(normalProg.slots).toHaveLength(8);
 
     const visitProg = buildDefaultMeetingProgram("2026-11-23", "circuit_overseer");
     expect(visitProg.slots).toHaveLength(5);

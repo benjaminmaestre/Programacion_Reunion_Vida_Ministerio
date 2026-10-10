@@ -36,7 +36,7 @@ export interface AssignmentSlotDetail {
   durationMinutes: number;
   orderIndex: number;
   isStudentPart: boolean;
-  assignmentType?: 'treasures_talk' | 'gems' | 'bible_reading' | 'conversation' | 'revisit' | 'disciples' | 'explain_beliefs' | 'student_talk' | 'living_part' | 'living_needs' | 'bible_study_conductor' | 'bible_study_reader';
+  assignmentType?: 'treasures_talk' | 'gems' | 'bible_reading' | 'conversation' | 'revisit' | 'disciples' | 'explain_beliefs' | 'student_talk' | 'living_part' | 'living_needs' | 'bible_study' | 'bible_study_conductor' | 'bible_study_reader';
   primaryParticipantId?: string;
   assistantParticipantId?: string;
   /** Revisión explícita de elegibilidad por un responsable; nunca se infiere automáticamente. */

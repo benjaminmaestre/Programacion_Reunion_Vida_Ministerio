@@ -80,8 +80,7 @@ describe("meeting guide EPUB importer", () => {
     expect(updated.slots.find((slot) => slot.assignmentType === "revisit")?.durationMinutes).toBe(5);
     expect(updated.slots.find((slot) => slot.assignmentType === "student_talk")?.durationMinutes).toBe(6);
     expect(updated.slots.find((slot) => slot.assignmentType === "living_part")?.durationMinutes).toBe(12);
-    expect(updated.slots.find((slot) => slot.assignmentType === "bible_study_conductor")?.durationMinutes).toBe(25);
-    expect(updated.slots.find((slot) => slot.assignmentType === "bible_study_reader")?.durationMinutes).toBe(25);
+    expect(updated.slots.find((slot) => slot.assignmentType === "bible_study")?.durationMinutes).toBe(25);
     expect(updated.slots.find((slot) => slot.assignmentType === "living_part")?.title).toBe("Tema de Nuestra vida cristiana");
     expect(updated.slots.find((slot) => slot.assignmentType === "conversation")?.primaryParticipantId)
       .toBe(program.slots.find((slot) => slot.assignmentType === "conversation")?.primaryParticipantId);
