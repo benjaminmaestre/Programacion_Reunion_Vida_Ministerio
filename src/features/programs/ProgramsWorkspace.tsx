@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -12,11 +12,38 @@ import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types
 import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram } from "./program-builder";
-import type { WeekType } from "@/types/domain";
+import type { Section, WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
 type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 const PAIRED_ASSIGNMENTS = new Set(["conversation", "revisit", "disciples", "explain_beliefs"]);
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "treasures", label: "Tesoros de la Biblia" },
+  { id: "ministers", label: "Seamos mejores maestros" },
+  { id: "living", label: "Nuestra vida cristiana" },
+  { id: "auxiliary", label: "Otras partes" },
+];
+const WEEK_LABELS: Record<WeekType, string> = {
+  normal: "Semana normal", circuit_overseer: "Visita del superintendente de circuito",
+  assembly: "Asamblea", memorial: "Conmemoración",
+};
+const CYCLE_WEEKS = 8;
+function longDate(value: string) {
+  return new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
+}
+function shortDate(value: string) {
+  const d = new Date(`${value}T12:00:00Z`);
+  return { day: d.getUTCDate(), month: new Intl.DateTimeFormat("es-CO", { month: "short", timeZone: "UTC" }).format(d).replace(".", "") };
+}
+function addDays(value: string, days: number) {
+  const d = new Date(`${value}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function Gate({ children }: { children: React.ReactNode }) {
+  return <div className="gate-page" style={{ minHeight: "100vh" }}><section className="gate-panel">{children}</section></div>;
+}
 
 function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingProgramDetail | undefined) {
   if (!actual) throw new Error("Neon no devolvió la reunión después de guardarla.");
@@ -331,255 +358,290 @@ export const ProgramsWorkspace: React.FC = () => {
     }
   }
 
-  if (mode === "loading") return <main className="p-8"><p>Cargando programas…</p></main>;
+  if (mode === "loading") return <Gate><p>Cargando programas…</p></Gate>;
   if (mode === "login") return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSignIn} className="w-full max-w-md space-y-4 rounded-xl border p-6 shadow-sm">
-        <LockKeyhole className="h-8 w-8" />
-        <h1 className="text-xl font-bold">Iniciar sesión</h1>
-        <p className="text-sm text-slate-600">Accede con una cuenta autorizada para consultar y editar los programas reales.</p>
-        <label className="block text-sm">Correo<input name="email" type="email" required autoComplete="username" className="mt-1 w-full rounded border p-2" /></label>
-        <label className="block text-sm">Contraseña<input name="password" type="password" required autoComplete="current-password" className="mt-1 w-full rounded border p-2" /></label>
-        {loginError && <p role="alert" className="text-sm text-red-700">{loginError}</p>}
-        <button disabled={signingIn} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{signingIn ? "Ingresando…" : "Entrar"}</button>
-        <p className="text-sm text-slate-600">¿Primer acceso? <a className="font-semibold text-blue-700 underline" href="/auth/register">Configurar cuenta inicial</a>. Después, solo el administrador supremo podrá crear cuentas.</p>
+    <Gate>
+      <div className="gate-icon"><LockKeyhole size={22} /></div>
+      <h1 className="gate-title">Iniciar sesión</h1>
+      <p className="gate-description">Accede con una cuenta autorizada para consultar y editar los programas reales.</p>
+      <form className="gate-form" onSubmit={handleSignIn}>
+        <div className="form-field"><label className="field-label" htmlFor="login-email">Correo electrónico</label><input id="login-email" className="field" name="email" type="email" autoComplete="username" required /></div>
+        <div className="form-field"><label className="field-label" htmlFor="login-password">Contraseña</label><input id="login-password" className="field" name="password" type="password" autoComplete="current-password" required /></div>
+        {loginError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{loginError}</div>}
+        <button className="button button-primary gate-submit" disabled={signingIn} type="submit"><LockKeyhole size={15} />{signingIn ? "Ingresando…" : "Entrar"}</button>
       </form>
-    </main>
+    </Gate>
   );
-  if (mode === "membership") return <main className="p-8"><h1 className="text-xl font-bold">Acceso no configurado</h1><p>Solicita al administrador una membresía activa para esta aplicación.</p></main>;
-  if (mode === "error") return <main className="p-8"><h1 className="text-xl font-bold">No se pudieron cargar los programas</h1><p role="alert" className="mt-3 text-red-700">{pageError}</p></main>;
+  if (mode === "membership") return <Gate><div className="gate-icon"><AlertTriangle size={22} /></div><h1 className="gate-title">Falta configurar tu acceso</h1><p className="gate-description">Tu cuenta no pertenece aún a la congregación activa. Contacta al administrador para vincularla.</p></Gate>;
+  if (mode === "error") return <Gate><div className="gate-icon"><AlertTriangle size={22} /></div><h1 className="gate-title">No se pudieron cargar los programas</h1><p className="gate-description">{pageError || "Ocurrió un error inesperado al conectar con el servidor."}</p></Gate>;
 
-  const readOnly = mode === "connected" && (selectedProgram?.status === "published" || !canManage);
-  const cycleLabels = [...new Set(programs.map((program) => program.bimonthCycle))];
+  const readOnly = !!(mode === "connected" && (selectedProgram?.status === "published" || !canManage));
+  const cycleLabels = [...new Set(programs.map((p) => p.bimonthCycle))];
+  const activeMembers = members.filter((m) => m.isActive);
+  const slots = selectedProgram ? [...selectedProgram.slots].sort((x, y) => x.orderIndex - y.orderIndex) : [];
+  const offsets: Record<string, number> = {};
+  let elapsed = 0;
+  for (const slot of slots) { offsets[slot.id] = elapsed; elapsed += slot.durationMinutes; }
+  const assigned = slots.filter((s) => s.primaryParticipantId).length;
+  const reviewed = slots.filter((s) => s.eligibilityConfirmed).length;
+  const resetLeadership = { leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined };
+  const people = (opts: DirectoryMember[]) => opts.map((m) => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>);
+
+  // Ciclo de 8 semanas
+  const cycleKey = selectedProgram?.bimonthCycle ?? programs[0]?.bimonthCycle;
+  const cyclePrograms = programs.filter((p) => p.bimonthCycle === cycleKey).sort((x, y) => x.meetingDate.localeCompare(y.meetingDate));
+  const cycleDates = new Set(cyclePrograms.map((p) => p.meetingDate));
+  if (cyclePrograms[0]) for (let i = 0; i < CYCLE_WEEKS; i++) cycleDates.add(addDays(cyclePrograms[0].meetingDate, i * 7));
+  const cycleWeeks = [...cycleDates].sort().map((date) => ({ date, program: cyclePrograms.find((p) => p.meetingDate === date) }));
+  const scheduledCount = cycleWeeks.filter((w) => w.program).length;
+  const publishedCount = cyclePrograms.filter((p) => p.status === "published").length;
+
+  const meter = (label: string, value: number) => (
+    <div className="meter"><div><span>{label}</span><span>{value} de {slots.length}</span></div><p><i style={{ width: `${slots.length ? (value / slots.length) * 100 : 0}%` }} /></p></div>
+  );
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <header className="flex flex-col justify-between gap-4 border-b pb-4 md:flex-row md:items-center">
+    <div className="workspace">
+      <header className="page-head">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold"><Calendar className="h-7 w-7 text-blue-600" />Programación Vida y Ministerio</h1>
-          <p className="mt-1 text-sm text-slate-500">Títulos editables, participantes, revisión S-38-S y guardado verificado.</p>
+          <h1>Programa Vida y Ministerio</h1>
+          <p>Preparación de asignaciones semanales, confirmación de elegibilidad y emisión del formulario S-140.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {canManage && (
-            <button
-              onClick={() => setIsNewProgramModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
-              type="button"
-            >
-              <Plus className="h-4 w-4" /> Crear programa
-            </button>
-          )}
-          <span className={mode === "demo" ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800" : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"}>
-            {mode === "demo" ? "DEMO · SOLO MEMORIA" : "CONECTADO A SUPABASE"}
-          </span>
+        <div className="head-actions">
+          {mode === "demo" ? <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span> : <span className="status-pill"><span className="demo-dot" /> CONECTADO A NEON</span>}
+          {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
         </div>
       </header>
 
-      {mode === "demo" && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="note">
-        Modo de desarrollo con datos ficticios. Los cambios son temporales; publicar y persistir en base de datos está deshabilitado.
-      </div>}
-      {pageError && <div role="alert" className="whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertTriangle className="mr-2 inline h-4 w-4" />{pageError}</div>}
-      {feedback && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{feedback}</div>}
+      {mode === "demo" && <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración</strong><p>Los datos son ficticios y no se guardan en la base de datos. Para guardar programas y emitir el S-140 oficial, inicia sesión con Neon.</p></div></div>}
+      {pageError && <div className="inline-alert pre" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}
+      {feedback && <div className="alert-ok" role="status">{feedback}</div>}
 
-      <nav className="flex gap-2" aria-label="Vistas de programación">
-        <button onClick={() => setActiveTab("editor")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "editor" ? "bg-slate-900 text-white" : "border"}`}>Editor de programa</button>
-        <button onClick={() => setActiveTab("bimonthly")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "bimonthly" ? "bg-slate-900 text-white" : "border"}`}>Resumen bimestral</button>
-      </nav>
+      <div className="seg" role="tablist" style={{ marginBottom: 20 }}>
+        <button type="button" role="tab" aria-selected={activeTab === "editor"} aria-pressed={activeTab === "editor"} onClick={() => setActiveTab("editor")}>Editor de programa</button>
+        <button type="button" role="tab" aria-selected={activeTab === "bimonthly"} aria-pressed={activeTab === "bimonthly"} onClick={() => setActiveTab("bimonthly")}>Resumen bimestral</button>
+      </div>
 
       {activeTab === "bimonthly" ? (
-        <section className="rounded-xl border p-4">
-          <h2 className="text-lg font-semibold">Resumen de ciclos</h2>
-          {programs.length === 0 ? <p className="mt-3 text-sm text-slate-500">No hay programas en la base de datos todavía.</p> : (
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {cycleLabels.map((cycle) => {
-                const items = programs.filter((program) => program.bimonthCycle === cycle);
-                return <article key={cycle} className="rounded-lg border p-4">
-                  <h3 className="font-semibold">{cycle}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{items.length} reuniones · {items.filter((item) => item.status === "published").length} publicadas · {items.filter((item) => item.status === "draft").length} borradores</p>
-                </article>;
-              })}
-            </div>
-          )}
-        </section>
+        <div className="cycle-grid">
+          {cycleLabels.length === 0 ? <div className="empty-state">Aún no hay programas registrados.</div> : cycleLabels.map((cycle) => {
+            const list = programs.filter((p) => p.bimonthCycle === cycle);
+            const pub = list.filter((p) => p.status === "published").length;
+            const draft = list.filter((p) => p.status === "draft").length;
+            return (
+              <article key={cycle} className="panel" style={{ padding: 20 }}>
+                <h3 style={{ margin: "0 0 8px", font: "500 20px var(--font-display)" }}>Ciclo {cycle}</h3>
+                <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: 13 }}>{list.length} reuniones · {pub} publicadas · {draft} borradores</p>
+              </article>
+            );
+          })}
+        </div>
       ) : (
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-end">
-            <label className="flex-1 text-sm font-medium">Reunión
-              <select value={selectedProgramId ?? ""} onChange={(event) => { setSelectedProgramId(event.target.value || null); setPageError(""); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 text-slate-900">
-                <option value="">Seleccionar reunión…</option>
-                {programs.map((program) => <option key={program.id} value={program.id}>{program.meetingDate} · {program.status === "published" ? "Publicada" : "Borrador"}</option>)}
-              </select>
-            </label>
-            {selectedProgram && <div className="text-sm text-slate-500">Ciclo {selectedProgram.bimonthCycle} · {selectedProgram.weekType}</div>}
-          </div>
-
-          {!selectedProgram ? (
-            <div className="rounded-xl border p-8 text-center text-slate-500 space-y-3">
-              <p>No hay reuniones para mostrar.</p>
-              {canManage && (
-                <button
-                  onClick={() => setIsNewProgramModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-                  type="button"
-                >
-                  <Plus className="h-4 w-4" /> Crear primera reunión
-                </button>
-              )}
-            </div>
-          ) : (
+        <>
+          {programs.length > 0 && (
             <>
-              {readOnly && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{selectedProgram.status === "published" ? "Programa publicado: vista de solo lectura para proteger el historial." : "Tu rol tiene permisos de consulta. El programa está en modo de solo lectura."}</div>}
-              <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
-                <label className="text-sm">Presidente de la reunión
-                  <select value={selectedProgram.chairmanId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, chairmanId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
-                    <option value="">Seleccionar presidente…</option>
-                    {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName} · {member.appointment === "elder" ? "Anciano" : member.appointment === "ministerial_servant" ? "Siervo ministerial" : "Publicador"}</option>)}
-                  </select>
-                </label>
-                <label className="text-sm">Consejero auxiliar (opcional)
-                  <select value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={!!readOnly} onChange={(event) => { updateProgram({ ...selectedProgram, auxiliaryCounselorId: event.target.value || undefined, leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
-                    <option value="">Sin consejero auxiliar</option>
-                    {members.filter((member) => member.isActive && member.appointment === "elder").map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
-                  </select>
-                </label>
-                {selectedProgram.weekType === "circuit_overseer" && (
-                  <label className="text-sm md:col-span-2">Título real del discurso del Superintendente de Circuito
-                    <input
-                      value={selectedProgram.circuitOverseerTalkTitle ?? ""}
-                      disabled={!!readOnly}
-                      onChange={(event) => {
-                        updateProgram({
-                          ...selectedProgram,
-                          circuitOverseerTalkTitle: event.target.value,
-                          leadershipReviewConfirmed: false,
-                          leadershipReviewConfirmedBy: undefined,
-                          leadershipReviewConfirmedAt: undefined,
-                          updatedAt: new Date().toISOString(),
-                        });
-                        setFeedback("");
-                      }}
-                      placeholder="Escribe el título asignado del discurso de servicio"
-                      className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100"
-                    />
-                  </label>
-                )}
-                <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm md:col-span-2">
-                  <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, leadershipReviewConfirmedAt: event.target.checked ? selectedProgram.leadershipReviewConfirmedAt : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
-                  <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Un usuario autorizado puede registrar la revisión antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
-                </label>
+              <div className="cycle-line">
+                <span><strong>Ciclo {cycleKey}</strong> · {cycleWeeks.length} semanas</span>
+                <span>{scheduledCount} de {cycleWeeks.length} programadas · {publishedCount} publicadas</span>
               </div>
-              <div className="overflow-hidden rounded-xl border divide-y">
-                {selectedProgram.slots.map((slot) => (
-                  <article key={slot.id} className="space-y-3 p-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                      <span className="shrink-0 rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{slot.durationMinutes} min</span>
-                      <input aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { title: event.target.value }, true)} className="min-w-0 flex-1 rounded-lg border p-2 font-semibold disabled:bg-slate-100" />
-                      <span className="text-xs text-slate-500">{slot.assignmentType ?? "Tipo sin definir"}</span>
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSlot(slot.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
-                          title="Retirar intervención de este borrador"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="text-sm">Titular
-                        <select aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { primaryParticipantId: event.target.value || undefined }, true)} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
-                          <option value="">Seleccionar titular…</option>
-                          {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
-                        </select>
-                      </label>
-                      {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && <label className="text-sm">Ayudante
-                        <select aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={!!readOnly} onChange={(event) => updateSlot(slot.id, { assistantParticipantId: event.target.value || undefined }, true)} className="mt-1 w-full rounded-lg border bg-white p-2 disabled:bg-slate-100">
-                          <option value="">Seleccionar ayudante…</option>
-                          {members.filter((member) => member.isActive).map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}
-                        </select>
-                      </label>}
-                    </div>
-                    <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-                      <input type="checkbox" checked={slot.eligibilityConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => updateSlot(slot.id, { eligibilityConfirmed: event.target.checked, eligibilityConfirmedBy: event.target.checked ? userId ?? undefined : undefined })} className="mt-1" />
-                      <span><strong>Revisión humana S-38-S confirmada</strong><span className="block text-xs text-slate-600">Marca solo después de verificar la elegibilidad y las condiciones de la asignación. Cambiar título o participantes invalida esta confirmación.</span></span>
-                    </label>
-                    {slot.eligibilityConfirmed && <p className="text-xs text-emerald-700"><CheckCircle className="mr-1 inline h-3.5 w-3.5" />Revisión marcada{slot.eligibilityConfirmedBy ? ` por ${slot.eligibilityConfirmedBy}` : " en la sesión demo"}.</p>}
-                  </article>
-                ))}
+              <div className="date-strip" role="group" aria-label="Semanas del ciclo">
+                {cycleWeeks.map(({ date, program }) => {
+                  const { day, month } = shortDate(date);
+                  if (program) {
+                    const isPub = program.status === "published";
+                    const isSelected = program.id === selectedProgramId;
+                    return (
+                      <button key={date} type="button" className={`date-chip ${isPub ? "pub" : ""}`} aria-pressed={isSelected} onClick={() => { setSelectedProgramId(program.id); setPageError(""); setFeedback(""); }}>
+                        <b>{day} {month}</b>
+                        <span><i />{isPub ? "Publicada" : "Borrador"}</span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <button key={date} type="button" className="date-chip empty" disabled={!canManage} onClick={() => { setNewMeetingDate(date); setIsNewProgramModalOpen(true); }}>
+                      <b>{day} {month}</b>
+                      <span><i />Sin programar</span>
+                    </button>
+                  );
+                })}
               </div>
-              {selectedProgram.slots.length === 0 && <p className="rounded-xl border p-5 text-sm text-slate-500">Este programa no tiene intervenciones cargadas.</p>}
-
-              <div className="flex flex-col justify-between gap-3 sm:flex-row">
-                {canManage && !readOnly && <div className="flex flex-col gap-3 sm:flex-row">
-                  <button type="button" onClick={() => void handleSave("draft")} disabled={saving || (mode !== "connected" && mode !== "demo")} className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Guardando…" : "Guardar borrador"}</button>
-                  <button type="button" onClick={() => void handleSave("published")} disabled={saving || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle className="h-4 w-4" />Validar y publicar</button>
-                </div>}
-                <button type="button" onClick={() => void handleGenerateS140()} disabled={generating || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download className="h-4 w-4" />{generating ? "Generando S-140…" : "Generar S-140"}</button>
-              </div>
-              {!canManage && mode === "connected" && <p className="text-sm text-amber-700"><ShieldAlert className="mr-1 inline h-4 w-4" />Tu cuenta no tiene permiso para editar ni publicar programas.</p>}
             </>
           )}
-        </section>
+
+          {!selectedProgram ? (
+            <div className="empty-state" style={{ padding: 60 }}>No hay reuniones para mostrar. Selecciona una semana o crea un programa nuevo.</div>
+          ) : (
+            <div className="meeting-grid">
+              <div>
+                <h2 className="meeting-title">{longDate(selectedProgram.meetingDate)}</h2>
+                <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · Ciclo {selectedProgram.bimonthCycle}</p>
+
+                {readOnly && (
+                  <div className="alert-info">
+                    {selectedProgram.status === "published"
+                      ? "Programa publicado: solo lectura para proteger el historial."
+                      : "Tu rol permite consultar, pero no editar este programa."}
+                  </div>
+                )}
+
+                <div className="leaders">
+                  <label className="lbl">Presidente de la reunión
+                    <select className="select-field" aria-label="Presidente de la reunión" value={selectedProgram.chairmanId ?? ""} disabled={readOnly}
+                      onChange={(e) => updateProgram({ ...selectedProgram, chairmanId: e.target.value || undefined, ...resetLeadership })}>
+                      <option value="">Seleccionar presidente…</option>{people(activeMembers)}
+                    </select>
+                  </label>
+                  <label className="lbl">Consejero auxiliar (opcional)
+                    <select className="select-field" aria-label="Consejero auxiliar" value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={readOnly}
+                      onChange={(e) => updateProgram({ ...selectedProgram, auxiliaryCounselorId: e.target.value || undefined, ...resetLeadership })}>
+                      <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
+                    </select>
+                  </label>
+                  {selectedProgram.weekType === "circuit_overseer" && (
+                    <label className="lbl full">Título del discurso del superintendente de circuito
+                      <input className="field" value={selectedProgram.circuitOverseerTalkTitle ?? ""} disabled={readOnly}
+                        onChange={(e) => updateProgram({ ...selectedProgram, circuitOverseerTalkTitle: e.target.value })} />
+                    </label>
+                  )}
+                  <label className="review full">
+                    <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={readOnly}
+                      onChange={(e) => updateProgram({
+                        ...selectedProgram,
+                        leadershipReviewConfirmed: e.target.checked,
+                        leadershipReviewConfirmedBy: e.target.checked ? userId ?? undefined : undefined,
+                        leadershipReviewConfirmedAt: e.target.checked ? new Date().toISOString() : undefined,
+                      })} />
+                    <div>
+                      Presidencia y consejería revisadas
+                      <small>Solo un anciano o administrador confirma esto antes de publicar. Cambiar al presidente o al consejero invalida la revisión.</small>
+                    </div>
+                  </label>
+                </div>
+
+                {slots.length === 0 ? (
+                  <div className="empty-state">Sin intervenciones — Este programa no tiene partes cargadas.</div>
+                ) : (
+                  SECTIONS.map((section) => {
+                    const group = slots.filter((s) => s.section === section.id);
+                    if (group.length === 0) return null;
+                    return (
+                      <section key={section.id} className={`sec sec-${section.id}`}>
+                        <div className="sec-bar">{section.label}<span>{group.reduce((n, s) => n + s.durationMinutes, 0)} min</span></div>
+                        <div className="slots">
+                          {group.map((slot) => (
+                            <article key={slot.id} className="slot">
+                              <div className="slot-time"><b>{slot.durationMinutes}</b><span>min · desde {offsets[slot.id]}</span></div>
+                              <div className="slot-main">
+                                <div className="slot-title">
+                                  <input className="field" aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={readOnly}
+                                    onChange={(e) => updateSlot(slot.id, { title: e.target.value }, true)} />
+                                  {!readOnly && <button type="button" className="icon-button" onClick={() => handleRemoveSlot(slot.id)}
+                                    title="Retirar de este borrador" aria-label={`Retirar ${slot.title}`}><Trash2 size={15} /></button>}
+                                </div>
+                                <div className="slot-people">
+                                  <label className="lbl">Titular
+                                    <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
+                                      onChange={(e) => updateSlot(slot.id, { primaryParticipantId: e.target.value || undefined }, true)}>
+                                      <option value="">Seleccionar titular…</option>{people(activeMembers)}
+                                    </select>
+                                  </label>
+                                  {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && (
+                                    <label className="lbl">Ayudante
+                                      <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
+                                        onChange={(e) => updateSlot(slot.id, { assistantParticipantId: e.target.value || undefined }, true)}>
+                                        <option value="">Seleccionar ayudante…</option>{people(activeMembers)}
+                                      </select>
+                                    </label>
+                                  )}
+                                </div>
+                                <label className="slot-check">
+                                  <input type="checkbox" checked={slot.eligibilityConfirmed === true}
+                                    disabled={readOnly || (mode === "connected" && !canConfirmEligibility)}
+                                    onChange={(e) => updateSlot(slot.id, { eligibilityConfirmed: e.target.checked, eligibilityConfirmedBy: e.target.checked ? userId ?? undefined : undefined })} />
+                                  {slot.eligibilityConfirmed
+                                    ? <span className="slot-ok"><CheckCircle size={13} style={{ verticalAlign: "-2px" }} /> Revisada{slot.eligibilityConfirmedBy ? "" : " (demo)"}</span>
+                                    : <span title="Confirmar elegibilidad S-38-S. Cambiar el título o los participantes la invalida.">Por revisar</span>}
+                                </label>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })
+                )}
+              </div>
+
+              <aside className="side" aria-label="Estado del programa">
+                <div className="card">
+                  <h3>Avance del programa</h3>
+                  {meter("Titulares asignados", assigned)}
+                  {meter("Elegibilidad revisada", reviewed)}
+                  <p className="small-note">Duración total: {elapsed} min</p>
+                </div>
+
+                <div className="card stack">
+                  {canManage && !readOnly && (
+                    <>
+                      <button type="button" className="button" disabled={saving} onClick={() => void handleSave("draft")}>
+                        <Save size={15} /> {saving ? "Guardando…" : "Guardar borrador"}
+                      </button>
+                      <button type="button" className="button button-primary" disabled={saving} onClick={() => void handleSave("published")}>
+                        <CheckCircle size={15} /> {saving ? "Publicando…" : "Validar y publicar"}
+                      </button>
+                    </>
+                  )}
+                  <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>
+                    <Download size={15} /> {generating ? "Generando…" : "Generar S-140"}
+                  </button>
+                  {!canManage && mode === "connected" && (
+                    <p className="small-note" style={{ color: "var(--color-warning)" }}>
+                      <ShieldAlert size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                      Tu rol no permite editar ni publicar programas.
+                    </p>
+                  )}
+                </div>
+              </aside>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Modal Crear Programa */}
+      {/* Modal de crear programa */}
       {isNewProgramModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md space-y-4 rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h2 className="text-lg font-bold">Crear nueva reunión</h2>
-              <button type="button" onClick={() => setIsNewProgramModalOpen(false)} className="rounded p-1 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsNewProgramModalOpen(false); }}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="new-program-title">
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title" id="new-program-title">Crear nuevo programa</h2>
+                <p className="modal-description">Selecciona la fecha y el tipo de semana para inicializar el borrador.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setIsNewProgramModalOpen(false)} aria-label="Cerrar modal"><X size={17} /></button>
             </div>
-
-            <form onSubmit={handleCreateNewProgram} className="space-y-4">
-              <label className="block text-sm font-medium">
-                Fecha de la reunión *
-                <input
-                  type="date"
-                  required
-                  value={newMeetingDate}
-                  onChange={(e) => setNewMeetingDate(e.target.value)}
-                  className="mt-1 w-full rounded-lg border p-2 text-sm"
-                />
-              </label>
-
-              <label className="block text-sm font-medium">
-                Tipo de semana
-                <select
-                  value={newWeekType}
-                  onChange={(e) => setNewWeekType(e.target.value as WeekType)}
-                  className="mt-1 w-full rounded-lg border p-2 text-sm bg-white"
-                >
-                  <option value="normal">Normal (Reunión ordinaria)</option>
-                  <option value="circuit_overseer">Visita del Superintendente de Circuito</option>
-                  <option value="assembly">Asamblea de Circuito / Regional</option>
-                  <option value="memorial">Conmemoración</option>
-                </select>
-              </label>
-
-              <div className="flex justify-end gap-2 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setIsNewProgramModalOpen(false)}
-                  className="rounded-lg border px-4 py-2 text-sm font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {saving ? "Guardando…" : "Crear programa"}
-                </button>
+            <form onSubmit={handleCreateNewProgram}>
+              <div className="form-grid">
+                <div className="form-field full">
+                  <label className="field-label" htmlFor="meetingDate">Fecha de la reunión *</label>
+                  <input id="meetingDate" className="field" type="date" required value={newMeetingDate} onChange={(e) => setNewMeetingDate(e.target.value)} autoFocus />
+                </div>
+                <div className="form-field full">
+                  <label className="field-label" htmlFor="weekType">Tipo de semana</label>
+                  <select id="weekType" className="select-field" value={newWeekType} onChange={(e) => setNewWeekType(e.target.value as WeekType)}>
+                    <option value="normal">Semana normal</option>
+                    <option value="circuit_overseer">Visita del superintendente de circuito</option>
+                    <option value="assembly">Asamblea</option>
+                    <option value="memorial">Conmemoración</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="button button-primary" disabled={saving}>{saving ? "Guardando…" : "Crear programa"}</button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
-    </main>
+    </div>
   );
 };
