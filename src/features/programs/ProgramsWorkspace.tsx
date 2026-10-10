@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -147,7 +147,13 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
   }
 }
 
-export const ProgramsWorkspace: React.FC = () => {
+type SignOutHandler = () => Promise<void>;
+type ProgramsWorkspaceProps = {
+  onRegisterSignOut: (handler: SignOutHandler | null) => void;
+};
+
+export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegisterSignOut }) => {
+  const signOutActionRef = React.useRef<SignOutHandler | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("loading");
   const [client, setClient] = useState<NeonBrowserClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -699,6 +705,19 @@ export const ProgramsWorkspace: React.FC = () => {
     }
   }
 
+  signOutActionRef.current = handleSignOut;
+  useEffect(() => {
+    if (!client) {
+      onRegisterSignOut(null);
+      return;
+    }
+    const sidebarAction: SignOutHandler = async () => {
+      await signOutActionRef.current?.();
+    };
+    onRegisterSignOut(sidebarAction);
+    return () => onRegisterSignOut(null);
+  }, [client, onRegisterSignOut]);
+
   if (mode === "loading") return <Gate><p>Cargando programas…</p></Gate>;
   if (mode === "login") return (
     <LoginScreen
@@ -752,9 +771,6 @@ export const ProgramsWorkspace: React.FC = () => {
       <button type="button" className="button button-primary gate-submit" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0 || !canManage}>
         <Upload size={15} /> {guideImporting ? "Activando guía…" : "Guardar guía y generar estructura"}
       </button>
-      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut || guideImporting} style={{ marginTop: 10 }}>
-        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-      </button>
     </Gate>
   );
 
@@ -763,9 +779,6 @@ export const ProgramsWorkspace: React.FC = () => {
       <div className="gate-icon"><AlertTriangle size={22} /></div>
       <h1 className="gate-title">Falta configurar tu acceso</h1>
       <p className="gate-description">Tu cuenta no pertenece aún a la congregación activa. Contacta al administrador para vincularla.</p>
-      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut} style={{ marginTop: 18 }}>
-        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-      </button>
     </Gate>
   );
   if (mode === "error") return (
@@ -773,9 +786,6 @@ export const ProgramsWorkspace: React.FC = () => {
       <div className="gate-icon"><AlertTriangle size={22} /></div>
       <h1 className="gate-title">No se pudieron cargar los programas</h1>
       <p className="gate-description">{pageError || "Ocurrió un error inesperado al conectar con el servidor."}</p>
-      <button type="button" className="button gate-submit" onClick={() => void handleSignOut()} disabled={signingOut} style={{ marginTop: 18 }}>
-        <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
-      </button>
     </Gate>
   );
 
@@ -949,9 +959,6 @@ export const ProgramsWorkspace: React.FC = () => {
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
           {mode === "connected" && <button type="button" className="button" onClick={() => setIsPasswordDialogOpen(true)} disabled={saving || generating || guideImporting} title="Cambiar la contraseña de tu cuenta">
             <KeyRound size={15} /> Cambiar contraseña
-          </button>}
-          {mode === "connected" && <button type="button" className="button" onClick={() => void handleSignOut()} disabled={signingOut || saving || generating || guideImporting} title="Cerrar la sesión actual">
-            <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
           </button>}
         </div>
       </header>
