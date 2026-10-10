@@ -4,7 +4,22 @@ import { auth } from "@/lib/neon/auth-server";
 
 const handlers = auth.handler();
 
-export const GET = handlers.GET;
+// Managed Neon Auth returns the JWT for the Data API in Set-Auth-Jwt.
+ // The session-cookie fast path may omit that header, leaving the client with the
+ // opaque Better Auth session token. Disable only that cache for get-session.
+export async function GET(request: Request, context: AuthRouteContext) {
+  const url = new URL(request.url);
+  if (url.pathname.toLowerCase().split("/").includes("get-session")) {
+    url.searchParams.set("disableCookieCache", "true");
+    const requestWithoutSessionCache = new Request(url.toString(), {
+      method: "GET",
+      headers: request.headers,
+      signal: request.signal,
+    });
+    return handlers.GET(requestWithoutSessionCache, context);
+  }
+  return handlers.GET(request, context);
+}
 export const PUT = handlers.PUT;
 export const DELETE = handlers.DELETE;
 export const PATCH = handlers.PATCH;
