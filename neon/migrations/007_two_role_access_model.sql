@@ -219,18 +219,18 @@ BEGIN
       AND p.prokind = 'f'
   LOOP
     src := pg_get_functiondef(f.oid);
-    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'')', 'FALSE');
-    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'', ''coordinator'')', 'FALSE');
-    src := replace(src, 'v_role NOT IN (''administrator'',''elder'')', 'FALSE');
-    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'',''coordinator'')', 'FALSE');
-    src := replace(src, 'v_user_role NOT IN (''administrator'', ''elder'', ''coordinator'')', 'FALSE');
-    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad S-38-S.', 'Se requiere una cuenta activa para confirmar la elegibilidad S-38-S.');
-    src := replace(src, 'Solo un administrador o anciano puede crear o renovar la revisión S-38-S.', 'Se requiere una cuenta activa para crear o renovar la revisión S-38-S.');
-    src := replace(src, 'Solo un administrador o anciano puede confirmar Presidencia y Consejería.', 'Se requiere una cuenta activa para confirmar Presidencia y Consejería.');
-    src := replace(src, 'Solo un administrador o anciano puede crear o renovar la revisión de Presidencia y Consejería.', 'Se requiere una cuenta activa para crear o renovar la revisión de Presidencia y Consejería.');
-    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de %.', 'Se requiere una cuenta activa para confirmar la elegibilidad de %.');
-    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de una intervención.', 'Se requiere una cuenta activa para confirmar la elegibilidad de una intervención.');
-    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de una nueva intervención.', 'Se requiere una cuenta activa para confirmar la elegibilidad de una nueva intervención.');
+    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'')', 'v_role NOT IN (''administrator'', ''user'')');
+    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'', ''coordinator'')', 'v_role NOT IN (''administrator'', ''user'')');
+    src := replace(src, 'v_role NOT IN (''administrator'',''elder'')', 'v_role NOT IN (''administrator'',''user'')');
+    src := replace(src, 'v_role NOT IN (''administrator'', ''elder'',''coordinator'')', 'v_role NOT IN (''administrator'', ''user'')');
+    src := replace(src, 'v_user_role NOT IN (''administrator'', ''elder'', ''coordinator'')', 'v_user_role NOT IN (''administrator'', ''user'')');
+    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad S-38-S.', 'Solo un usuario autorizado puede confirmar la elegibilidad S-38-S.');
+    src := replace(src, 'Solo un administrador o anciano puede crear o renovar la revisión S-38-S.', 'Solo un usuario autorizado puede crear o renovar la revisión S-38-S.');
+    src := replace(src, 'Solo un administrador o anciano puede confirmar Presidencia y Consejería.', 'Solo un usuario autorizado puede confirmar Presidencia y Consejería.');
+    src := replace(src, 'Solo un administrador o anciano puede crear o renovar la revisión de Presidencia y Consejería.', 'Solo un usuario autorizado puede crear o renovar la revisión de Presidencia y Consejería.');
+    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de %.', 'Solo un usuario autorizado puede confirmar la elegibilidad de %.');
+    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de una intervención.', 'Solo un usuario autorizado puede confirmar la elegibilidad de una intervención.');
+    src := replace(src, 'Solo un administrador o anciano puede confirmar la elegibilidad de una nueva intervención.', 'Solo un usuario autorizado puede confirmar la elegibilidad de una nueva intervención.');
     EXECUTE src;
   END LOOP;
 END $$;
