@@ -342,7 +342,7 @@ export const ProgramsWorkspace: React.FC = () => {
         <label className="block text-sm">Contraseña<input name="password" type="password" required autoComplete="current-password" className="mt-1 w-full rounded border p-2" /></label>
         {loginError && <p role="alert" className="text-sm text-red-700">{loginError}</p>}
         <button disabled={signingIn} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{signingIn ? "Ingresando…" : "Entrar"}</button>
-        <p className="text-sm text-slate-600">¿No tienes acceso? Solicítale al administrador supremo que cree tu cuenta.</p>
+        <p className="text-sm text-slate-600">¿Primer acceso? <a className="font-semibold text-blue-700 underline" href="/auth/register">Configurar cuenta inicial</a>. Después, solo el administrador supremo podrá crear cuentas.</p>
       </form>
     </main>
   );
