@@ -32,6 +32,9 @@ export async function POST(request: Request, context: AuthRouteContext) {
         auth: {
           url: authUrl,
           adapter: SupabaseAuthAdapter(),
+          // Necesario para comprobar is_admin_configured antes de que exista una sesión.
+          // Los permisos efectivos siguen restringidos en PostgreSQL.
+          allowAnonymous: true,
         },
         dataApi: { url: dataApiUrl },
       });

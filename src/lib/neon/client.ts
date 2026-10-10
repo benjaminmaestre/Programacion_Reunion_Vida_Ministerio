@@ -12,6 +12,9 @@ function buildNeonClient(config: NeonPublicConfig) {
     auth: {
       url: authUrl,
       adapter: SupabaseAuthAdapter(),
+      // Habilita solo el token anónimo para las comprobaciones previas al inicio de sesión.
+      // PostgreSQL sigue limitando las operaciones anónimas mediante GRANT y RLS.
+      allowAnonymous: true,
     },
     dataApi: {
       url: config.dataApiUrl,
