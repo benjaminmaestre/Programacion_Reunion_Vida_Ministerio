@@ -5,10 +5,11 @@ import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle, Archive, ArrowDownUp, Check, ChevronRight,
   CircleHelp, Clock3, History, ListChecks,
-  LockKeyhole, LogOut, Plus, Search, ShieldCheck,
+  KeyRound, LockKeyhole, LogOut, Plus, Search, ShieldCheck,
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { getActiveMeetingGuide } from "@/features/programs/meeting-guide-repository";
 import { isNeonConfigured } from "@/lib/neon/env";
@@ -73,6 +74,7 @@ export function MembersWorkspace() {
   const [isSaving, setIsSaving] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
@@ -349,6 +351,7 @@ function openNewMemberForm() {
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A NEON"}</span>
+              {!demoMode && client && <button className="button" type="button" onClick={() => setIsPasswordDialogOpen(true)}><KeyRound size={14} /> Cambiar contraseña</button>}
               {!demoMode && <button className="button" type="button" onClick={() => void signOut()}><LogOut size={14} /> Salir</button>}
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
@@ -489,6 +492,12 @@ function openNewMemberForm() {
       </div>}
 
 
+      {isPasswordDialogOpen && client && mode === "connected" && (
+        <PasswordChangeDialog
+          client={client}
+          onClose={() => setIsPasswordDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
