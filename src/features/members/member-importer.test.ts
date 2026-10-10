@@ -52,7 +52,7 @@ describe("Importación real del directorio de 139 personas (Congregación Las Vi
 
     const preview = previewMemberImport(existingMembers, OFFICIAL_CONGREGATION_MEMBERS);
 
-    expect(preview.toInsertCount).toBe(124);
+    expect(preview.toInsertCount).toBe(138);
     expect(preview.toUpdateCount).toBe(1);
     expect(preview.duplicateRecords[0].existingMember.id).toBe("ex-1");
     expect(preview.duplicateRecords[0].newRecord.firstName).toBe("Abrahán");
