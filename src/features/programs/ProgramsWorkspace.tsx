@@ -899,9 +899,9 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     } else if (targetRole === "auxiliary") {
       updateProgram({ ...selectedProgram, auxiliaryCounselorId: memberId, ...resetLeadership });
     } else if (targetRole === "opening_prayer") {
-      updateProgram({ ...selectedProgram, openingPrayerParticipantId: memberId, ...resetLeadership });
+      updateProgram({ ...selectedProgram, openingPrayerParticipantId: memberId });
     } else if (targetRole === "closing_prayer") {
-      updateProgram({ ...selectedProgram, closingPrayerParticipantId: memberId, ...resetLeadership });
+      updateProgram({ ...selectedProgram, closingPrayerParticipantId: memberId });
     } else if (targetRole === "primary" && slotId) {
       updateSlot(slotId, { primaryParticipantId: memberId }, true);
     } else if (targetRole === "assistant" && slotId) {

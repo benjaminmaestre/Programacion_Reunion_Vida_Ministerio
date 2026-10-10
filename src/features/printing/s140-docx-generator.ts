@@ -10,6 +10,9 @@ export interface S140AssignmentData {
   closingSongNumber?: number;
   chairman: string;
   auxiliaryCounselor?: string;
+  openingPrayer?: string;
+  closingPrayer?: string;
+  congregationName?: string;
   treasuresTalkTitle: string;
   treasuresTalkSpeaker: string;
   gemsSpeaker: string;
@@ -59,7 +62,7 @@ function fillDateTable(table:string,data:S140AssignmentData):string {
 }
 function fillOpeningTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"Canción [Número]",data.openingSongNumber?"Canción "+data.openingSongNumber:"",0);
-  return setTextNode(next,"[Nombre]","",0);
+  return setTextNode(next,"[Nombre]",data.openingPrayer||"",0);
 }
 function fillTreasuresTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"[Título]",data.treasuresTalkTitle||"",0);
@@ -99,7 +102,7 @@ function fillLivingTable(table:string,data:S140AssignmentData):string {
     if(rowIndex===4)return setTextNode(row,"[Nombre/Nombre]",pairNames(data.congregationStudyConductor,data.congregationStudyReader),0);
     if(rowIndex===6){
       let current=setTextNode(row,"Canción [Número]",data.closingSongNumber?"Canción "+data.closingSongNumber:"",0);
-      return setTextNode(current,"[Nombre]","",0);
+      return setTextNode(current,"[Nombre]",data.closingPrayer||"",0);
     }
     return row;
   });
@@ -216,8 +219,24 @@ export class S140DocxGenerator {
       ]));
     }
 
+    const congregationName = meetings[0]?.congregationName?.trim()
+      || process.env.NEXT_PUBLIC_CONGREGATION_NAME?.trim()
+      || "Las Violetas";
+
+    zip.file(/word\/header\d*\.xml/).forEach((headerFile) => {
+      let headerXml = headerFile.asText();
+      if (headerXml.includes("[NOMBRE DE LA CONGREGACIÓN]")) {
+        headerXml = headerXml.replace(
+          /<w:t\b([^>]*)>\[NOMBRE DE LA CONGREGACIÓN\]<\/w:t>/g,
+          `<w:t$1>${xmlEscape(congregationName.toUpperCase())}</w:t>`
+        );
+        zip.file(headerFile.name, headerXml);
+      }
+    });
+
     const body = pages.join(pageBreak);
     const clean = body
+      .replace(/<w:t\b([^>]*)>\[NOMBRE DE LA CONGREGACIÓN\]<\/w:t>/g, `<w:t$1>${xmlEscape(congregationName.toUpperCase())}</w:t>`)
       .replace(/<w:t\b([^>]*)>\[Nombre\]<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\[Nombre\/Nombre\]<\/w:t>/g, "<w:t$1></w:t>")
       .replace(/<w:t\b([^>]*)>\[Consejero\]<\/w:t>/g, "<w:t$1></w:t>")
