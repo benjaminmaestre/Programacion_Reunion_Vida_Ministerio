@@ -94,6 +94,10 @@ export async function POST(
 
     const document = S140DocxGenerator.generateDocx({
       weekDate: program.meeting_date,
+      weeklyBibleReading: program.weekly_bible_reading ?? "",
+      openingSongNumber: program.opening_song_number ?? undefined,
+      livingSongNumber: program.living_song_number ?? undefined,
+      closingSongNumber: program.closing_song_number ?? undefined,
       chairman: nameFor(program.chairman_id),
       auxiliaryCounselor: nameFor(program.auxiliary_counselor_id),
       treasuresTalkTitle: treasures?.title ?? "",

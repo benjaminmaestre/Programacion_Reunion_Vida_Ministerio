@@ -17,6 +17,9 @@ interface DbMeetingProgramRow {
   leadership_review_confirmed_at?: string | null;
   circuit_overseer_talk_title: string | null;
   weekly_bible_reading?: string | null;
+  opening_song_number?: number | null;
+  living_song_number?: number | null;
+  closing_song_number?: number | null;
   is_draft: boolean;
   notes: string | null;
   updated_at: string;
@@ -118,6 +121,9 @@ export async function getMeetingProgramsFromNeon(
     bimonthCycle: p.planning_cycle_id ? cycleLabels.get(p.planning_cycle_id) ?? "" : "",
     historyPeriod: p.history_period_id ? periodLabels.get(p.history_period_id) ?? "" : "",
     weeklyBibleReading: p.weekly_bible_reading || undefined,
+    openingSongNumber: p.opening_song_number ?? undefined,
+    livingSongNumber: p.living_song_number ?? undefined,
+    closingSongNumber: p.closing_song_number ?? undefined,
     planningCycleId: p.planning_cycle_id || undefined,
     historyPeriodId: p.history_period_id || undefined,
     chairmanId: p.chairman_id || undefined,
@@ -175,12 +181,15 @@ export async function saveMeetingProgramToNeon(
       notes: slot.notes || null,
     })),
     p_weekly_bible_reading: program.weeklyBibleReading || null,
+    p_opening_song_number: program.openingSongNumber ?? null,
+    p_living_song_number: program.livingSongNumber ?? null,
+    p_closing_song_number: program.closingSongNumber ?? null,
   });
 
   if (error) {
     const rpcError = error as { code?: string; message?: string };
     if (rpcError.code === "PGRST202" || /could not find the function|schema cache/i.test(rpcError.message ?? "")) {
-      throw new Error("No está desplegada la RPC save_meeting_program_transaction. Revisa las migraciones requeridas en el proyecto Neon autorizado.");
+      throw new Error("No está desplegada la RPC save_meeting_program_with_guide. Revisa las migraciones requeridas en el proyecto Neon autorizado.");
     }
     throw new Error(rpcError.message || "No se pudo guardar el programa mediante la transacción atómica de Neon.");
   }

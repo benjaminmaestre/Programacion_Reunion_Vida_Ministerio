@@ -1,30 +1,51 @@
 import PizZip from "pizzip";
+import type { Section } from "@/types/domain";
 import type { AssignmentSlotDetail, MeetingProgramDetail } from "./program-types";
 
-export type GuideAssignmentType = "conversation" | "revisit" | "disciples" | "explain_beliefs" | "student_talk";
+export type GuideAssignmentType =
+  | NonNullable<AssignmentSlotDetail["assignmentType"]>
+  | "bible_study";
+
+export interface GuideStructureAssignment {
+  number: number;
+  section: Section;
+  title: string;
+  durationMinutes: number;
+  isStudentPart: boolean;
+  assignmentType: GuideAssignmentType;
+  scriptureRange?: string;
+}
+
 export interface GuideMinistryPart {
   title: string;
-  assignmentType: GuideAssignmentType;
+  assignmentType: NonNullable<AssignmentSlotDetail["assignmentType"]>;
   durationMinutes: number;
 }
+
 export interface MeetingGuideWeek {
   label: string;
   startDate: string;
   endDate: string;
   weeklyBibleReading: string;
+  openingSongNumber?: number;
+  livingSongNumber?: number;
+  closingSongNumber?: number;
+  assignments: GuideStructureAssignment[];
+  // Convenience properties used by the import preview.
   treasuresTalkTitle: string;
   gemsTitle: string;
   bibleReadingTitle: string;
-  ministryParts: [GuideMinistryPart, GuideMinistryPart, GuideMinistryPart];
+  ministryParts: GuideMinistryPart[];
   livingTitle: string;
   livingDurationMinutes: number;
 }
+
 const MONTHS: Record<string, number> = {
   enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
   julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10,
   noviembre: 11, diciembre: 12,
 };
-const DEFAULT_DURATIONS = [3, 4, 5] as const;
+const DEFAULT_DURATIONS: Record<number, number> = { 1: 10, 2: 10, 3: 4, 4: 3, 5: 4, 6: 5, 7: 15, 8: 30 };
 
 function decodeEntities(value: string): string {
   const named: Record<string, string> = {
@@ -96,7 +117,7 @@ function extractSpeechTitle(body: string, fallback: string): string {
   const match = plainText(body).match(/\bTítulo\s*:\s*["“]?([\s\S]+?)(?=\s*\(\s*(?:th|lmd)\b|$)/i);
   return match?.[1]?.trim().replace(/[.\s]+$/, "").replace(/["”]+$/, "").trim() || fallback;
 }
-function classifyMinistryType(title: string): GuideAssignmentType {
+function classifyMinistryType(title: string): NonNullable<AssignmentSlotDetail["assignmentType"]> {
   const normalized = normalizeForParsing(title);
   if (normalized.startsWith("empecemos conversaciones")) return "conversation";
   if (normalized.startsWith("hagamos revisitas")) return "revisit";
@@ -107,6 +128,32 @@ function classifyMinistryType(title: string): GuideAssignmentType {
 function extractBibleReadingTitle(body: string): string {
   const match = plainText(body).match(/\(\s*\d+\s*mins?\.?\)\s*([^()]+?)(?=\s*\(|$)/i);
   return match?.[1]?.trim().replace(/[.\s]+$/, "") ?? "";
+}
+function sectionFromHeading(value: string): Section | null {
+  const text = normalizeForParsing(value);
+  if (text.includes("tesoros de la biblia")) return "treasures";
+  if (text.includes("seamos mejores maestros")) return "ministers";
+  if (text.includes("nuestra vida cristiana")) return "living";
+  return null;
+}
+function extractSongNumber(value: string): number | undefined {
+  const match = plainText(value).match(/Canción\s+(\d+)/i);
+  return match ? Number(match[1]) : undefined;
+}
+
+export function getMeetingGuidePeriodLabel(bytes: Uint8Array, filename = "guia.epub"): string {
+  let zip: PizZip;
+  try { zip = new PizZip(bytes); }
+  catch { throw new Error("No se pudo abrir el archivo. Comprueba que sea un EPUB válido."); }
+  const opfPath = Object.keys(zip.files).find((name) => /(?:^|\/)content\.opf$/i.test(name));
+  if (!opfPath) throw new Error("El archivo no contiene la estructura de una publicación EPUB.");
+  const opf = zip.file(opfPath)?.asText() ?? "";
+  const metadataTitle = plainText(opf.match(/<dc:title\b[^>]*>([\s\S]*?)<\/dc:title>/i)?.[1] ?? "");
+  const cleaned = metadataTitle.replace(/^guía\s+de\s+actividades\s*[,.:–—-]?\s*/i, "").trim();
+  if (cleaned) return cleaned.charAt(0).toLocaleUpperCase("es") + cleaned.slice(1);
+  const year = filename.match(/\b(20\d{2})/i)?.[1];
+  if (year) return `Guía de actividades ${year}`;
+  throw new Error("No se pudo determinar el período de la guía.");
 }
 
 export function parseMeetingGuideEpub(bytes: Uint8Array, filename = "guia.epub"): MeetingGuideWeek[] {
@@ -124,8 +171,11 @@ export function parseMeetingGuideEpub(bytes: Uint8Array, filename = "guia.epub")
     throw new Error("No se pudo determinar el año de la guía a partir de sus metadatos.");
   }
 
-  const xhtmlFiles = fileNames.filter((name) => /(?:^|\/)20\d{7}\.xhtml$/i.test(name) && !/-extracted\.xhtml$/i.test(name)).sort();
+  const xhtmlFiles = fileNames
+    .filter((name) => /(?:^|\/)20\d{7}\.xhtml$/i.test(name) && !/-extracted\.xhtml$/i.test(name))
+    .sort();
   const weeks: MeetingGuideWeek[] = [];
+
   for (const path of xhtmlFiles) {
     const source = zip.file(path)?.asText();
     if (!source) continue;
@@ -136,94 +186,226 @@ export function parseMeetingGuideEpub(bytes: Uint8Array, filename = "guia.epub")
     try { dates = parseWeekRange(label, baseYear); } catch { continue; }
     if (!dates) continue;
 
-    const firstH2 = source.slice((h1.index ?? 0) + h1[0].length).match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i);
+    const afterH1 = source.slice((h1.index ?? 0) + h1[0].length);
+    const firstH2 = afterH1.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i);
     const weeklyBibleReading = firstH2 ? plainText(firstH2[1]) : "";
+    const h2s = [...source.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)];
     const headers = [...source.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi)];
-    const numbered = new Map<number, { title: string; originalHeading: string; body: string; minutes: number }>();
-    for (let i = 0; i < headers.length; i += 1) {
-      const parsed = parseNumberedHeader(headers[i][1]);
+    const headingTexts = headers.map((entry) => plainText(entry[1]));
+    const numbered = new Map<number, {
+      title: string; originalHeading: string; body: string; minutes: number; section: Section;
+    }>();
+
+    for (let index = 0; index < headers.length; index += 1) {
+      const header = headers[index];
+      const parsed = parseNumberedHeader(header[1]);
       if (!parsed) continue;
-      const bodyStart = (headers[i].index ?? 0) + headers[i][0].length;
-      const bodyEnd = i + 1 < headers.length ? (headers[i + 1].index ?? source.length) : source.length;
+      const headingPosition = header.index ?? 0;
+      let activeSection: Section | null = null;
+      for (const h2 of h2s) {
+        const h2Position = h2.index ?? 0;
+        if (h2Position >= headingPosition) break;
+        const mapped = sectionFromHeading(h2[1]);
+        if (mapped) activeSection = mapped;
+      }
+      if (!activeSection) continue;
+
+      const bodyStart = headingPosition + header[0].length;
+      const bodyEnd = index + 1 < headers.length ? (headers[index + 1].index ?? source.length) : source.length;
       const body = source.slice(bodyStart, bodyEnd);
       const title = parsed.number === 6 && normalizeForParsing(parsed.title) === "discurso"
-        ? extractSpeechTitle(body, parsed.title) : parsed.title;
-      const fallback = parsed.number === 1 ? 10 : parsed.number === 2 ? 10 : parsed.number === 3 ? 4
-        : parsed.number === 4 ? DEFAULT_DURATIONS[0] : parsed.number === 5 ? DEFAULT_DURATIONS[1]
-        : parsed.number === 6 ? DEFAULT_DURATIONS[2] : 15;
-      numbered.set(parsed.number, { title, originalHeading: parsed.title, body, minutes: extractMinutes(body, fallback) });
+        ? extractSpeechTitle(body, parsed.title)
+        : parsed.title;
+      numbered.set(parsed.number, {
+        title,
+        originalHeading: parsed.title,
+        body,
+        section: activeSection,
+        minutes: extractMinutes(body, DEFAULT_DURATIONS[parsed.number] ?? 5),
+      });
     }
-    if (!weeklyBibleReading || [1,2,3,4,5,6,7,8].some((number) => !numbered.get(number)?.title)) continue;
 
-    const ministryParts = [4,5,6].map((number) => {
-      const part = numbered.get(number)!;
-      return { title: part.title, assignmentType: classifyMinistryType(part.originalHeading), durationMinutes: part.minutes };
-    }) as [GuideMinistryPart, GuideMinistryPart, GuideMinistryPart];
+    const assignments: GuideStructureAssignment[] = [];
+    for (const [number, row] of [...numbered.entries()].sort((a, b) => a[0] - b[0])) {
+      const normalizedHeading = normalizeForParsing(row.originalHeading);
+      let assignmentType: GuideAssignmentType;
+      let title = row.title;
+      let scriptureRange: string | undefined;
+      let isStudentPart = false;
+
+      if (row.section === "treasures") {
+        if (normalizedHeading.includes("busquemos perlas escondidas")) assignmentType = "gems";
+        else if (normalizedHeading.startsWith("lectura de la biblia")) {
+          assignmentType = "bible_reading";
+          scriptureRange = extractBibleReadingTitle(row.body) || undefined;
+          title = "Lectura de la Biblia";
+          isStudentPart = true;
+        } else {
+          assignmentType = "treasures_talk";
+        }
+      } else if (row.section === "ministers") {
+        assignmentType = classifyMinistryType(row.originalHeading);
+        isStudentPart = true;
+      } else if (normalizedHeading.startsWith("estudio biblico de la congregacion")) {
+        assignmentType = "bible_study";
+      } else {
+        assignmentType = normalizedHeading.includes("necesidades de la congregacion")
+          ? "living_needs" : "living_part";
+      }
+
+      assignments.push({
+        number,
+        section: row.section,
+        title,
+        durationMinutes: row.minutes,
+        isStudentPart,
+        assignmentType,
+        ...(scriptureRange ? { scriptureRange } : {}),
+      });
+    }
+
+    const ministryParts = assignments
+      .filter((item) => item.section === "ministers")
+      .map((item) => ({
+        title: item.title,
+        assignmentType: item.assignmentType === "bible_study" ? "student_talk" as const
+          : item.assignmentType as NonNullable<AssignmentSlotDetail["assignmentType"]>,
+        durationMinutes: item.durationMinutes,
+      }));
+    const treasuresTalkTitle = assignments.find((item) => item.assignmentType === "treasures_talk")?.title ?? "";
+    const gemsTitle = assignments.find((item) => item.assignmentType === "gems")?.title ?? "";
+    const bibleReadingTitle = assignments.find((item) => item.assignmentType === "bible_reading")?.scriptureRange ?? "";
+    const livingAssignment = assignments.find((item) => item.section === "living" && item.assignmentType !== "bible_study");
+    const studyAssignment = assignments.find((item) => item.assignmentType === "bible_study");
+    if (!weeklyBibleReading || !treasuresTalkTitle || !gemsTitle || !assignments.some((item) => item.assignmentType === "bible_reading")
+      || !ministryParts.length || !livingAssignment || !studyAssignment) {
+      continue;
+    }
+
+    const firstSong = extractSongNumber(headingTexts[0] ?? "");
+    const ministryEndPosition = Math.max(
+      ...headers.filter((header) => {
+        const parsed = parseNumberedHeader(header[1]);
+        return parsed && assignments.some((assignment) => assignment.number === parsed.number && assignment.section === "ministers");
+      }).map((header) => header.index ?? 0),
+    );
+    const livingStartPosition = headers.find((header) => {
+      const parsed = parseNumberedHeader(header[1]);
+      return parsed && assignments.some((assignment) => assignment.number === parsed.number && assignment.section === "living");
+    })?.index ?? Number.POSITIVE_INFINITY;
+    const livingSong = headers
+      .filter((header) => (header.index ?? 0) > ministryEndPosition && (header.index ?? 0) < livingStartPosition)
+      .map((header) => extractSongNumber(header[1]))
+      .find((value) => value !== undefined);
+    const closingSong = [...headingTexts].reverse()
+      .find((text) => /palabras de conclusión/i.test(text) && extractSongNumber(text) !== undefined);
+    const closingSongNumber = closingSong ? extractSongNumber(closingSong) : undefined;
 
     weeks.push({
-      label, ...dates, weeklyBibleReading,
-      treasuresTalkTitle: numbered.get(1)!.title,
-      gemsTitle: numbered.get(2)!.title,
-      bibleReadingTitle: extractBibleReadingTitle(numbered.get(3)!.body),
+      label,
+      ...dates,
+      weeklyBibleReading,
+      openingSongNumber: firstSong,
+      livingSongNumber: livingSong,
+      closingSongNumber,
+      assignments,
+      treasuresTalkTitle,
+      gemsTitle,
+      bibleReadingTitle,
       ministryParts,
-      livingTitle: numbered.get(7)!.title,
-      livingDurationMinutes: numbered.get(7)!.minutes,
+      livingTitle: livingAssignment.title,
+      livingDurationMinutes: livingAssignment.durationMinutes,
     });
   }
-  if (!weeks.length) throw new Error("No se encontraron semanas con asignaciones numeradas reconocibles en la guía.");
+
+  if (!weeks.length) throw new Error("No se encontraron semanas con una estructura de asignaciones reconocible en la guía.");
   return weeks.sort((a, b) => a.startDate.localeCompare(b.startDate));
 }
 
+/** Rebuilds assignment rows from the guide while preserving participants by sequence. */
 export function applyMeetingGuideTitles(program: MeetingProgramDetail, week: MeetingGuideWeek): MeetingProgramDetail {
-  const slots = program.slots.map((slot) => ({ ...slot }));
+  const oldSlots = [...program.slots].sort((a, b) => a.orderIndex - b.orderIndex);
+  const usedOldIds = new Set<string>();
+  const nextSlots: AssignmentSlotDetail[] = [];
+  let nextOrderIndex = 1;
   let contentChanged = false;
-  const updateSlot = (slot: AssignmentSlotDetail | undefined, changes: Partial<AssignmentSlotDetail>) => {
-    if (!slot) return;
-    const titleOrTypeChanged = (changes.title !== undefined && changes.title !== slot.title)
-      || (changes.assignmentType !== undefined && changes.assignmentType !== slot.assignmentType);
-    const durationChanged = changes.durationMinutes !== undefined && changes.durationMinutes !== slot.durationMinutes;
-    if (titleOrTypeChanged || durationChanged) contentChanged = true;
-    Object.assign(slot, changes);
-    if (titleOrTypeChanged) {
-      slot.eligibilityConfirmed = false;
-      slot.eligibilityConfirmedBy = undefined;
-      slot.eligibilityConfirmedAt = undefined;
-    }
+
+  const takeOldSlot = (orderIndex: number, types: string[]) => {
+    const exact = oldSlots.find((slot) => !usedOldIds.has(slot.id) && slot.orderIndex === orderIndex);
+    const byType = exact ?? oldSlots.find((slot) => !usedOldIds.has(slot.id)
+      && types.includes(slot.assignmentType ?? ""));
+    if (byType) usedOldIds.add(byType.id);
+    return byType;
   };
-  updateSlot(slots.find((slot) => slot.assignmentType === "treasures_talk"), {
-    title: week.treasuresTalkTitle, durationMinutes: 10, isStudentPart: false,
-  });
-  updateSlot(slots.find((slot) => slot.assignmentType === "gems"), {
-    title: week.gemsTitle, durationMinutes: 10, isStudentPart: false,
-  });
-  updateSlot(slots.find((slot) => slot.assignmentType === "bible_reading"), {
-    title: week.bibleReadingTitle ? `Lectura de la Biblia (${week.bibleReadingTitle})` : "Lectura de la Biblia",
-    durationMinutes: 4, isStudentPart: true,
-  });
-  const ministrySlots = slots.filter((slot) => slot.section === "ministers").sort((a, b) => a.orderIndex - b.orderIndex);
-  week.ministryParts.forEach((part, index) => {
-    const slot = ministrySlots[index];
-    if (!slot) return;
-    updateSlot(slot, {
-      title: part.title,
-      assignmentType: part.assignmentType,
-      durationMinutes: part.durationMinutes,
-      isStudentPart: true,
-      ...(part.assignmentType === "student_talk" ? { assistantParticipantId: undefined } : {}),
-    });
-  });
-  const living = slots.filter((slot) => slot.section === "living"
-    && slot.assignmentType !== "bible_study_conductor"
-    && slot.assignmentType !== "bible_study_reader").sort((a, b) => a.orderIndex - b.orderIndex)[0];
-  updateSlot(living, { title: week.livingTitle, durationMinutes: week.livingDurationMinutes, isStudentPart: false });
+
+  const buildSlot = (
+    assignment: GuideStructureAssignment,
+    type: NonNullable<AssignmentSlotDetail["assignmentType"]>,
+    title: string,
+    durationMinutes: number,
+    orderIndex: number,
+    paired: boolean,
+  ) => {
+    const old = takeOldSlot(assignment.number, [type]);
+    const next: AssignmentSlotDetail = {
+      id: old?.id ?? crypto.randomUUID(),
+      meetingProgramId: program.id,
+      section: assignment.section,
+      title,
+      durationMinutes,
+      orderIndex,
+      isStudentPart: assignment.isStudentPart,
+      assignmentType: type,
+      primaryParticipantId: old?.primaryParticipantId,
+      assistantParticipantId: paired ? old?.assistantParticipantId : undefined,
+      notes: old?.notes,
+      eligibilityConfirmed: old?.eligibilityConfirmed === true,
+      eligibilityConfirmedBy: old?.eligibilityConfirmedBy,
+      eligibilityConfirmedAt: old?.eligibilityConfirmedAt,
+    };
+    const invalidatesReview = !old || old.title !== next.title || old.assignmentType !== next.assignmentType
+      || old.section !== next.section || old.durationMinutes !== next.durationMinutes
+      || (old.assistantParticipantId ?? "") !== (next.assistantParticipantId ?? "");
+    if (invalidatesReview) {
+      next.eligibilityConfirmed = false;
+      next.eligibilityConfirmedBy = undefined;
+      next.eligibilityConfirmedAt = undefined;
+      contentChanged = true;
+    }
+    if (old?.section !== next.section || (old && old.assignmentType !== next.assignmentType && !paired)) {
+      next.primaryParticipantId = undefined;
+    }
+    nextSlots.push(next);
+  };
+
+  for (const assignment of [...week.assignments].sort((a, b) => a.number - b.number)) {
+    const title = assignment.assignmentType === "bible_reading"
+      ? assignment.scriptureRange ? `Lectura de la Biblia (${assignment.scriptureRange})` : "Lectura de la Biblia"
+      : assignment.title;
+
+    if (assignment.assignmentType === "bible_study") {
+      const study = { ...assignment, section: "living" as const, isStudentPart: false };
+      buildSlot(study, "bible_study_conductor", "Estudio bíblico de la congregación (Conductor)", 30, nextOrderIndex++, false);
+      buildSlot(study, "bible_study_reader", "Estudio bíblico de la congregación (Lector)", 30, nextOrderIndex++, false);
+    } else {
+      const paired = ["conversation", "revisit", "disciples", "explain_beliefs"].includes(assignment.assignmentType);
+      buildSlot(assignment, assignment.assignmentType as NonNullable<AssignmentSlotDetail["assignmentType"]>,
+        title, assignment.durationMinutes, nextOrderIndex++, paired);
+    }
+  }
 
   const readingChanged = program.weeklyBibleReading !== week.weeklyBibleReading;
-  const anyChange = contentChanged || readingChanged;
+  const songsChanged = program.openingSongNumber !== week.openingSongNumber
+    || program.livingSongNumber !== week.livingSongNumber
+    || program.closingSongNumber !== week.closingSongNumber;
   return {
     ...program,
-    slots,
+    slots: nextSlots,
     weeklyBibleReading: week.weeklyBibleReading,
-    ...(anyChange ? {
+    openingSongNumber: week.openingSongNumber,
+    livingSongNumber: week.livingSongNumber,
+    closingSongNumber: week.closingSongNumber,
+    ...(contentChanged || readingChanged || songsChanged ? {
       leadershipReviewConfirmed: false,
       leadershipReviewConfirmedBy: undefined,
       leadershipReviewConfirmedAt: undefined,

@@ -8,7 +8,8 @@ function makeEpub(weekLabel: string, year = 2026) {
   zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>Guía de actividades noviembre y diciembre de ${year}</dc:title></metadata></package>`);
   zip.file("OEBPS/202026401.xhtml", `<?xml version="1.0" encoding="UTF-8"?>
     <html xmlns="http://www.w3.org/1999/xhtml"><body>
-      <h1>${weekLabel}</h1><h2>JEREMÍAS 49, 50</h2>
+      <h1>${weekLabel}</h1><h3><strong>Canción 1 y oración | Palabras de introducción (1 min.)</strong></h3>
+      <h2>JEREMÍAS 49, 50</h2><h2>TESOROS DE LA BIBLIA</h2>
       <h3><strong>1. Tema del discurso principal</strong></h3><p>(10 mins.)</p>
       <h3><strong>2. Busquemos perlas escondidas</strong></h3><p>(10 mins.)</p>
       <h3><strong>3. Lectura de la Biblia</strong></h3><p>(4 mins.) Jer 50:24-40 ( th lección 11 ).</p>
@@ -16,8 +17,9 @@ function makeEpub(weekLabel: string, year = 2026) {
       <h3><strong>4. Empecemos conversaciones</strong></h3><p>(3 mins.) Indicaciones.</p>
       <h3><strong>5. Hagamos revisitas</strong></h3><p>(4 mins.) Indicaciones.</p>
       <h3><strong>6. Discurso</strong></h3><p>(5 mins.) lmd apéndice A punto 21. Título: El Reino de Dios es un gobierno real que está en el cielo ( th lección 7 ).</p>
-      <h2>NUESTRA VIDA CRISTIANA</h2><h3><strong>7. Tema de Nuestra vida cristiana</strong></h3><p>(15 mins.)</p>
+      <h3>Canción 44</h3><h2>NUESTRA VIDA CRISTIANA</h2><h3><strong>7. Tema de Nuestra vida cristiana</strong></h3><p>(15 mins.)</p>
       <h3><strong>8. Estudio bíblico de la congregación</strong></h3><p>(30 mins.)</p>
+      <h3>Palabras de conclusión (3 mins.) | Canción 33 y oración</h3>
     </body></html>`);
   return zip.generate({ type: "uint8array" }) as Uint8Array;
 }
@@ -26,10 +28,14 @@ describe("meeting guide EPUB importer", () => {
   it("extracts titles, weekly reading and the actual talk title", () => {
     const weeks = parseMeetingGuideEpub(makeEpub("2-8 DE NOVIEMBRE"), "mwb_S_202611.epub");
     expect(weeks).toHaveLength(1);
+    expect(weeks[0].assignments).toHaveLength(8);
     expect(weeks[0]).toMatchObject({
       startDate: "2026-11-02",
       endDate: "2026-11-08",
       weeklyBibleReading: "JEREMÍAS 49, 50",
+      openingSongNumber: 1,
+      livingSongNumber: 44,
+      closingSongNumber: 33,
       treasuresTalkTitle: "Tema del discurso principal",
       gemsTitle: "Busquemos perlas escondidas",
       bibleReadingTitle: "Jer 50:24-40",
