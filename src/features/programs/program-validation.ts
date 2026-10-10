@@ -107,7 +107,7 @@ export function validateProgramForPublication(
     const expectedSectionByType: Record<string, string> = {
       treasures_talk: "treasures", gems: "treasures", bible_reading: "treasures",
       conversation: "ministers", revisit: "ministers", disciples: "ministers", explain_beliefs: "ministers", student_talk: "ministers",
-      living_part: "living", living_needs: "living", bible_study_conductor: "living", bible_study_reader: "living",
+      living_part: "living", living_needs: "living", bible_study: "living", bible_study_conductor: "living", bible_study_reader: "living",
     };
     const expectedSection = slot.assignmentType ? expectedSectionByType[slot.assignmentType] : undefined;
     if (!slot.assignmentType || !expectedSection) {
@@ -156,6 +156,11 @@ export function validateProgramForPublication(
         case "living_needs":
           if (primary.appointment !== "elder" && primary.appointment !== "ministerial_servant") {
             errors.push(`${label}: Nuestra vida cristiana requiere un anciano o siervo ministerial activo.`);
+          }
+          break;
+        case "bible_study":
+          if (!slot.assistantParticipantId) {
+            errors.push(`${label}: selecciona un lector activo.`);
           }
           break;
         case "bible_study_conductor":

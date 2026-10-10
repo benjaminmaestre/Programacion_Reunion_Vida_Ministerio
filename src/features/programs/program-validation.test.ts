@@ -265,6 +265,27 @@ describe("validación de publicación de programas", () => {
     expect(result.errors.some((error) => error.includes("Presidencia y Consejería"))).toBe(true);
   });
 
+  it("valida el Estudio bíblico de la congregación como asignación consolidada", () => {
+    const study = program({ slots: [{
+      ...program().slots[0],
+      section: "living",
+      title: "Estudio bíblico de la congregación",
+      assignmentType: "bible_study",
+      primaryParticipantId: "m5",
+      assistantParticipantId: "m3",
+    }] });
+
+    expect(validateProgramForPublication(study, members).errors).toEqual([]);
+    expect(validateAssignmentRoleRestrictions(study, members)).toEqual([]);
+
+    const missingReader = program({ slots: [{
+      ...study.slots[0],
+      assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(missingReader, members).errors)
+      .toContain("Estudio bíblico de la congregación: selecciona un lector activo.");
+  });
+
   it("bloquea un tipo de asignación no reconocido", () => {
     const candidate = program({ slots: [{
       ...program().slots[0],
