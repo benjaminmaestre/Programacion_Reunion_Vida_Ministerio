@@ -4,9 +4,9 @@ import React, { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { isNeonConfigured } from "@/lib/neon/env";
-import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
-import type { DirectoryMember } from "../members/demo-data";
-import { DEMO_MEMBERS } from "../members/demo-data";
+import { getCurrentAppUser, getMemberHistory, listMembers, MembershipRequiredError } from "../members/members-repository";
+import type { AssignmentHistoryEntry, DirectoryMember } from "../members/demo-data";
+import { CATEGORY_LABELS, DEMO_HISTORY, DEMO_MEMBERS } from "../members/demo-data";
 import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
@@ -111,6 +111,11 @@ export const ProgramsWorkspace: React.FC = () => {
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
+  // Estado para previsualización de historial de los últimos 3 meses
+  const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
+  const [previewHistory, setPreviewHistory] = useState<AssignmentHistoryEntry[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // Modal para crear un programa nuevo
   const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
   const [newMeetingDate, setNewMeetingDate] = useState("");
@@ -200,6 +205,39 @@ export const ProgramsWorkspace: React.FC = () => {
     void initialize();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!previewMemberId) {
+      setPreviewHistory([]);
+      return;
+    }
+    setPreviewLoading(true);
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const cutoffDate = threeMonthsAgo.toISOString().slice(0, 10);
+
+    if (mode === "connected" && client && userId) {
+      getMemberHistory(client, userId, previewMemberId)
+        .then((history) => {
+          if (!active) return;
+          setPreviewHistory(history.filter((h) => h.date >= cutoffDate));
+        })
+        .catch(() => {
+          if (!active) return;
+          setPreviewHistory([]);
+        })
+        .finally(() => {
+          if (active) setPreviewLoading(false);
+        });
+    } else {
+      const demoMatches = DEMO_HISTORY.filter((h) => h.memberId === previewMemberId && h.date >= cutoffDate);
+      setPreviewHistory(demoMatches);
+      setPreviewLoading(false);
+    }
+
+    return () => { active = false; };
+  }, [previewMemberId, mode, client, userId]);
 
   function updateProgram(nextProgram: MeetingProgramDetail) {
     setPrograms((current) => current.map((program) => program.id === nextProgram.id ? nextProgram : program));
@@ -663,6 +701,43 @@ export const ProgramsWorkspace: React.FC = () => {
     <div className="meter"><div><span>{label}</span><span>{value} de {slots.length}</span></div><p><i style={{ width: `${slots.length ? (value / slots.length) * 100 : 0}%` }} /></p></div>
   );
 
+  const renderHistoryPopover = (memberId?: string) => {
+    if (!memberId || previewMemberId !== memberId) return null;
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return null;
+
+    return (
+      <div className="history-popover" role="tooltip">
+        <div className="popover-header">
+          <span>Historial 3 meses ({member.firstName} {member.lastName})</span>
+          <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }} onClick={() => setPreviewMemberId(null)} aria-label="Cerrar vista previa">
+            <X size={12} />
+          </button>
+        </div>
+        {previewLoading ? (
+          <div className="popover-empty">Cargando historial…</div>
+        ) : previewHistory.length === 0 ? (
+          <div className="popover-empty">Sin asignaciones en los últimos 3 meses</div>
+        ) : (
+          <ul className="popover-list">
+            {previewHistory.map((item) => (
+              <li key={item.id} className="popover-item">
+                <div>
+                  <div className="popover-item-title">{item.assignment}</div>
+                  <div className="popover-item-meta">
+                    {CATEGORY_LABELS[item.category] || item.category} · {item.participation}
+                    {item.companionName ? ` (${item.companionName})` : ""}
+                  </div>
+                </div>
+                <div className="popover-item-date">{item.date}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="workspace">
       <header className="page-head">
@@ -751,16 +826,34 @@ export const ProgramsWorkspace: React.FC = () => {
 
                 <div className="leaders">
                   <label className="lbl">Presidente de la reunión
-                    <select className="select-field" aria-label="Presidente de la reunión" value={selectedProgram.chairmanId ?? ""} disabled={readOnly}
-                      onChange={(e) => updateProgram({ ...selectedProgram, chairmanId: e.target.value || undefined, ...resetLeadership })}>
-                      <option value="">Seleccionar presidente…</option>{people(activeMembers)}
-                    </select>
+                    <div className="select-wrapper">
+                      <select className="select-field" aria-label="Presidente de la reunión" value={selectedProgram.chairmanId ?? ""} disabled={readOnly}
+                        onFocus={() => { if (selectedProgram.chairmanId) setPreviewMemberId(selectedProgram.chairmanId); }}
+                        onBlur={() => setPreviewMemberId(null)}
+                        onChange={(e) => {
+                          const val = e.target.value || undefined;
+                          updateProgram({ ...selectedProgram, chairmanId: val, ...resetLeadership });
+                          setPreviewMemberId(val ?? null);
+                        }}>
+                        <option value="">Seleccionar presidente…</option>{people(activeMembers)}
+                      </select>
+                      {renderHistoryPopover(selectedProgram.chairmanId)}
+                    </div>
                   </label>
                   <label className="lbl">Consejero auxiliar (opcional)
-                    <select className="select-field" aria-label="Consejero auxiliar" value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={readOnly}
-                      onChange={(e) => updateProgram({ ...selectedProgram, auxiliaryCounselorId: e.target.value || undefined, ...resetLeadership })}>
-                      <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
-                    </select>
+                    <div className="select-wrapper">
+                      <select className="select-field" aria-label="Consejero auxiliar" value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={readOnly}
+                        onFocus={() => { if (selectedProgram.auxiliaryCounselorId) setPreviewMemberId(selectedProgram.auxiliaryCounselorId); }}
+                        onBlur={() => setPreviewMemberId(null)}
+                        onChange={(e) => {
+                          const val = e.target.value || undefined;
+                          updateProgram({ ...selectedProgram, auxiliaryCounselorId: val, ...resetLeadership });
+                          setPreviewMemberId(val ?? null);
+                        }}>
+                        <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
+                      </select>
+                      {renderHistoryPopover(selectedProgram.auxiliaryCounselorId)}
+                    </div>
                   </label>
                   {selectedProgram.weekType === "circuit_overseer" && (
                     <label className="lbl full">Título del discurso del superintendente de circuito
@@ -805,17 +898,35 @@ export const ProgramsWorkspace: React.FC = () => {
                                 </div>
                                 <div className="slot-people">
                                   <label className="lbl">Titular
-                                    <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
-                                      onChange={(e) => updateSlot(slot.id, { primaryParticipantId: e.target.value || undefined }, true)}>
-                                      <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
-                                    </select>
+                                    <div className="select-wrapper">
+                                      <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
+                                        onFocus={() => { if (slot.primaryParticipantId) setPreviewMemberId(slot.primaryParticipantId); }}
+                                        onBlur={() => setPreviewMemberId(null)}
+                                        onChange={(e) => {
+                                          const val = e.target.value || undefined;
+                                          updateSlot(slot.id, { primaryParticipantId: val }, true);
+                                          setPreviewMemberId(val ?? null);
+                                        }}>
+                                        <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
+                                      </select>
+                                      {renderHistoryPopover(slot.primaryParticipantId)}
+                                    </div>
                                   </label>
                                   {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && (
                                     <label className="lbl">Ayudante
-                                      <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
-                                        onChange={(e) => updateSlot(slot.id, { assistantParticipantId: e.target.value || undefined }, true)}>
-                                        <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
-                                      </select>
+                                      <div className="select-wrapper">
+                                        <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
+                                          onFocus={() => { if (slot.assistantParticipantId) setPreviewMemberId(slot.assistantParticipantId); }}
+                                          onBlur={() => setPreviewMemberId(null)}
+                                          onChange={(e) => {
+                                            const val = e.target.value || undefined;
+                                            updateSlot(slot.id, { assistantParticipantId: val }, true);
+                                            setPreviewMemberId(val ?? null);
+                                          }}>
+                                          <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
+                                        </select>
+                                        {renderHistoryPopover(slot.assistantParticipantId)}
+                                      </div>
                                     </label>
                                   )}
                                 </div>
