@@ -643,7 +643,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       const roleErrors = validateAssignmentRoleRestrictions(program, members);
       if (roleErrors.length > 0) {
         setPageError("No se puede generar el S-140 del " + program.meetingDate
-          + ". Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
+          + ". Corrige estas restricciones:\n• " + roleErrors.slice(0, 8).join("\n• "));
         return;
       }
     }
