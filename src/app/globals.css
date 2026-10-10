@@ -129,6 +129,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .seg{display:inline-flex;padding:3px;border-radius:6px;background:#e4e9e8}
   .seg button{padding:8px 14px;border:0;border-radius:4px;background:transparent;color:var(--color-text-muted);font-size:13px;font-weight:650}
   .seg button[aria-pressed=true]{background:#fff;color:var(--color-text)}
+  .meeting-schedule-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border:1px solid #dcdfe4;border-radius:8px;background:#ffffff;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.02)}
+  .meeting-schedule-item{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#475569}
+  .meeting-schedule-item label{white-space:nowrap;color:#64748b}
+  .meeting-schedule-item select,.meeting-schedule-item input[type="time"]{min-height:34px;padding:4px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;font-weight:600;color:#1e293b}
   .cycle-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0 8px;color:var(--color-text-muted);font-size:12px}
   .cycle-line strong{color:var(--color-text)}
   .date-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:28px}

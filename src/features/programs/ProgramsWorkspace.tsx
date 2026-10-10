@@ -174,6 +174,10 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
+  // Estado para día y hora preferidos de la reunión de entre semana
+  const [meetingDayOffset, setMeetingDayOffset] = useState<number>(3); // 3 = Jueves (Lunes + 3 días)
+  const [meetingTime, setMeetingTime] = useState<string>("19:00");
+
   // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia flotante
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
   const [previewHistory, setPreviewHistory] = useState<AssignmentHistoryEntry[]>([]);
@@ -1001,13 +1005,43 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
         <>
           {programs.length > 0 && (
             <>
+              {/* Barra global reutilizable de Horario de Reunión de Congregación */}
+              <div className="meeting-schedule-bar" role="region" aria-label="Horario habitual de la reunión de entre semana">
+                <div className="meeting-schedule-item">
+                  <label htmlFor="meeting-day-select">Día de reunión (entre semana):</label>
+                  <select
+                    id="meeting-day-select"
+                    value={meetingDayOffset}
+                    onChange={(e) => setMeetingDayOffset(Number(e.target.value))}
+                  >
+                    <option value={0}>Lunes</option>
+                    <option value={1}>Martes</option>
+                    <option value={2}>Miércoles</option>
+                    <option value={3}>Jueves</option>
+                    <option value={4}>Viernes</option>
+                    <option value={5}>Sábado</option>
+                    <option value={6}>Domingo</option>
+                  </select>
+                </div>
+                <div className="meeting-schedule-item">
+                  <label htmlFor="meeting-time-input">Hora habitual:</label>
+                  <input
+                    id="meeting-time-input"
+                    type="time"
+                    value={meetingTime}
+                    onChange={(e) => setMeetingTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className="cycle-line">
                 <span><strong>{formatBimonthCycleLabel(cycleKey ?? "")}</strong> · {cycleWeeks.length} semanas</span>
                 <span>{scheduledCount} de {cycleWeeks.length} programadas · {publishedCount} publicadas</span>
               </div>
               <div className="date-strip" role="group" aria-label="Semanas del ciclo">
                 {cycleWeeks.map(({ date, program }) => {
-                  const { day, month } = shortDate(date);
+                  const actualDate = addDays(date, meetingDayOffset);
+                  const { day, month } = shortDate(actualDate);
                   if (program) {
                     const isPub = program.status === "published";
                     const isSelected = program.id === selectedProgramId;
@@ -1034,8 +1068,8 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
           ) : (
             <div className="meeting-grid">
               <div>
-                <h2 className="meeting-title">{longDate(selectedProgram.meetingDate)}</h2>
-                <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · {formatBimonthCycleLabel(selectedProgram.bimonthCycle)}</p>
+                <h2 className="meeting-title">{longDate(addDays(selectedProgram.meetingDate, meetingDayOffset))} ({meetingTime})</h2>
+                <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · {formatBimonthCycleLabel(selectedProgram.bimonthCycle)} · Guía: {longDate(selectedProgram.meetingDate)}</p>
 
                 {readOnly && (
                   <div className="alert-info">
