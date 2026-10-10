@@ -26,7 +26,7 @@ Las migraciones adaptadas para Neon están en `neon/migrations/`. Aplicarlas en 
 3. `003_official_directory_and_titles.sql`
 4. `004_assignment_eligibility_review.sql`
 5. `005_save_meeting_program_transaction.sql`
-6. `006_rpc_security_and_publication_guards.sql`
+6. `006_rpc_security_and_publication_guards.sql`\n7. `007_two_role_access_model.sql`
 
 La importación validada está en `neon/imports/listado_unificado_las_violetas_2026_10_09.sql`. Requiere las migraciones 001 y 003 y aborta si `public.members` ya contiene registros; no borra ni sobreescribe datos existentes.
 
@@ -45,12 +45,9 @@ npm run build
 La aplicación está conectada a Neon y desplegada en Vercel. CI pasa TypeScript, las pruebas unitarias y el build de producción. Falta verificar el inicio de sesión de extremo a extremo con la primera cuenta autorizada y asignarle su rol en `public.app_users`.
 
 
-## Acceso inicial
+## Modelo de acceso
 
-Asigna a cada usuario solo el rol necesario en `public.app_users`:
-- `administrator`: administración total.
-- `elder`: tareas restringidas a ancianos.
-- `coordinator`: edición y publicación de programas.
-- `viewer`: solo consulta.
+- `administrator`: administrador supremo. Es la única cuenta que puede crear, habilitar o deshabilitar accesos a la plataforma. La base de datos impide que haya más de una cuenta con este rol.
+- `user`: usuario normal. Puede consultar y mantener participantes, registrar revisiones y crear, editar y publicar programaciones; no puede crear cuentas ni conceder acceso a otras personas.
 
-La aplicación no concede permisos administrativos automáticamente a una cuenta nueva.
+Una cuenta Neon Auth por sí sola no concede acceso: también necesita una fila activa en `public.app_users`.
