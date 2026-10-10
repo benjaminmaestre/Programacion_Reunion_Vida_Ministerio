@@ -65,7 +65,7 @@ class FakeDatabase {
   rpc(fnName: string, args: Record<string, any>) {
     this.rpcCalls += 1;
     if (this.rpcFailure) return Promise.resolve({ data: null, error: this.rpcFailure });
-    if (fnName === "save_meeting_program_transaction") {
+    if (fnName === "save_meeting_program_with_guide") {
       const existingProg = (this.tables.meeting_programs ?? []).find((p) => p.id === args.p_program_id);
       if (existingProg && existingProg.is_draft === false) {
         return Promise.resolve({ data: null, error: { message: "El programa ya está publicado y se encuentra protegido contra modificaciones." } });
@@ -108,6 +108,7 @@ class FakeDatabase {
         leadership_review_confirmed_by: args.p_leadership_review_confirmed_by,
         leadership_review_confirmed_at: args.p_leadership_review_confirmed_at,
         circuit_overseer_talk_title: args.p_circuit_overseer_talk_title,
+        weekly_bible_reading: args.p_weekly_bible_reading,
         is_draft: args.p_is_draft,
         notes: args.p_notes,
         updated_at: new Date().toISOString(),

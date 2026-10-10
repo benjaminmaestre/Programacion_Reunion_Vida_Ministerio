@@ -93,7 +93,7 @@ function extractMinutes(body: string, fallback: number): number {
   return match ? Number(match[1]) : fallback;
 }
 function extractSpeechTitle(body: string, fallback: string): string {
-  const match = plainText(body).match(/\bTítulo\s*:\s*["“]?([\s\S]+?)(?=\s*\((?:th|lmd)\b|$)/i);
+  const match = plainText(body).match(/\bTítulo\s*:\s*["“]?([\s\S]+?)(?=\s*\(\s*(?:th|lmd)\b|$)/i);
   return match?.[1]?.trim().replace(/[.\s]+$/, "").replace(/["”]+$/, "").trim() || fallback;
 }
 function classifyMinistryType(title: string): GuideAssignmentType {
