@@ -76,6 +76,24 @@ REVOKE ALL ON FUNCTION public.is_active_app_admin() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_active_app_user() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_active_app_admin() TO authenticated;
 
+-- Permitir comprobar únicamente si el primer administrador ya está configurado.
+-- Esta función no concede acceso a ninguna tabla ni revela identidad alguna.
+CREATE OR REPLACE FUNCTION public.is_admin_configured()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.app_users
+    WHERE role::text = 'administrator'
+  );
+$function$;
+REVOKE ALL ON FUNCTION public.is_admin_configured() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin_configured() TO anonymous;
+GRANT EXECUTE ON FUNCTION public.is_admin_configured() TO authenticated;
+
 -- Mantener el listado administrativo separado de la lectura ordinaria del perfil propio.
 CREATE OR REPLACE FUNCTION public.admin_list_app_users()
 RETURNS TABLE (
