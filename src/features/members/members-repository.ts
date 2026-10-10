@@ -130,7 +130,15 @@ export async function getCurrentAppUser(
   // de la sesión actual, evitando depender de un SELECT directo sujeto a la política RLS.
   const { data, error } = await neon.rpc("get_current_app_user", {});
 
-  if (error) throw new Error("No se pudo comprobar tu acceso a la aplicación.");
+  if (error) {
+    console.error("getCurrentAppUser falló", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error("No se pudo comprobar tu acceso a la aplicación.");
+  }
   const rows = Array.isArray(data) ? data : data ? [data] : [];
   const appUser = (rows[0] ?? null) as AppUserRow | null;
   if (!appUser || appUser.user_id !== userId || appUser.is_active !== true) {
