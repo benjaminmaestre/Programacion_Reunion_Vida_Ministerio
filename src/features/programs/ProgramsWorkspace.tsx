@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, LockKeyhole, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, getMemberHistory, listMembers, MembershipRequiredError } from "../members/members-repository";
 import type { AssignmentHistoryEntry, DirectoryMember } from "../members/demo-data";
@@ -695,17 +696,12 @@ export const ProgramsWorkspace: React.FC = () => {
 
   if (mode === "loading") return <Gate><p>Cargando programas…</p></Gate>;
   if (mode === "login") return (
-    <Gate>
-      <div className="gate-icon"><LockKeyhole size={22} /></div>
-      <h1 className="gate-title">Iniciar sesión</h1>
-      <p className="gate-description">Accede con una cuenta autorizada para consultar y editar los programas reales.</p>
-      <form className="gate-form" onSubmit={handleSignIn}>
-        <div className="form-field"><label className="field-label" htmlFor="login-email">Correo electrónico</label><input id="login-email" className="field" name="email" type="email" autoComplete="username" required /></div>
-        <div className="form-field"><label className="field-label" htmlFor="login-password">Contraseña</label><input id="login-password" className="field" name="password" type="password" autoComplete="current-password" required /></div>
-        {loginError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{loginError}</div>}
-        <button className="button button-primary gate-submit" disabled={signingIn} type="submit"><LockKeyhole size={15} />{signingIn ? "Ingresando…" : "Entrar"}</button>
-      </form>
-    </Gate>
+    <LoginScreen
+      onSubmit={handleSignIn}
+      loading={signingIn}
+      error={loginError}
+      description="Accede con tu cuenta autorizada para consultar y preparar los programas semanales."
+    />
   );
   if (mode === "guide_required") return (
     <Gate>
