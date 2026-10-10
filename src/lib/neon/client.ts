@@ -3,7 +3,7 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import { getNeonPublicConfig, type NeonPublicConfig } from "./env";
 
-let pendingAccessToken: Promise<string> | null = null;
+let pendingAccessToken: Promise<string | null> | null = null;
 
 /**
  * Ask our same-origin server for the signed Neon Auth JWT.
