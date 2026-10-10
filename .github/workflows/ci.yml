@@ -29,3 +29,8 @@ jobs:
         run: npm test
       - name: Build production
         run: npm run build
+        env:
+          NEXT_PUBLIC_NEON_DATA_API_URL: https://data.example.invalid/rest/v1
+          NEXT_PUBLIC_NEON_AUTH_URL: https://auth.example.invalid
+          NEON_AUTH_BASE_URL: https://auth.example.invalid
+          NEON_AUTH_COOKIE_SECRET: ci-only-cookie-secret-do-not-use-in-production-123456
