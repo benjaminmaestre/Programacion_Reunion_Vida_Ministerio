@@ -64,6 +64,13 @@ class FakeDatabase {
   from(table: string) { return new FakeQuery(this, table); }
   rpc(fnName: string, args: Record<string, any>) {
     this.rpcCalls += 1;
+    if (fnName === "get_current_app_user") {
+      const activeUser = (this.tables.app_users ?? []).find((u) => u.is_active === true);
+      return Promise.resolve({
+        data: activeUser ? [{ user_id: activeUser.user_id, role: activeUser.role, is_active: activeUser.is_active }] : [],
+        error: null,
+      });
+    }
     if (this.rpcFailure) return Promise.resolve({ data: null, error: this.rpcFailure });
     if (fnName === "save_meeting_program_with_guide") {
       const existingProg = (this.tables.meeting_programs ?? []).find((p) => p.id === args.p_program_id);
@@ -319,7 +326,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     };
 
     await expect(saveMeetingProgramToNeon(client, "user-user", program)).rejects.toThrow("permission denied");
-    expect(db.rpcCalls).toBe(1);
+    expect(db.rpcCalls).toBe(2);
     expect(db.tables.meeting_programs).toHaveLength(0);
     expect(db.tables.assignment_slots).toHaveLength(0);
     expect(db.tables.planning_cycles).toHaveLength(0);

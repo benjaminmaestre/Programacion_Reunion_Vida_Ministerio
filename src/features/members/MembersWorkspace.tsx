@@ -606,8 +606,8 @@ function StatCard({
       style={{ cursor: "pointer" }}
     >
       <div className="stat-top">
-        <span>{label}</span>
-        <span className="stat-icon">{icon}</span>
+        <span className="stat-label">{label}</span>
+        <span className="stat-icon" aria-hidden="true">{icon}</span>
       </div>
       <strong className="stat-value">{value}</strong>
       <span className="stat-caption">{caption}</span>
