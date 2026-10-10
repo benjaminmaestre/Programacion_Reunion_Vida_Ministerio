@@ -82,6 +82,7 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
     if (!actualSlot
       || actualSlot.title !== expectedSlot.title
       || actualSlot.assignmentType !== expectedSlot.assignmentType
+      || actualSlot.durationMinutes !== expectedSlot.durationMinutes
       || (actualSlot.primaryParticipantId ?? "") !== (expectedSlot.primaryParticipantId ?? "")
       || (actualSlot.assistantParticipantId ?? "") !== (expectedSlot.assistantParticipantId ?? "")) {
       throw new Error("La reunión recuperada contiene una intervención distinta a la enviada a Neon.");
