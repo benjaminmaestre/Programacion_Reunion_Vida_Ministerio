@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { S140DocxGenerator } from "../../../features/printing/s140-docx-generator";
-import { POST } from "./[programId]/s140/route";
+
+import PizZip from "pizzip";import { POST } from "./[programId]/s140/route";
 
 vi.mock("@neondatabase/neon-js", () => ({
   createClient: vi.fn(),

@@ -23,6 +23,7 @@ export interface S140AssignmentData {
   livingParts: Array<{
     title: string;
     speaker: string;
+    durationMinutes?: number;
   }>;
   congregationStudyConductor: string;
   congregationStudyReader: string;
