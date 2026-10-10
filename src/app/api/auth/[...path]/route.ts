@@ -1,1 +1,21 @@
-"import { NextResponse } from \"next/server\";\nimport { auth } from \"@/lib/neon/auth-server\";\n\nconst handlers = auth.handler();\n\nexport const GET = handlers.GET;\nexport const PUT = handlers.PUT;\nexport const DELETE = handlers.DELETE;\nexport const PATCH = handlers.PATCH;\n\nexport async function POST(request: Request) {\n  const path = new URL(request.url).pathname.toLowerCase().replace(/\\\\/+$/, \"\");\n  // Se bloquea el registro público; la creación de cuentas pasa por admin/create-user.\n  if (/(^|\\\\/)(sign-up|signup)(\\\\/|$)/.test(path)) {\n    return NextResponse.json(\n      { message: \"El registro público está deshabilitado. Solicita una cuenta al administrador supremo.\" },\n      { status: 403 },\n    );\n  }\n  return handlers.POST(request);\n}\n"
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/neon/auth-server";
+
+const handlers = auth.handler();
+
+export const GET = handlers.GET;
+export const PUT = handlers.PUT;
+export const DELETE = handlers.DELETE;
+export const PATCH = handlers.PATCH;
+
+export async function POST(request: Request) {
+  const path = new URL(request.url).pathname.toLowerCase().replace(/\/+$/, "");
+  // Se bloquea el registro público; la creación de cuentas pasa por admin/create-user.
+  if (/(^|\/)(sign-up|signup)(\/|$)/.test(path)) {
+    return NextResponse.json(
+      { message: "El registro público está deshabilitado. Solicita una cuenta al administrador supremo." },
+      { status: 403 },
+    );
+  }
+  return handlers.POST(request);
+}
