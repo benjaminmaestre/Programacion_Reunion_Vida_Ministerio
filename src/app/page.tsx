@@ -15,7 +15,7 @@ export default function HomePage() {
   return (
     <div className="shell">
       <nav className="rail" aria-label="Navegación principal">
-        <div className="rail-mark" aria-hidden="true">VM</div>
+        <div className="rail-mark" aria-hidden="true">RVM</div>
         {items.map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" className="rail-link" aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}>
             <Icon size={20} />{label}
