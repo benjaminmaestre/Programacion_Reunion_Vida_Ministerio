@@ -58,3 +58,5 @@ GRANT EXECUTE ON FUNCTION public.save_meeting_program_with_guide(
   UUID, DATE, public.week_type_enum, UUID, UUID, BOOLEAN, UUID,
   TIMESTAMPTZ, VARCHAR, BOOLEAN, TEXT, JSONB, TEXT
 ) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';

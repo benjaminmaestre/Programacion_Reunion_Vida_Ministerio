@@ -309,7 +309,8 @@ export const ProgramsWorkspace: React.FC = () => {
               || previous.title !== slot.title
               || previous.assignmentType !== slot.assignmentType
               || previous.durationMinutes !== slot.durationMinutes
-              || previous.isStudentPart !== slot.isStudentPart;
+              || previous.isStudentPart !== slot.isStudentPart
+              || (previous.assistantParticipantId ?? "") !== (slot.assistantParticipantId ?? "");
           });
 
         if (!programChanged) {
@@ -762,7 +763,7 @@ export const ProgramsWorkspace: React.FC = () => {
             <div className="modal-header">
               <div>
                 <h2 className="modal-title" id="guide-import-title">Importar guía de actividades</h2>
-                <p className="modal-description">Los títulos de la guía se usarán en los programas semanales y en el S-140.</p>
+                <p className="modal-description">Los títulos y la lectura bíblica de la guía se usarán en los programas semanales y en el S-140. Se conservarán los participantes compatibles con cada parte; si una asignación pasa a ser individual, se quitará el ayudante de esa fila.</p>
               </div>
               <button type="button" className="icon-button" disabled={guideImporting} onClick={() => setIsGuideImportModalOpen(false)} aria-label="Cerrar importación"><X size={17} /></button>
             </div>
