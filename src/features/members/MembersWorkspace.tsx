@@ -99,15 +99,16 @@ export function MembersWorkspace() {
         const neon = createNeonBrowserClient();
         if (cancelled) return;
         setClient(neon);
-        const { data, error } = await neon.auth.getUser();
+        const { data, error } = await neon.auth.getSession();
         if (error) throw new Error("No se pudo verificar la sesión. Vuelve a iniciar sesión.");
-        if (!data.user) {
+        const user = data.session?.user;
+        if (!user) {
           if (!cancelled) setMode("login");
           return;
         }
-        const result = await listMembers(neon, data.user.id);
+        const result = await listMembers(neon, user.id);
         if (cancelled) return;
-        setUserId(data.user.id);
+        setUserId(user.id);
         setMembers(result.members);
         setSelectedMemberId(result.members.find((member) => member.isActive)?.id ?? result.members[0]?.id ?? "");
         setMode("connected");
@@ -516,6 +517,6 @@ function LoginGate({ onSubmit, loading, error }: { onSubmit: (event: FormEvent<H
       {error && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{error}</div>}
       <button className="button button-primary gate-submit" disabled={loading} type="submit"><LockKeyhole size={15} />{loading ? "Verificando…" : "Entrar"}</button>
     </form>
-    <p className="gate-footnote">Las cuentas deben ser creadas o invitadas por un administrador. No hay registro público.</p>
+    <p className="gate-footnote">¿Primera vez aquí? <a className="font-semibold text-blue-700 underline" href="/auth/register">Crear cuenta Neon</a>. Un administrador debe autorizar el acceso a la congregación.</p>
   </section></main>;
 }

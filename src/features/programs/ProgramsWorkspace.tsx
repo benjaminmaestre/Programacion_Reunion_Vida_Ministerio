@@ -113,13 +113,14 @@ export const ProgramsWorkspace: React.FC = () => {
         const neon = createNeonBrowserClient();
         if (cancelled) return;
         setClient(neon);
-        const { data, error } = await neon.auth.getUser();
+        const { data, error } = await neon.auth.getSession();
         if (error) throw new Error("No se pudo verificar la sesión.");
-        if (!data.user) {
+        const user = data.session?.user;
+        if (!user) {
           setMode("login");
           return;
         }
-        await loadConnectedData(neon, data.user.id);
+        await loadConnectedData(neon, user.id);
       } catch (error) {
         if (cancelled) return;
         if (error instanceof MembershipRequiredError) setMode("membership");
@@ -341,6 +342,7 @@ export const ProgramsWorkspace: React.FC = () => {
         <label className="block text-sm">Contraseña<input name="password" type="password" required autoComplete="current-password" className="mt-1 w-full rounded border p-2" /></label>
         {loginError && <p role="alert" className="text-sm text-red-700">{loginError}</p>}
         <button disabled={signingIn} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{signingIn ? "Ingresando…" : "Entrar"}</button>
+        <p className="text-sm text-slate-600">¿Primera vez aquí? <a className="font-semibold text-blue-700 underline" href="/auth/register">Crear cuenta Neon</a>. Un administrador debe autorizar tu acceso.</p>
       </form>
     </main>
   );
