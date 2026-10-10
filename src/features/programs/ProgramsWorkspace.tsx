@@ -896,10 +896,13 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
         {previewMemberId && member && (
           <motion.div
             key={member.id}
-            initial={{ opacity: 0, x: -140, scale: 0.9 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 40, scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 350, damping: 26 }}
+            initial={{ opacity: 0, x: -520, y: -15, scale: 0.78 }}
+            animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.9, transition: { duration: 0.25, ease: "easeIn" } }}
+            transition={{
+              duration: 0.55,
+              ease: [0.16, 1, 0.3, 1],
+            }}
             className="card history-side-card"
           >
             <div className="popover-header">
