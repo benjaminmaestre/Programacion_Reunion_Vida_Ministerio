@@ -306,7 +306,7 @@ function openNewMemberForm() {
   if (mode === "membership") {
     return <GatePage
       title="Falta configurar tu acceso"
-      description="Tu cuenta inició sesión, pero todavía no tiene una membresía activa en una congregación. Un administrador debe asociar tu usuario y asignarte el rol correspondiente en Neon."
+      description="Tu cuenta inició sesión, pero no tiene acceso asignado a esta plataforma. Solo el administrador supremo puede crear o habilitar cuentas."
       icon={<LockKeyhole size={22} />}
       action={client ? <button className="button" onClick={() => void client.auth.signOut().then(() => setMode("login"))} type="button"><LogOut size={15} /> Cerrar sesión</button> : undefined}
     />;
@@ -517,6 +517,6 @@ function LoginGate({ onSubmit, loading, error }: { onSubmit: (event: FormEvent<H
       {error && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{error}</div>}
       <button className="button button-primary gate-submit" disabled={loading} type="submit"><LockKeyhole size={15} />{loading ? "Verificando…" : "Entrar"}</button>
     </form>
-    <p className="gate-footnote">¿Primera vez aquí? <a className="font-semibold text-blue-700 underline" href="/auth/register">Crear cuenta Neon</a>. Un administrador debe autorizar el acceso a la congregación.</p>
+    <p className="gate-footnote">¿No tienes acceso? Solicítale al administrador supremo que cree tu cuenta.</p>
   </section></main>;
 }
