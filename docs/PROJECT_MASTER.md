@@ -20,11 +20,9 @@ El sistema ayuda a responsables autorizados a tomar decisiones; no infiere por s
 
 **Solo hay una congregación.** La congregación cuenta con 139 personas únicas. Los datos viven en una única base de datos y el acceso se controla con Neon Auth, la tabla `app_users` y RLS.
 
-Roles iniciales de aplicación:
-- `administrator`: administración del sistema y del directorio.
-- `elder`: acceso de administración y a información de habilitaciones/relaciones familiares.
-- `coordinator`: mantenimiento del directorio y preparación de programas.
-- `viewer`: consulta.
+Roles de aplicación (modelo simplificado de 2 roles según migración 007):
+- `administrator`: administración suprema de cuentas y del directorio.
+- `user`: gestión autorizada del directorio y preparación de programas.
 
 La primera cuenta autorizada se agrega administrativamente a `app_users`. El cliente no puede autoasignarse un rol.
 
@@ -64,6 +62,11 @@ Períodos predeterminados de memoria:
 Al comenzar un semestre no se borran registros. El historial de una persona debe poder consultarse por fecha, categoría, función (titular/ayudante) y compañero. Inactivar a una persona retira su visibilidad para nuevas asignaciones sin destruir su historial acumulado.
 
 ## 6. Registro de avances
+
+### 9 de octubre de 2026 — Estabilización de Pruebas, Neon DB y Estilos de Administración
+- **Alineación del Modelo de Roles en Pruebas:** Se actualizaron los datos ficticios en `programs-repository.test.ts` pasando del esquema obsoleto de 4 roles al modelo vigente de 2 roles (`administrator` y `user`). Se reescribió la prueba de intento de guardado sin permisos para validar que cuentas inactivas rechazan la operación lanzando `MembershipRequiredError`. `npm test` logró un 100% de éxito (59/59 pruebas pasadas).
+- **Textos de Conexión:** Se actualizaron los textos de interfaz reemplazando referencias obsoletas a Supabase por la denominación correcta a Neon DB.
+- **Estilos de Administración y Registro:** Se adaptaron las páginas `/admin/users` y `/auth/register` al sistema de diseño unificado, aplicando los tokens globales de color, fuentes `Instrument Sans` / `Newsreader`, bordes finos de 6px y componentes estándar (`gate-*`, `panel`, `button`, `button-primary`).
 
 ### 9 de octubre de 2026 — Rediseño de UI e Instalación de Tailwind v4
 - **Instalación de Tailwind v4:** Se instaló `@tailwindcss/postcss` y `postcss`, creando `postcss.config.mjs` y configurando `@import "tailwindcss";` en `src/app/globals.css`. Se encapsularon todas las utilidades y componentes en `@layer components` para prevenir conflictos de precedencia. Se eliminó la librería obsoleta `tailwindcss-animate`.
