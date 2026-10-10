@@ -12,9 +12,11 @@ export const PATCH = handlers.PATCH;
 type AuthRouteContext = { params: Promise<{ path: string[] }> };
 
 export async function POST(request: Request, context: AuthRouteContext) {
-  const path = new URL(request.url).pathname.toLowerCase().replace(/\\/+$/, "");
-  // Bootstrap único: el registro de identidad solo funciona antes de configurar al administrador supremo.
-  if (/(^|\\/)(sign-up|signup)(\\/|$)/.test(path)) {
+  const pathSegments = new URL(request.url).pathname.toLowerCase().split("/").filter(Boolean);
+  const isSignUp = pathSegments.some((segment) => segment === "sign-up" || segment === "signup");
+
+  // Bootstrap único: el registro solo funciona antes de configurar al administrador supremo.
+  if (isSignUp) {
     const dataApiUrl = process.env.NEXT_PUBLIC_NEON_DATA_API_URL?.trim();
     const authUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL?.trim();
 
@@ -34,6 +36,7 @@ export async function POST(request: Request, context: AuthRouteContext) {
         dataApi: { url: dataApiUrl },
       });
       const { data, error } = await neon.rpc("is_admin_configured", {});
+
       // Si no se puede comprobar el estado, se deniega por seguridad.
       if (error || data !== false) {
         return NextResponse.json(
