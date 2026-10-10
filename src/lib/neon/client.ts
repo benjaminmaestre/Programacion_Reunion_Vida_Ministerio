@@ -16,7 +16,7 @@ async function getServerIssuedAccessToken(): Promise<string> {
   if (!pendingAccessToken) {
     pendingAccessToken = (async () => {
       const response = await fetch(
-        new URL("/api/auth/access-token", window.location.origin),
+        new URL("/api/session-token", window.location.origin),
         {
           method: "GET",
           credentials: "same-origin",
