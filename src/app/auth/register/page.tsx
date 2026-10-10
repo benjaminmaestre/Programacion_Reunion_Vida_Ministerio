@@ -76,27 +76,63 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-slate-900">
-      <section className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 font-bold text-white">VM</span>
-          <div><p className="font-semibold">Vida y Ministerio</p><p className="text-sm text-slate-500">Configuración inicial</p></div>
+    <main className="gate-page">
+      <section className="gate-panel">
+        <div className="gate-brand">
+          <span className="brand-mark">VM</span>
+          <span>Vida y Ministerio</span>
         </div>
-        {bootstrap === "checking" && <div><h1 className="text-2xl font-bold">Verificando configuración</h1><p className="mt-2 text-sm text-slate-600">Comprobando si el administrador supremo ya está configurado.</p></div>}
-        {bootstrap === "error" && <div><h1 className="text-2xl font-bold">No se pudo verificar</h1><p className="mt-2 text-sm text-slate-600">Por seguridad, no se habilitará el registro mientras no pueda comprobarse el estado.</p></div>}
-        {bootstrap === "closed" && !message && <div><h1 className="text-2xl font-bold">Registro cerrado</h1><p className="mt-2 text-sm text-slate-600">La plataforma ya tiene su administrador supremo. Solo él puede crear o habilitar cuentas. Solicita acceso al administrador.</p></div>}
-        {message && <p role="status" className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{message}</p>}
-        {bootstrap === "available" && <div><h1 className="text-2xl font-bold tracking-tight">Crear cuenta inicial</h1><p className="mt-2 text-sm text-slate-600">Este registro solo estará abierto hasta que se configure el administrador supremo. Esta cuenta no obtiene permisos automáticamente.</p>
-          <form className="mt-5 space-y-4" onSubmit={submit}>
-            <label className="block text-sm font-medium">Nombre completo<input name="name" required autoComplete="name" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            <label className="block text-sm font-medium">Correo electrónico<input name="email" type="email" required autoComplete="email" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            <label className="block text-sm font-medium">Contraseña<input name="password" type="password" required minLength={8} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            <label className="block text-sm font-medium">Confirmar contraseña<input name="confirmation" type="password" required minLength={8} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            <button disabled={busy} className="w-full rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white disabled:opacity-50" type="submit">{busy ? "Creando cuenta…" : "Crear cuenta inicial"}</button>
-          </form>
-        </div>}
-        <p className="text-sm text-slate-600"><a className="font-semibold text-blue-700 underline" href="/">Volver al inicio de sesión</a></p>
+
+        {bootstrap === "checking" && (
+          <div>
+            <h1 className="gate-title">Verificando configuración</h1>
+            <p className="gate-description">Comprobando si el administrador supremo ya está configurado.</p>
+          </div>
+        )}
+        {bootstrap === "error" && (
+          <div>
+            <h1 className="gate-title">No se pudo verificar</h1>
+            <p className="gate-description">Por seguridad, no se habilitará el registro mientras no pueda comprobarse el estado.</p>
+          </div>
+        )}
+        {bootstrap === "closed" && !message && (
+          <div>
+            <h1 className="gate-title">Registro cerrado</h1>
+            <p className="gate-description">La plataforma ya tiene su administrador supremo. Solo él puede crear o habilitar cuentas. Solicita acceso al administrador.</p>
+          </div>
+        )}
+        {message && <p role="status" className="alert-ok">{message}</p>}
+        {bootstrap === "available" && (
+          <div>
+            <h1 className="gate-title">Crear cuenta inicial</h1>
+            <p className="gate-description">Este registro solo estará abierto hasta que se configure el administrador supremo. Esta cuenta no obtiene permisos automáticamente.</p>
+            <form className="gate-form" onSubmit={submit}>
+              <div className="form-field">
+                <label className="field-label" htmlFor="reg-name">Nombre completo</label>
+                <input id="reg-name" name="name" required autoComplete="name" className="field" />
+              </div>
+              <div className="form-field">
+                <label className="field-label" htmlFor="reg-email">Correo electrónico</label>
+                <input id="reg-email" name="email" type="email" required autoComplete="email" className="field" />
+              </div>
+              <div className="form-field">
+                <label className="field-label" htmlFor="reg-password">Contraseña</label>
+                <input id="reg-password" name="password" type="password" required minLength={8} autoComplete="new-password" className="field" />
+              </div>
+              <div className="form-field">
+                <label className="field-label" htmlFor="reg-confirm">Confirmar contraseña</label>
+                <input id="reg-confirm" name="confirmation" type="password" required minLength={8} autoComplete="new-password" className="field" />
+              </div>
+              {error && <p role="alert" className="inline-alert">{error}</p>}
+              <button disabled={busy} className="button button-primary gate-submit" type="submit">
+                {busy ? "Creando cuenta…" : "Crear cuenta inicial"}
+              </button>
+            </form>
+          </div>
+        )}
+        <p className="gate-footnote">
+          <a className="button button-quiet" style={{ padding: 0, fontSize: 13, textDecoration: "underline" }} href="/">Volver al inicio de sesión</a>
+        </p>
       </section>
     </main>
   );

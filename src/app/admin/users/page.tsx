@@ -83,8 +83,6 @@ export default function AdminUsersPage() {
         throw new Error("Completa el nombre, un correo válido y una contraseña inicial de al menos 8 caracteres.");
       }
 
-      // El endpoint administrativo de Neon Auth comprueba su rol admin del lado servidor.
-      // No se permite que un registro público cree filas de acceso en public.app_users.
       const response = await fetch("/api/auth/admin/create-user", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -145,45 +143,129 @@ export default function AdminUsersPage() {
   }
 
   if (access === "loading") {
-    return <main className="min-h-screen bg-slate-50 p-8 text-slate-700">Verificando permisos administrativos…</main>;
+    return <main className="workspace"><p style={{ color: "var(--color-text-muted)" }}>Verificando permisos administrativos…</p></main>;
   }
   if (access === "login") {
-    return <main className="min-h-screen bg-slate-50 p-8"><section className="mx-auto max-w-xl rounded-2xl border bg-white p-6"><LockKeyhole className="mb-3 h-7 w-7 text-slate-600" /><h1 className="text-xl font-bold">Inicia sesión</h1><p className="mt-2 text-sm text-slate-600">Solo el administrador supremo puede crear o habilitar cuentas.</p><a className="mt-4 inline-block font-semibold text-blue-700 underline" href="/">Volver al inicio de sesión</a></section></main>;
+    return (
+      <main className="gate-page">
+        <section className="gate-panel">
+          <div className="gate-icon"><LockKeyhole size={22} /></div>
+          <h1 className="gate-title">Inicia sesión</h1>
+          <p className="gate-description">Solo el administrador supremo puede crear o habilitar cuentas.</p>
+          <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }} href="/">Volver al inicio de sesión</a>
+        </section>
+      </main>
+    );
   }
   if (access === "forbidden") {
-    return <main className="min-h-screen bg-slate-50 p-8"><section className="mx-auto max-w-xl rounded-2xl border bg-white p-6"><ShieldCheck className="mb-3 h-7 w-7 text-amber-600" /><h1 className="text-xl font-bold">Acceso restringido</h1><p className="mt-2 text-sm text-slate-600">La administración de cuentas está reservada al administrador supremo. Tu rol no permite crear usuarios ni conceder acceso a la plataforma.</p><a className="mt-4 inline-block font-semibold text-blue-700 underline" href="/">Volver a la aplicación</a></section></main>;
+    return (
+      <main className="gate-page">
+        <section className="gate-panel">
+          <div className="gate-icon"><ShieldCheck size={22} /></div>
+          <h1 className="gate-title">Acceso restringido</h1>
+          <p className="gate-description">La administración de cuentas está reservada al administrador supremo. Tu rol no permite crear usuarios ni conceder acceso a la plataforma.</p>
+          <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }} href="/">Volver a la aplicación</a>
+        </section>
+      </main>
+    );
   }
   if (access === "error") {
-    return <main className="min-h-screen bg-slate-50 p-8"><section className="mx-auto max-w-xl rounded-2xl border bg-white p-6"><h1 className="text-xl font-bold">No se pudo abrir la administración</h1><p role="alert" className="mt-2 text-sm text-red-700">{error}</p><a className="mt-4 inline-block font-semibold text-blue-700 underline" href="/">Volver</a></section></main>;
+    return (
+      <main className="gate-page">
+        <section className="gate-panel">
+          <h1 className="gate-title">No se pudo abrir la administración</h1>
+          <p role="alert" className="inline-alert" style={{ marginTop: 12 }}>{error}</p>
+          <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center", marginTop: 16 }} href="/">Volver</a>
+        </section>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-5 text-slate-900 sm:p-8">
+    <main className="workspace">
       <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div><a href="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" /> Volver a la aplicación</a><p className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-700"><ShieldCheck className="h-4 w-4" /> Administración exclusiva</p><h1 className="mt-1 text-2xl font-bold tracking-tight">Cuentas de acceso</h1><p className="mt-2 max-w-2xl text-sm text-slate-600">Aquí se crean las cuentas que pueden iniciar sesión. Los usuarios normales pueden gestionar participantes y programaciones, pero no pueden dar acceso a otras personas.</p></div>
-          <div className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm"><Users className="h-5 w-5 text-slate-500" /><span><strong>{users.length}</strong> cuentas registradas</span></div>
+        <header className="page-head" style={{ marginBottom: 24 }}>
+          <div>
+            <a href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900" style={{ marginBottom: 12 }}>
+              <ArrowLeft size={16} /> Volver a la aplicación
+            </a>
+            <p className="eyebrow" style={{ marginTop: 8 }}>Administración exclusiva</p>
+            <h1>Cuentas de acceso</h1>
+            <p>Aquí se crean las cuentas que pueden iniciar sesión. Los usuarios normales pueden gestionar participantes y programaciones, pero no pueden dar acceso a otras personas.</p>
+          </div>
+          <div className="head-actions">
+            <span className="status-pill" style={{ padding: "8px 12px", fontSize: 12 }}>
+              <Users size={16} style={{ verticalAlign: "-3px", marginRight: 6 }} />
+              <strong>{users.length}</strong> cuentas registradas
+            </span>
+          </div>
         </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-semibold"><UserPlus className="h-5 w-5" /> Crear usuario</h2>
-          <p className="mt-1 text-sm text-slate-600">Se creará una cuenta en Neon Auth y se asignará el rol <strong>Usuario</strong>. La contraseña inicial debe comunicarse por un canal seguro.</p>
-          <form onSubmit={createUser} className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="block text-sm font-medium">Nombre completo<input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            <label className="block text-sm font-medium">Correo electrónico<input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" autoComplete="email" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            <label className="block text-sm font-medium md:col-span-2">Contraseña inicial (mínimo 8 caracteres)<input value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} type="password" autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-300 p-2.5" /></label>
-            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 md:col-span-2">{error}</p>}
-            {notice && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 md:col-span-2">{notice}</p>}
-            <div className="md:col-span-2"><button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white disabled:opacity-50"><UserPlus className="h-4 w-4" />{busy ? "Creando cuenta…" : "Crear cuenta de usuario"}</button></div>
+        <section className="panel" style={{ padding: 24, marginBottom: 24 }}>
+          <div style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: 14, marginBottom: 20 }}>
+            <h2 className="panel-title" style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8 }}>
+              <UserPlus size={18} /> Crear usuario
+            </h2>
+            <p className="panel-subtitle">Se creará una cuenta en Neon Auth y se asignará el rol <strong>Usuario</strong>. La contraseña inicial debe comunicarse por un canal seguro.</p>
+          </div>
+          <form onSubmit={createUser} className="form-grid" style={{ padding: 0 }}>
+            <div className="form-field">
+              <label className="field-label" htmlFor="user-name">Nombre completo</label>
+              <input id="user-name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="field" />
+            </div>
+            <div className="form-field">
+              <label className="field-label" htmlFor="user-email">Correo electrónico</label>
+              <input id="user-email" value={email} onChange={(e) => setEmail(e.target.value)} required type="email" autoComplete="email" className="field" />
+            </div>
+            <div className="form-field full">
+              <label className="field-label" htmlFor="user-password">Contraseña inicial (mínimo 8 caracteres)</label>
+              <input id="user-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} type="password" autoComplete="new-password" className="field" />
+            </div>
+            {error && <div className="form-field full"><p role="alert" className="inline-alert">{error}</p></div>}
+            {notice && <div className="form-field full"><p role="status" className="alert-ok">{notice}</p></div>}
+            <div className="form-field full" style={{ marginTop: 8 }}>
+              <button type="submit" disabled={busy} className="button button-primary">
+                <UserPlus size={16} />{busy ? "Creando cuenta…" : "Crear cuenta de usuario"}
+              </button>
+            </div>
           </form>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b px-5 py-4"><h2 className="text-lg font-semibold">Usuarios de la plataforma</h2><p className="mt-1 text-sm text-slate-600">Deshabilitar una cuenta revoca el acceso a los datos de la aplicación aunque la persona conserve sus credenciales de autenticación.</p></div>
-          {users.length === 0 ? <p className="p-5 text-sm text-slate-500">Todavía no hay cuentas autorizadas.</p> : <div className="divide-y">{users.map((user) => <article key={user.user_id} className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center">
-            <div className="min-w-0"><p className="truncate font-semibold">{user.display_name || user.email || "Usuario"}</p><p className="mt-0.5 break-all text-sm text-slate-600">{user.email || user.user_id}</p><p className="mt-1 text-xs text-slate-500">{user.role === "administrator" ? "Administrador supremo" : "Usuario"} · creado {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(user.created_at))}</p></div>
-            <div className="flex items-center gap-3"><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${user.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{user.is_active ? <CheckCircle className="h-3.5 w-3.5" /> : <CircleOff className="h-3.5 w-3.5" />}{user.is_active ? "Activo" : "Deshabilitado"}</span>{user.role === "user" && <button type="button" disabled={changingId === user.user_id || Boolean(changingId)} onClick={() => void toggleAccess(user)} className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">{changingId === user.user_id ? "Guardando…" : user.is_active ? "Deshabilitar" : "Habilitar"}</button>}</div>
-          </article>)}</div>}
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2 className="panel-title" style={{ fontSize: 16 }}>Usuarios de la plataforma</h2>
+              <p className="panel-subtitle">Deshabilitar una cuenta revoca el acceso a los datos de la aplicación aunque la persona conserve sus credenciales de autenticación.</p>
+            </div>
+          </div>
+          {users.length === 0 ? (
+            <div className="empty-state">Todavía no hay cuentas autorizadas.</div>
+          ) : (
+            <div className="member-list" style={{ padding: 16 }}>
+              {users.map((user) => (
+                <article key={user.user_id} className="member-row" style={{ justifyContent: "space-between", padding: 16 }}>
+                  <div className="member-main">
+                    <p className="member-name">{user.display_name || user.email || "Usuario"}</p>
+                    <p className="member-meta" style={{ marginTop: 2 }}>{user.email || user.user_id}</p>
+                    <p className="member-meta" style={{ marginTop: 4 }}>
+                      {user.role === "administrator" ? "Administrador supremo" : "Usuario"} · creado {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(user.created_at))}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span className={user.is_active ? "status-pill" : "demo-pill"}>
+                      {user.is_active ? <CheckCircle size={13} /> : <CircleOff size={13} />}
+                      {user.is_active ? "Activo" : "Deshabilitado"}
+                    </span>
+                    {user.role === "user" && (
+                      <button type="button" disabled={changingId === user.user_id || Boolean(changingId)} onClick={() => void toggleAccess(user)} className="button">
+                        {changingId === user.user_id ? "Guardando…" : user.is_active ? "Deshabilitar" : "Habilitar"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>
