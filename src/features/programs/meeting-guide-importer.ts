@@ -141,6 +141,13 @@ function extractSongNumber(value: string): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+const GUIDE_MONTH_NAMES: Record<string, string> = {
+  enero: "Enero", febrero: "Febrero", marzo: "Marzo", abril: "Abril",
+  mayo: "Mayo", junio: "Junio", julio: "Julio", agosto: "Agosto",
+  septiembre: "Septiembre", setiembre: "Septiembre", octubre: "Octubre",
+  noviembre: "Noviembre", diciembre: "Diciembre",
+};
+
 export function getMeetingGuidePeriodLabel(bytes: Uint8Array, filename = "guia.epub"): string {
   let zip: PizZip;
   try { zip = new PizZip(bytes); }
@@ -149,8 +156,20 @@ export function getMeetingGuidePeriodLabel(bytes: Uint8Array, filename = "guia.e
   if (!opfPath) throw new Error("El archivo no contiene la estructura de una publicación EPUB.");
   const opf = zip.file(opfPath)?.asText() ?? "";
   const metadataTitle = plainText(opf.match(/<dc:title\b[^>]*>([\s\S]*?)<\/dc:title>/i)?.[1] ?? "");
-  const cleaned = metadataTitle.replace(/^guía\s+de\s+actividades\s*[,.:–—-]?\s*/i, "").trim();
-  if (cleaned) return cleaned.charAt(0).toLocaleUpperCase("es") + cleaned.slice(1);
+  const normalizedTitle = normalizeForParsing(metadataTitle);
+  const monthPair = normalizedTitle.match(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:y|[-–—])\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+de)?\s+(20\d{2})\b/);
+  if (monthPair) return `${GUIDE_MONTH_NAMES[monthPair[1]]} - ${GUIDE_MONTH_NAMES[monthPair[2]]} ${monthPair[3]}`;
+
+  const filenamePeriod = filename.match(/\b(20\d{2})(0[1-9]|1[0-2])\.epub$/i);
+  if (filenamePeriod) {
+    const year = Number(filenamePeriod[1]);
+    const startMonth = Number(filenamePeriod[2]);
+    const endMonth = startMonth % 12 + 1;
+    const firstMonth = Object.keys(MONTHS).find((name) => MONTHS[name] === startMonth) ?? "enero";
+    const secondMonth = Object.keys(MONTHS).find((name) => MONTHS[name] === endMonth) ?? "febrero";
+    if (startMonth === 12) return `${GUIDE_MONTH_NAMES[firstMonth]} ${year} - ${GUIDE_MONTH_NAMES[secondMonth]} ${year + 1}`;
+    return `${GUIDE_MONTH_NAMES[firstMonth]} - ${GUIDE_MONTH_NAMES[secondMonth]} ${year}`;
+  }
   const year = filename.match(/\b(20\d{2})/i)?.[1];
   if (year) return `Guía de actividades ${year}`;
   throw new Error("No se pudo determinar el período de la guía.");
@@ -389,8 +408,9 @@ export function applyMeetingGuideTitles(program: MeetingProgramDetail, week: Mee
       buildSlot(study, "bible_study_reader", "Estudio bíblico de la congregación (Lector)", 30, nextOrderIndex++, false);
     } else {
       const paired = ["conversation", "revisit", "disciples", "explain_beliefs"].includes(assignment.assignmentType);
+      const durationMinutes = assignment.assignmentType === "treasures_talk" ? 10 : assignment.durationMinutes;
       buildSlot(assignment, assignment.assignmentType as NonNullable<AssignmentSlotDetail["assignmentType"]>,
-        title, assignment.durationMinutes, nextOrderIndex++, paired);
+        title, durationMinutes, nextOrderIndex++, paired);
     }
   }
 

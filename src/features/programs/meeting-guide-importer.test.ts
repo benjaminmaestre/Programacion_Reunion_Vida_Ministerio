@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import PizZip from "pizzip";
-import { applyMeetingGuideTitles, parseMeetingGuideEpub } from "./meeting-guide-importer";
+import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub } from "./meeting-guide-importer";
 import { buildDefaultMeetingProgram } from "./program-builder";
 
-function makeEpub(weekLabel: string, year = 2026) {
+function makeEpub(weekLabel: string, year = 2026, periodMonths = "noviembre y diciembre") {
   const zip = new PizZip();
-  zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>Guía de actividades noviembre y diciembre de ${year}</dc:title></metadata></package>`);
+  zip.file("OEBPS/content.opf", `<?xml version="1.0"?><package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:title>Guía de actividades ${periodMonths} de ${year}</dc:title></metadata></package>`);
   zip.file("OEBPS/202026401.xhtml", `<?xml version="1.0" encoding="UTF-8"?>
     <html xmlns="http://www.w3.org/1999/xhtml"><body>
       <h1>${weekLabel}</h1><h3><strong>Canción 1 y oración | Palabras de introducción (1 min.)</strong></h3>
@@ -48,6 +48,13 @@ describe("meeting guide EPUB importer", () => {
     });
   });
 
+  it("normaliza los períodos bimestrales a enero-febrero y siguientes", () => {
+    expect(getMeetingGuidePeriodLabel(makeEpub("4-10 DE ENERO", 2027, "enero y febrero"), "mwb_S_202701.epub"))
+      .toBe("Enero - Febrero 2027");
+    expect(getMeetingGuidePeriodLabel(makeEpub("2-8 DE NOVIEMBRE"), "mwb_S_202611.epub"))
+      .toBe("Noviembre - Diciembre 2026");
+  });
+
   it("recognizes a week that crosses the end of the year", () => {
     const weeks = parseMeetingGuideEpub(makeEpub("28 DE DICIEMBRE DE 2026 A 3 DE ENERO DE 2027"), "mwb_S_202611.epub");
     expect(weeks[0].startDate).toBe("2026-12-28");
@@ -61,6 +68,7 @@ describe("meeting guide EPUB importer", () => {
     expect(updated.weeklyBibleReading).toBe("JEREMÍAS 49, 50");
     expect(updated.leadershipReviewConfirmed).toBe(false);
     expect(updated.slots.find((slot) => slot.assignmentType === "treasures_talk")?.title).toBe("Tema del discurso principal");
+    expect(updated.slots.find((slot) => slot.assignmentType === "treasures_talk")?.durationMinutes).toBe(10);
     expect(updated.slots.find((slot) => slot.assignmentType === "bible_reading")?.title).toBe("Lectura de la Biblia (Jer 50:24-40)");
     expect(updated.slots.find((slot) => slot.assignmentType === "living_part")?.title).toBe("Tema de Nuestra vida cristiana");
     expect(updated.slots.find((slot) => slot.assignmentType === "conversation")?.primaryParticipantId)
