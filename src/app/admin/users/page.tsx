@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, CheckCircle, CircleOff, LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { getCurrentAppUser, MembershipRequiredError } from "@/features/members/members-repository";
