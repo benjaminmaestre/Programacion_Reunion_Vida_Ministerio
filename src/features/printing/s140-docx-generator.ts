@@ -55,7 +55,7 @@ function fillDateTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"[FECHA] | LECTURA SEMANAL DE LA BIBLIA",
     data.weeklyBibleReading?.trim()?formatSpanishDate(data.weekDate)+" | LECTURA SEMANAL DE LA BIBLIA: "+data.weeklyBibleReading.trim():formatSpanishDate(data.weekDate)+" | LECTURA SEMANAL DE LA BIBLIA");
   next=setTextNode(next,"[Nombre]",data.chairman||"",0);
-  return setTextNode(next,"[Nombre]",data.auxiliaryCounselor||"",1);
+  return setTextNode(next,"[Nombre]",data.auxiliaryCounselor||"",0);
 }
 function fillOpeningTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"Canción [Número]",data.openingSongNumber?"Canción "+data.openingSongNumber:"",0);
@@ -64,9 +64,9 @@ function fillOpeningTable(table:string,data:S140AssignmentData):string {
 function fillTreasuresTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"[Título]",data.treasuresTalkTitle||"",0);
   next=setTextNode(next,"[Nombre]",data.treasuresTalkSpeaker||"",0);
-  next=setTextNode(next,"[Nombre]",data.gemsSpeaker||"",1);
-  next=setTextNode(next,"[Nombre]","",2);
-  return setTextNode(next,"[Nombre]",data.bibleReader||"",3);
+  next=setTextNode(next,"[Nombre]",data.gemsSpeaker||"",0);
+  next=setTextNode(next,"[Nombre]","",0);
+  return setTextNode(next,"[Nombre]",data.bibleReader||"",0);
 }
 function fillMinistryTable(table:string,data:S140AssignmentData):string {
   const parts=data.ministersParts.slice(0,3);
@@ -82,7 +82,7 @@ function fillMinistryTable(table:string,data:S140AssignmentData):string {
     let current=setTextNode(row,"[Título]",part.title||"",0);
     current=setTextNode(current,"(X mins.)","("+(part.durationMinutes??(rowIndex===2?4:5))+" mins.)",0);
     current=setTextNode(current,"[Nombre/Nombre]","",0);
-    return setTextNode(current,"[Nombre/Nombre]",pairNames(part.speaker,part.assistant),1);
+    return setTextNode(current,"[Nombre/Nombre]",pairNames(part.speaker,part.assistant),0);
   });
 }
 function fillLivingTable(table:string,data:S140AssignmentData):string {

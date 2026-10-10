@@ -404,11 +404,11 @@ export const ProgramsWorkspace: React.FC = () => {
         else createdCount += 1;
       }
 
-      await activateActiveMeetingGuide(client);
       const refreshed = await getMeetingProgramsFromNeon(client);
       for (const expected of expectedPrograms) {
         verifyProgramRoundTrip(expected, refreshed.find((program) => program.id === expected.id));
       }
+      await activateActiveMeetingGuide(client);
       await loadConnectedData(client, userId);
       setIsGuideImportModalOpen(false);
       setGuideWeeks([]);
