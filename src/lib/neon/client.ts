@@ -12,7 +12,7 @@ let pendingAccessToken: Promise<string> | null = null;
  * needs for auth.uid(). Fetching the JWT through the server also avoids relying
  * on a cached SDK session token when the application has been idle.
  */
-async function getServerIssuedAccessToken(): Promise<string> {
+async function getServerIssuedAccessToken(): Promise<string | null> {
   if (!pendingAccessToken) {
     pendingAccessToken = (async () => {
       const response = await fetch(
@@ -30,6 +30,11 @@ async function getServerIssuedAccessToken(): Promise<string> {
         typeof payload === "object" && payload !== null && "token" in payload
           ? (payload as { token?: unknown }).token
           : null;
+
+      // Sin una sesión autenticada, conserva el token que ya inyectó el SDK.
+      // Esto permite las operaciones anónimas acotadas de arranque/registro;
+      // las políticas RLS siguen decidiendo qué pueden consultar.
+      if (response.status === 401) return null;
 
       if (!response.ok || typeof token !== "string" || token.length === 0) {
         throw new Error("No se pudo validar tu sesión. Inicia sesión nuevamente.");
@@ -58,6 +63,11 @@ const dataApiFetch: typeof fetch = async (input, init) => {
   }
 
   const accessToken = await getServerIssuedAccessToken();
+  if (!accessToken) {
+    // No hay sesión de usuario: respeta el token anónimo limitado que añadió el SDK.
+    return fetch(input, init);
+  }
+
   const headers = new Headers(input instanceof Request ? input.headers : undefined);
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   headers.set("Authorization", `Bearer ${accessToken}`);
