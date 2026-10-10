@@ -967,13 +967,10 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
           <p>Preparación de asignaciones semanales, confirmación de elegibilidad y emisión del formulario S-140.</p>
         </div>
         <div className="head-actions">
-          {mode === "demo" ? <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span> : <span className="status-pill"><span className="demo-dot" /> CONECTADO A NEON</span>}
+          {mode === "demo" && <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span>}
           {activeGuide && mode === "connected" && <span className="small-note">Guía activa: <strong>{activeGuide.periodLabel}</strong></span>}
           {canManage && mode === "connected" && <button type="button" className="button" onClick={() => void handleBeginGuideReplacement()} disabled={guideImporting}><Upload size={16} /> Iniciar nuevo ciclo bimestral</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
-          {mode === "connected" && <button type="button" className="button" onClick={() => setIsPasswordDialogOpen(true)} disabled={saving || generating || guideImporting} title="Cambiar la contraseña de tu cuenta">
-            <KeyRound size={15} /> Cambiar contraseña
-          </button>}
         </div>
       </header>
 
@@ -1121,7 +1118,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
                               return (
                                 <article key={slot.id} className="slot">
-                                  <div className="slot-time"><b>{slot.durationMinutes}</b><span>min · desde {offsets[slot.id]}</span></div>
+                                  <div className="slot-time"><b>{slot.durationMinutes}</b><span>min</span></div>
                                   <div className="slot-main">
                                     <div className="slot-title">
                                       <input className="field" aria-label={`Título de ${slot.orderIndex}`} value={slot.title} disabled={readOnly}

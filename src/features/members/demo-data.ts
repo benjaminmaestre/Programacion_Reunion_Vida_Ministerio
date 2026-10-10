@@ -11,6 +11,8 @@ export type HistoryCategory =
   | "student-talk"
   | "living";
 
+export type SpiritualStatus = "active" | "inactive" | "removed";
+
 export interface DirectoryMember {
   id: string;
   firstName: string;
@@ -18,6 +20,9 @@ export interface DirectoryMember {
   gender: MemberGender;
   appointment: MemberAppointment;
   isRegularPioneer?: boolean;
+  isPublisher?: boolean;
+  isSchoolEnrolled?: boolean;
+  spiritualStatus?: SpiritualStatus;
   additionalRoles?: string;
   isActive: boolean;
   isBaptized: boolean | null;

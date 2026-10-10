@@ -240,16 +240,24 @@ function openNewMemberForm() {
     }
 
     const baptizedValue = form.get("isBaptized");
-    const isBaptized = baptizedValue === "true" ? true : baptizedValue === "false" ? false : null;
+    const isBaptized = form.has("isBaptizedCheck") ? true : (baptizedValue === "true" ? true : baptizedValue === "false" ? false : null);
+    const appointmentVal = String(form.get("appointment") || "none");
+    const isRegularPioneer = appointmentVal === "pioneer" || form.has("isRegularPioneer");
+    const appointment = (appointmentVal === "pioneer" ? "none" : appointmentVal) as MemberAppointment;
+    const spiritualStatus = String(form.get("spiritualStatus") || "active") as "active" | "inactive" | "removed";
+    const isActive = spiritualStatus === "active";
 
     const input = {
       firstName,
       lastName,
       gender: (form.get("gender") === "female" ? "female" : "male") as MemberGender,
-      appointment: (form.get("appointment") as MemberAppointment) || "none",
-      isRegularPioneer: form.has("isRegularPioneer"),
+      appointment,
+      isRegularPioneer,
+      isPublisher: form.has("isPublisher"),
+      isSchoolEnrolled: form.has("isSchoolEnrolled"),
+      spiritualStatus,
       additionalRoles: String(form.get("additionalRoles") ?? "").trim() || undefined,
-      isActive: form.has("isActive"),
+      isActive,
       isBaptized,
       phone: String(form.get("phone") ?? "").trim() || undefined,
       email: String(form.get("email") ?? "").trim() || undefined,
@@ -383,16 +391,13 @@ function openNewMemberForm() {
           <div className="page-heading">
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A NEON"}</span>
-              {!demoMode && client && <button className="button" type="button" onClick={() => setIsPasswordDialogOpen(true)}><KeyRound size={14} /> Cambiar contraseña</button>}
+              {demoMode && <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span>}
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
           </div>
 
-          {demoMode ? (
+          {demoMode && (
             <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: nombres ficticios</strong><p>Los nombres son ficticios. Los cambios de esta sesión son temporales y no se guardan en el navegador. La importación oficial permanecerá deshabilitada hasta contar con un flujo administrativo seguro.</p></div></div>
-          ) : (
-            <div className="connected-banner" role="status"><ShieldCheck size={17} /><div><strong>Sesión autenticada</strong><p>Las operaciones se ejecutan con tu sesión de Neon. La base de datos aplica las políticas de acceso y el rol que te fue asignado.</p></div></div>
           )}
 
           {pageError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}
@@ -457,23 +462,27 @@ function openNewMemberForm() {
                 </div>
                 <div className="member-list">
                   {filteredMembers.length === 0 ? <div className="empty-state"><strong>No hay resultados</strong>Prueba con otro nombre o cambia el filtro.</div> : filteredMembers.map((member) => (
-                    <button className={`member-row ${selectedMember?.id === member.id ? "selected" : ""}`} type="button" key={member.id} onClick={() => setSelectedMemberId(member.id)} aria-pressed={selectedMember?.id === member.id}>
-                      <span className={`member-avatar ${member.gender === "female" ? "female" : ""}`}>{initials(member)}</span>
-                      <span className="member-main">
-                        <span className="member-name">
-                          {fullName(member)}
-                          {member.isRegularPioneer && <span className="status-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>PR</span>}
-                          {member.additionalRoles && <span className="demo-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>{member.additionalRoles}</span>}
+                    <div className={`member-row ${selectedMember?.id === member.id ? "selected" : ""}`} key={member.id} style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <button type="button" onClick={() => setSelectedMemberId(member.id)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, textAlign: "left", background: "transparent", border: 0, padding: 0, cursor: "pointer", color: "inherit" }}>
+                        <span className={`member-avatar ${member.gender === "female" ? "female" : ""}`}>{initials(member)}</span>
+                        <span className="member-main">
+                          <span className="member-name">
+                            {fullName(member)}
+                            {member.isRegularPioneer && <span className="status-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>PR</span>}
+                            {member.additionalRoles && <span className="demo-pill" style={{ marginLeft: 6, fontSize: "0.7em" }}>{member.additionalRoles}</span>}
+                          </span>
+                          <span className="member-meta">
+                            <span>{appointmentLabel(member.appointment)}</span>
+                            <span>·</span>
+                            <span>{baptismLabel(member.isBaptized)}</span>
+                          </span>
                         </span>
-                        <span className="member-meta">
-                          <span>{appointmentLabel(member.appointment)}</span>
-                          <span>·</span>
-                          <span>{baptismLabel(member.isBaptized)}</span>
-                        </span>
-                      </span>
-                      <span className={`member-status ${member.isActive ? "" : "inactive"}`}>{member.isActive ? "Activo" : "Inactivo"}</span>
-                      <ChevronRight size={15} className="member-row-arrow" />
-                    </button>
+                        <span className={`member-status ${member.isActive ? "" : "inactive"}`}>{member.spiritualStatus === "removed" ? "Sacado / Desasociado" : member.isActive ? "Activo" : "Inactivo"}</span>
+                      </button>
+                      <button type="button" className="button" style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }} onClick={(e) => { e.stopPropagation(); openEditMemberForm(member); }}>
+                        Editar
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -543,15 +552,16 @@ function openNewMemberForm() {
               <div className="form-field"><label className="field-label" htmlFor="firstName">Nombre *</label><input id="firstName" className="field" name="firstName" required maxLength={100} defaultValue={editingMember?.firstName ?? ""} autoFocus /></div>
               <div className="form-field"><label className="field-label" htmlFor="lastName">Apellido *</label><input id="lastName" className="field" name="lastName" required maxLength={100} defaultValue={editingMember?.lastName ?? ""} /></div>
               <div className="form-field"><label className="field-label" htmlFor="gender">Sexo</label><select id="gender" className="select-field" name="gender" defaultValue={editingMember?.gender ?? "male"}><option value="male">Varón</option><option value="female">Mujer</option></select></div>
-              <div className="form-field"><label className="field-label" htmlFor="appointment">Nombramiento</label><select id="appointment" className="select-field" name="appointment" defaultValue={editingMember?.appointment ?? "none"}><option value="none">No aplica / Publicador</option><option value="ministerial_servant">Siervo ministerial</option><option value="elder">Anciano</option></select></div>
+              <div className="form-field"><label className="field-label" htmlFor="appointment">Nombramiento</label><select id="appointment" className="select-field" name="appointment" defaultValue={editingMember?.isRegularPioneer ? "pioneer" : (editingMember?.appointment ?? "none")}><option value="none">Ninguno</option><option value="elder">Anciano</option><option value="ministerial_servant">Siervo ministerial</option><option value="pioneer">Precursor regular</option></select></div>
+              <div className="form-field"><label className="field-label" htmlFor="spiritualStatus">Estado en la congregación</label><select id="spiritualStatus" className="select-field" name="spiritualStatus" defaultValue={editingMember?.spiritualStatus ?? (editingMember?.isActive === false ? "inactive" : "active")}><option value="active">Activo (Disponible para asignaciones)</option><option value="inactive">Inactivo</option><option value="removed">Sacado de la congregación / Desasociado</option></select></div>
               <div className="form-field"><label className="field-label" htmlFor="additionalRoles">Responsabilidades adicionales (p.ej. Secretario)</label><input id="additionalRoles" className="field" name="additionalRoles" maxLength={100} defaultValue={editingMember?.additionalRoles ?? ""} placeholder="Ej. Secretario, auxiliar de territorio" /></div>
-              <div className="form-field"><label className="field-label" htmlFor="isBaptized">Estado de bautismo</label><select id="isBaptized" className="select-field" name="isBaptized" defaultValue={editingMember?.isBaptized === true ? "true" : editingMember?.isBaptized === false ? "false" : "unknown"}><option value="unknown">Desconocido / Pendiente de confirmar</option><option value="true">Bautizado/a</option><option value="false">No bautizado/a</option></select></div>
               <div className="form-field"><label className="field-label" htmlFor="phone">Teléfono (opcional)</label><input id="phone" className="field" name="phone" type="tel" maxLength={30} defaultValue={editingMember?.phone ?? ""} /></div>
               <div className="form-field"><label className="field-label" htmlFor="email">Correo (opcional)</label><input id="email" className="field" name="email" type="email" maxLength={150} defaultValue={editingMember?.email ?? ""} /></div>
               <div className="form-field full"><label className="field-label" htmlFor="notes">Notas administrativas (opcional)</label><textarea id="notes" className="field" name="notes" maxLength={500} rows={2} defaultValue={editingMember?.notes ?? ""} /></div>
-              <div className="form-field full">
-                <label className="check-row"><input type="checkbox" name="isRegularPioneer" defaultChecked={editingMember?.isRegularPioneer ?? false} /> Precursor(a) regular</label>
-                <label className="check-row"><input type="checkbox" name="isActive" defaultChecked={editingMember?.isActive ?? true} /> Registro activo (disponible para asignaciones)</label>
+              <div className="form-field full" style={{ display: "grid", gap: 8 }}>
+                <label className="check-row"><input type="checkbox" name="isBaptizedCheck" defaultChecked={editingMember?.isBaptized === true} /> Bautizado/a</label>
+                <label className="check-row"><input type="checkbox" name="isPublisher" defaultChecked={editingMember?.isPublisher ?? true} /> Publicador/a</label>
+                <label className="check-row"><input type="checkbox" name="isSchoolEnrolled" defaultChecked={editingMember?.isSchoolEnrolled ?? true} /> Matriculado/a en la reunión Vida y Ministerio Cristianos</label>
               </div>
               <div className="form-field full"><p className="small-note">Las autorizaciones y competencias para asignaciones se validan automáticamente con el motor S-38-S.</p></div>
               {formError && <div className="form-field full"><div className="inline-alert" role="alert"><AlertTriangle size={15} />{formError}</div></div>}

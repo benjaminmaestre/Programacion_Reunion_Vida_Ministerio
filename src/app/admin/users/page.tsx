@@ -161,13 +161,39 @@ export default function AdminUsersPage() {
   }
   if (access === "forbidden") {
     return (
-      <main className="gate-page">
-        <section className="gate-panel">
-          <div className="gate-icon"><ShieldCheck size={22} /></div>
-          <h1 className="gate-title">Acceso restringido</h1>
-          <p className="gate-description">La administración de cuentas está reservada al administrador. Tu rol no permite crear usuarios ni conceder acceso a la plataforma.</p>
-          <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }} href="/">Volver a la aplicación</a>
-        </section>
+      <main className="workspace">
+        <div className="mx-auto max-w-xl space-y-6">
+          <header className="page-head" style={{ marginBottom: 24 }}>
+            <div>
+              <a href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900" style={{ marginBottom: 12 }}>
+                <ArrowLeft size={16} /> Volver a la aplicación
+              </a>
+              <p className="eyebrow" style={{ marginTop: 8 }}>Gestión de cuenta</p>
+              <h1>Mi Perfil</h1>
+              <p>Aquí puedes gestionar la seguridad de tu cuenta de acceso a la plataforma.</p>
+            </div>
+          </header>
+
+          <section className="panel" style={{ padding: 24 }}>
+            <div style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: 14, marginBottom: 20 }}>
+              <h2 className="panel-title" style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8 }}>
+                <KeyRound size={18} /> Seguridad y Credenciales
+              </h2>
+              <p className="panel-subtitle">Solo el Administrador del sistema puede gestionar o crear cuentas de otros usuarios.</p>
+            </div>
+            {client && (
+              <button type="button" className="button button-primary" onClick={() => setIsPasswordDialogOpen(true)} style={{ width: "100%", justifyContent: "center" }}>
+                <KeyRound size={16} /> Cambiar mi contraseña
+              </button>
+            )}
+          </section>
+        </div>
+        {isPasswordDialogOpen && client && (
+          <PasswordChangeDialog
+            client={client}
+            onClose={() => setIsPasswordDialogOpen(false)}
+          />
+        )}
       </main>
     );
   }
