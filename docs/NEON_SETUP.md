@@ -23,14 +23,16 @@ NEON_AUTH_BASE_URL=https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon
 NEON_AUTH_COOKIE_SECRET=<secreto aleatorio de al menos 32 caracteres>
 ```
 
-Genera un secreto aleatorio exclusivo para `NEON_AUTH_COOKIE_SECRET` y guárdalo solo en Vercel, no en Git ni en variables públicas. El cliente usa el proxy de mismo origen `/api/auth`. Debe agregarse el dominio desplegado de Vercel a los orígenes confiables de Neon Auth.
+Estas cuatro variables ya están configuradas en Vercel para Production, Preview y Development; `NEON_AUTH_COOKIE_SECRET` y `NEON_AUTH_BASE_URL` están marcadas como sensibles. El cliente usa el proxy de mismo origen `/api/auth`. El origen `https://programacion-vida-ministerio.vercel.app` ya está agregado a los orígenes confiables de Neon Auth. Si se conecta un dominio personalizado, agrega también su origen exacto.
 
 ## Estado de la migración
 - Esquema SQL 001–006 aplicado.
 - Neon Auth (Better Auth) y Neon Data API activos.
 - 139 registros de directorio verificados: 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 128 activos y 11 inactivos.
 - RLS habilitado en las ocho tablas públicas y 22 políticas creadas.
-- El frontend ahora usa `@neondatabase/neon-js`; las funciones auth se enrutan por `/api/auth`.
+- El frontend usa `@neondatabase/neon-js`; la autenticación se enruta por `/api/auth`.
+- Proyecto Vercel vinculado al repositorio y desplegado: `https://programacion-vida-ministerio.vercel.app`.
+- El dominio de producción es público; los despliegues de Preview conservan la protección SSO.
 - La API de generación S-140 requiere un JWT de Neon Auth y consulta exclusivamente mediante Data API/RLS.
 - Los usuarios de Supabase Auth no conservan sus contraseñas al cambiar a Neon Auth. Cada usuario debe crear nuevas credenciales.
 - Una cuenta recién creada no obtiene una membresía ni rol de aplicación. Para autorizarla, un administrador debe insertar su UUID en `public.app_users` tras comprobar su identidad.

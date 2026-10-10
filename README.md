@@ -42,7 +42,7 @@ npm run typecheck
 npm run build
 ```
 
-La conexión real de la interfaz y las pruebas integrales de autenticación deben completarse antes de producción.
+La aplicación está conectada a Neon y desplegada en Vercel. CI pasa TypeScript, las pruebas unitarias y el build de producción. Falta verificar el inicio de sesión de extremo a extremo con la primera cuenta autorizada y asignarle su rol en `public.app_users`.
 
 
 ## Acceso inicial
