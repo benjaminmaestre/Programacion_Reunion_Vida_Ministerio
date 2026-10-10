@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MembersWorkspace } from "@/features/members/MembersWorkspace";
 import { ProgramsWorkspace } from "@/features/programs/ProgramsWorkspace";
-import { Users, Calendar, ShieldCheck } from "lucide-react";\nimport { createNeonBrowserClient } from "@/lib/neon/client";\nimport { isNeonConfigured } from "@/lib/neon/env";\nimport { getCurrentAppUser } from "@/features/members/members-repository";
+import { Users, Calendar, ShieldCheck } from "lucide-react";
+import { createNeonBrowserClient } from "@/lib/neon/client";
+import { isNeonConfigured } from "@/lib/neon/env";
+import { getCurrentAppUser } from "@/features/members/members-repository";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"members" | "programs">("programs");
@@ -30,15 +33,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* Top Bar Navigation */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-            S140
-          </div>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">S140</div>
           <span className="font-bold text-base tracking-tight">Vida y Ministerio</span>
         </div>
-
         <nav className="flex space-x-1">
           <button
             onClick={() => setActiveTab("programs")}
@@ -60,10 +59,13 @@ export default function HomePage() {
           >
             <Users className="w-4 h-4" /> Directorio
           </button>
+          {isAdministrator && (
+            <a href="/admin/users" className="px-3.5 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 text-slate-600 hover:bg-slate-100" aria-label="Administrar cuentas">
+              <ShieldCheck className="w-4 h-4" /> Usuarios
+            </a>
+          )}
         </nav>
       </header>
-
-      {/* Main Content Workspace */}
       <main className="flex-1">
         {activeTab === "members" && <MembersWorkspace />}
         {activeTab === "programs" && <ProgramsWorkspace />}
