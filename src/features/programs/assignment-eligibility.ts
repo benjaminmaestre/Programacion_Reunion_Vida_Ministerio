@@ -15,6 +15,28 @@ export function isWhatWouldYouSayAssignment(slot: { section: string; title: stri
   return slot.section === "ministers" && normalizeAssignmentTitle(slot.title).includes("que diria");
 }
 
+/** Las oraciones de apertura y cierre solo pueden asignarse a varones activos. */
+export function validatePrayerParticipantRestrictions(
+  program: MeetingProgramDetail,
+  members: DirectoryMember[],
+): string[] {
+  const membersById = new Map(members.map((member) => [member.id, member]));
+  const errors: string[] = [];
+  const prayers = [
+    ["oración de apertura", program.openingPrayerParticipantId],
+    ["oración de conclusión", program.closingPrayerParticipantId],
+  ] as const;
+
+  for (const [label, id] of prayers) {
+    if (!id) continue;
+    const member = membersById.get(id);
+    // La validación de participantes inexistentes o inactivos se hace por separado.
+    if (!member || !member.isActive) continue;
+    if (member.gender !== "male") errors.push(`La ${label} solo puede asignarse a un varón.`);
+  }
+  return errors;
+}
+
 /** Estas asignaciones están reservadas a un hermano anciano o siervo ministerial activo. */
 export function slotRequiresAppointedBrother(
   slot: { section: string; title: string; assignmentType?: string | null },
@@ -68,5 +90,6 @@ export function validateAssignmentRoleRestrictions(
     }
   }
 
+  errors.push(...validatePrayerParticipantRestrictions(program, members));
   return [...new Set(errors)];
 }
