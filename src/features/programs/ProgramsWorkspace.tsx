@@ -174,9 +174,10 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
-  // Estado para día y hora preferidos de la reunión de entre semana
+  // Estado para día y hora preferidos de la reunión de entre semana (Lunes a Viernes)
   const [meetingDayOffset, setMeetingDayOffset] = useState<number>(3); // 3 = Jueves (Lunes + 3 días)
-  const [meetingTime, setMeetingTime] = useState<string>("19:00");
+  const [meetingHour, setMeetingHour] = useState<string>("19");
+  const [meetingMinute, setMeetingMinute] = useState<string>("00");
 
   // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia flotante
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
@@ -1011,6 +1012,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                   <label htmlFor="meeting-day-select">Día de reunión (entre semana):</label>
                   <select
                     id="meeting-day-select"
+                    className="select-field"
                     value={meetingDayOffset}
                     onChange={(e) => setMeetingDayOffset(Number(e.target.value))}
                   >
@@ -1019,18 +1021,34 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                     <option value={2}>Miércoles</option>
                     <option value={3}>Jueves</option>
                     <option value={4}>Viernes</option>
-                    <option value={5}>Sábado</option>
-                    <option value={6}>Domingo</option>
                   </select>
                 </div>
                 <div className="meeting-schedule-item">
-                  <label htmlFor="meeting-time-input">Hora habitual:</label>
-                  <input
-                    id="meeting-time-input"
-                    type="time"
-                    value={meetingTime}
-                    onChange={(e) => setMeetingTime(e.target.value)}
-                  />
+                  <label htmlFor="meeting-hour-select">Hora habitual:</label>
+                  <select
+                    id="meeting-hour-select"
+                    className="select-field"
+                    value={meetingHour}
+                    onChange={(e) => setMeetingHour(e.target.value)}
+                  >
+                    <option value="17">17 (5 PM)</option>
+                    <option value="18">18 (6 PM)</option>
+                    <option value="19">19 (7 PM)</option>
+                    <option value="20">20 (8 PM)</option>
+                  </select>
+                  <span>:</span>
+                  <select
+                    id="meeting-minute-select"
+                    className="select-field"
+                    value={meetingMinute}
+                    aria-label="Minuto habitual"
+                    onChange={(e) => setMeetingMinute(e.target.value)}
+                  >
+                    <option value="00">00</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="45">45</option>
+                  </select>
                 </div>
               </div>
 
@@ -1068,7 +1086,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
           ) : (
             <div className="meeting-grid">
               <div>
-                <h2 className="meeting-title">{longDate(addDays(selectedProgram.meetingDate, meetingDayOffset))} ({meetingTime})</h2>
+                <h2 className="meeting-title">{longDate(addDays(selectedProgram.meetingDate, meetingDayOffset))}</h2>
                 <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · {formatBimonthCycleLabel(selectedProgram.bimonthCycle)} · Guía: {longDate(selectedProgram.meetingDate)}</p>
 
                 {readOnly && (
