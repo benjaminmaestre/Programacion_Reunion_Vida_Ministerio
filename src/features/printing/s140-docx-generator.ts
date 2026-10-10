@@ -48,7 +48,7 @@ export class S140DocxGenerator {
       }
       const songNumbers = [data.openingSongNumber, data.livingSongNumber, data.closingSongNumber];
       let songIndex = 0;
-      xml = xml.replace(/Canción \\[Número\\]/g, () => {
+      xml = xml.replace(/Canción \[Número\]/g, () => {
         const number = songNumbers[songIndex % songNumbers.length];
         songIndex += 1;
         return number ? `Canción ${number}` : "Canción [Número]";
