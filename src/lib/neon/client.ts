@@ -22,12 +22,14 @@ function buildNeonClient(config: NeonPublicConfig) {
   });
 }
 
-let browserClient: ReturnType<typeof buildNeonClient> | undefined;
-
 /**
- * Cliente browser para Neon Data API + Neon Auth.
- * La sesión usa el proxy del mismo origen /api/auth (evita depender de cookies de terceros).
- * El Data API siempre valida el JWT y aplica los GRANT/RLS de PostgreSQL.
+ * Crea un cliente para el ciclo de vida de la sección actual.
+ *
+ * No se comparte una instancia global entre secciones: el cliente Neon mantiene
+ * estado de autenticación/token en memoria y puede conservar un contexto obsoleto
+ * después de varios minutos de inactividad. Al montar otra sección se crea una
+ * instancia nueva y getSession() vuelve a hidratar la sesión desde el proxy
+ * del mismo origen antes de ejecutar consultas protegidas.
  */
 export function createNeonBrowserClient() {
   const config = getNeonPublicConfig();
@@ -35,6 +37,5 @@ export function createNeonBrowserClient() {
     throw new Error("Neon no está configurado. Revisa NEXT_PUBLIC_NEON_AUTH_URL y NEXT_PUBLIC_NEON_DATA_API_URL.");
   }
 
-  browserClient ??= buildNeonClient(config);
-  return browserClient;
+  return buildNeonClient(config);
 }
