@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, LockKeyhole, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, getMemberHistory, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -45,6 +45,56 @@ function addDays(value: string, days: number) {
 }
 function Gate({ children }: { children: React.ReactNode }) {
   return <div className="gate-page" style={{ minHeight: "100vh" }}><section className="gate-panel">{children}</section></div>;
+}
+
+function GuideFilePicker({
+  inputId,
+  filename,
+  disabled,
+  onChange,
+}: {
+  inputId: string;
+  filename: string;
+  disabled: boolean;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const isSelected = Boolean(filename);
+  return (
+    <div className="guide-file-picker">
+      <input
+        id={inputId}
+        className="guide-upload-input"
+        type="file"
+        accept=".epub,application/epub+zip"
+        onChange={onChange}
+        disabled={disabled}
+        aria-label="Seleccionar archivo EPUB de la guía de actividades"
+      />
+      <label
+        htmlFor={inputId}
+        className={`guide-upload ${isSelected ? "is-selected" : ""} ${disabled ? "is-disabled" : ""}`}
+      >
+        <span className="guide-upload-icon" aria-hidden="true">
+          {isSelected ? <CheckCircle size={22} /> : <FolderOpen size={22} />}
+        </span>
+        <span className="guide-upload-copy">
+          <strong>{isSelected ? "Archivo seleccionado" : "Seleccionar guía de actividades"}</strong>
+          <span>
+            {isSelected
+              ? "El archivo se leyó correctamente. Revisa el período y las asignaciones."
+              : "Formato EPUB · Haz clic aquí para buscar el archivo en tu equipo."}
+          </span>
+          {isSelected && (
+            <span className="guide-upload-filename">
+              <FileText size={14} aria-hidden="true" />
+              <span>{filename}</span>
+            </span>
+          )}
+        </span>
+        <span className="guide-upload-action">{isSelected ? "Cambiar archivo" : "Buscar archivo"}</span>
+      </label>
+    </div>
+  );
 }
 
 function findInactiveAssignedIds(program: MeetingProgramDetail, members: DirectoryMember[]): string[] {
@@ -659,24 +709,41 @@ export const ProgramsWorkspace: React.FC = () => {
   );
   if (mode === "guide_required") return (
     <Gate>
-      <div className="gate-brand"><span className="brand-mark">VM</span><span>Vida y Ministerio</span></div>
+      <div className="gate-brand"><span className="brand-mark">RVM</span><span>Reunión Vida y Ministerio Cristianos</span></div>
       <div className="gate-icon"><Upload size={22} /></div>
-      <h1 className="gate-title">Importa la guía bimestral</h1>
-      <p className="gate-description">Cada nueva programación comienza con la guía EPUB de esos dos meses. Hasta que se guarde una guía válida no se cargarán los participantes ni se habilitará la preparación del S-140.</p>
+      <h1 className="gate-title">Carga la guía de actividades</h1>
+      <p className="gate-description">Selecciona la guía de actividades en formato EPUB para el bimestre. Sus semanas, asignaciones, títulos y duraciones se utilizarán para crear los programas y preparar el formulario S-140.</p>
       <div className="form-field" style={{ marginTop: 18 }}>
-        <label className="field-label" htmlFor="required-meeting-guide">Guía oficial (.epub)</label>
-        <input id="required-meeting-guide" className="field" type="file" accept=".epub,application/epub+zip" onChange={(event) => void handleGuideFileSelected(event)} disabled={guideImporting} />
+        <p className="field-label" style={{ margin: "0 0 8px" }}>Guía de actividades (.epub)</p>
+        <GuideFilePicker
+          inputId="required-meeting-guide"
+          filename={guideFileName}
+          disabled={guideImporting}
+          onChange={(event) => void handleGuideFileSelected(event)}
+        />
       </div>
-      {guideFileName && <p className="small-note" style={{ marginTop: 8 }}>Archivo: <strong>{guideFileName}</strong></p>}
-      {guidePeriodLabel && <p className="small-note">Período detectado: <strong>{guidePeriodLabel}</strong></p>}
+      {guidePeriodLabel && <p className="guide-period-note"><CheckCircle size={14} /> Período detectado: <strong>{guidePeriodLabel}</strong></p>}
       {guideError && <div className="inline-alert pre" role="alert" style={{ marginTop: 12 }}><AlertTriangle size={15} />{guideError}</div>}
       {guideWeeks.length > 0 && (
-        <div style={{ marginTop: 16, maxHeight: 245, overflow: "auto", border: "1px solid var(--color-border)", borderRadius: 8, textAlign: "left" }}>
+        <div className="guide-weeks-preview">
           {guideWeeks.map((week) => (
-            <article key={week.startDate} style={{ padding: "10px 12px", borderBottom: "1px solid var(--color-border)" }}>
-              <strong style={{ fontSize: 12 }}>{week.label}</strong>
-              <p style={{ margin: "4px 0", color: "var(--color-text-muted)", fontSize: 11 }}>{week.weeklyBibleReading} · {week.assignments.length} asignaciones detectadas</p>
-              <p style={{ margin: 0, fontSize: 11 }}>{week.assignments.map((item) => item.title).join(" · ")}</p>
+            <article key={week.startDate} className="guide-week-preview">
+              <div className="guide-week-heading">
+                <strong>{week.label}</strong>
+                <span>{week.assignments.length} asignaciones</span>
+              </div>
+              <p className="guide-week-reading">{week.weeklyBibleReading}</p>
+              <div className="guide-preview-assignments">
+                {week.assignments.map((item) => (
+                  <div key={item.number} className="guide-preview-assignment">
+                    <span className="guide-preview-assignment-title">
+                      <span className="guide-preview-number">{item.number}.</span>
+                      {item.title}{item.scriptureRange ? ` (${item.scriptureRange})` : ""}
+                    </span>
+                    <span className="guide-preview-duration">{item.durationMinutes} min</span>
+                  </div>
+                ))}
+              </div>
             </article>
           ))}
         </div>
@@ -790,7 +857,7 @@ export const ProgramsWorkspace: React.FC = () => {
     <div className="workspace">
       <header className="page-head">
         <div>
-          <h1>Programa Vida y Ministerio</h1>
+          <h1>Reunión Vida y Ministerio Cristianos</h1>
           <p>Preparación de asignaciones semanales, confirmación de elegibilidad y emisión del formulario S-140.</p>
         </div>
         <div className="head-actions">
@@ -1085,10 +1152,15 @@ export const ProgramsWorkspace: React.FC = () => {
                 Selecciona el EPUB original. La guía activa anterior se reemplazará solo después de validar el nuevo archivo. Se crearán borradores para las semanas que falten y se actualizarán los no publicados; los programas publicados y el historial se conservarán.
               </p>
               <div className="form-field">
-                <label className="field-label" htmlFor="meeting-guide-file">Archivo de la guía (.epub)</label>
-                <input id="meeting-guide-file" className="field" type="file" accept=".epub,application/epub+zip" onChange={(event) => void handleGuideFileSelected(event)} disabled={guideImporting} />
+                <p className="field-label" style={{ margin: "0 0 8px" }}>Guía de actividades (.epub)</p>
+                <GuideFilePicker
+                  inputId="meeting-guide-file"
+                  filename={guideFileName}
+                  disabled={guideImporting}
+                  onChange={(event) => void handleGuideFileSelected(event)}
+                />
               </div>
-              {guideFileName && <p className="small-note" style={{ marginTop: 8 }}>Archivo leído: <strong>{guideFileName}</strong>{guidePeriodLabel ? <> · Período: <strong>{guidePeriodLabel}</strong></> : null}</p>}
+              {guidePeriodLabel && <p className="guide-period-note"><CheckCircle size={14} /> Período detectado: <strong>{guidePeriodLabel}</strong></p>}
               {guideError && <div className="inline-alert pre" role="alert" style={{ marginTop: 12 }}><AlertTriangle size={15} />{guideError}</div>}
               {guideWeeks.length > 0 && (
                 <div style={{ marginTop: 18 }}>
