@@ -627,22 +627,41 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       setPageError("Para generar el S-140, inicia sesión con una cuenta autorizada.");
       return;
     }
-    if (findInactiveAssignedIds(selectedProgram, members).length > 0) {
-      setPageError("No se puede generar el S-140: hay participantes inactivos asignados. Reemplaza esas asignaciones por personas activas.");
-      return;
+
+    const programsToGenerate = programs
+      .filter((program) => selectedProgram.planningCycleId
+        ? program.planningCycleId === selectedProgram.planningCycleId
+        : program.id === selectedProgram.id)
+      .sort((a, b) => a.meetingDate.localeCompare(b.meetingDate));
+
+    for (const program of programsToGenerate) {
+      if (findInactiveAssignedIds(program, members).length > 0) {
+        setPageError("No se puede generar el S-140 del " + program.meetingDate
+          + ": hay participantes inactivos asignados. Reemplaza esas asignaciones por personas activas.");
+        return;
+      }
+      const roleErrors = validateAssignmentRoleRestrictions(program, members);
+      if (roleErrors.length > 0) {
+        setPageError("No se puede generar el S-140 del " + program.meetingDate
+          + ". Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
+        return;
+      }
     }
-    const roleErrors = validateAssignmentRoleRestrictions(selectedProgram, members);
-    if (roleErrors.length > 0) {
-      setPageError("No se puede generar el S-140. Corrige estas restricciones:\n• " + roleErrors.slice(0, 8).join("\n• "));
-      return;
-    }
+
     setGenerating(true);
     setPageError("");
     setFeedback("");
     try {
-      if (selectedProgram.status === "draft" && canManage) {
-        await saveMeetingProgramToNeon(client, userId, selectedProgram);
+      // Guardar todos los borradores del ciclo evita emitir el S-140 con asignaciones
+      // que sigan únicamente en el estado local del navegador.
+      if (canManage) {
+        for (const program of programsToGenerate) {
+          if (program.status === "draft") {
+            await saveMeetingProgramToNeon(client, userId, program);
+          }
+        }
       }
+
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) {
@@ -665,8 +684,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-      const generatedMeetingCount = programs.filter((program) => selectedProgram.planningCycleId ? program.planningCycleId === selectedProgram.planningCycleId : program.id === selectedProgram.id).length;
-      setFeedback(`S-140 generado exitosamente: ${generatedMeetingCount} reuniones, con dos por página.`);
+      setFeedback(`S-140 generado exitosamente: ${programsToGenerate.length} reuniones, con dos por página.`);
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo generar el S-140.");
     } finally {
