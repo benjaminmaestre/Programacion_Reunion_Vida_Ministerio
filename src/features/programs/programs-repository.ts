@@ -16,6 +16,7 @@ interface DbMeetingProgramRow {
   leadership_review_confirmed_by?: string | null;
   leadership_review_confirmed_at?: string | null;
   circuit_overseer_talk_title: string | null;
+  weekly_bible_reading?: string | null;
   is_draft: boolean;
   notes: string | null;
   updated_at: string;
@@ -116,6 +117,7 @@ export async function getMeetingProgramsFromNeon(
     weekType: p.week_type,
     bimonthCycle: p.planning_cycle_id ? cycleLabels.get(p.planning_cycle_id) ?? "" : "",
     historyPeriod: p.history_period_id ? periodLabels.get(p.history_period_id) ?? "" : "",
+    weeklyBibleReading: p.weekly_bible_reading || undefined,
     planningCycleId: p.planning_cycle_id || undefined,
     historyPeriodId: p.history_period_id || undefined,
     chairmanId: p.chairman_id || undefined,
@@ -144,7 +146,7 @@ export async function saveMeetingProgramToNeon(
     throw new Error("El cliente de Neon no soporta llamadas RPC transaccionales.");
   }
 
-  const { data, error } = await neon.rpc("save_meeting_program_transaction", {
+  const { data, error } = await neon.rpc("save_meeting_program_with_guide", {
     p_program_id: program.id,
     p_meeting_date: program.meetingDate,
     p_week_type: program.weekType,
@@ -172,6 +174,7 @@ export async function saveMeetingProgramToNeon(
       eligibility_confirmed_at: null,
       notes: slot.notes || null,
     })),
+    p_weekly_bible_reading: program.weeklyBibleReading || null,
   });
 
   if (error) {

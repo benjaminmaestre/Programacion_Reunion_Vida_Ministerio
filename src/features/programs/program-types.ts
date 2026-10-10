@@ -8,6 +8,7 @@ export interface MeetingProgramDetail {
   weekType: WeekType;
   bimonthCycle: string; // Etiqueta de presentación, p.ej. "2026-1"
   historyPeriod: string; // Etiqueta de presentación, p.ej. "2026-S1"
+  weeklyBibleReading?: string; // Lectura semanal indicada en la guía bimestral
   planningCycleId?: string; // UUID real de planning_cycles
   historyPeriodId?: string; // UUID real de history_periods
   chairmanId?: string;

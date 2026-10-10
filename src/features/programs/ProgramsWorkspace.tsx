@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -12,6 +12,7 @@ import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types
 import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram } from "./program-builder";
+import { applyMeetingGuideTitles, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
 import type { Section, WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
@@ -52,6 +53,9 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
   }
   if (!actual.bimonthCycle || !actual.historyPeriod) {
     throw new Error("La reunión se guardó sin recuperar sus relaciones de ciclo bimestral y período semestral.");
+  }
+  if (expected.weeklyBibleReading && actual.weeklyBibleReading !== expected.weeklyBibleReading) {
+    throw new Error("La lectura bíblica semanal de la guía no se recuperó correctamente desde Neon.");
   }
   if ((expected.bimonthCycle && actual.bimonthCycle !== expected.bimonthCycle)
     || (expected.historyPeriod && actual.historyPeriod !== expected.historyPeriod)) {
@@ -96,6 +100,11 @@ export const ProgramsWorkspace: React.FC = () => {
   const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
   const [newMeetingDate, setNewMeetingDate] = useState("");
   const [newWeekType, setNewWeekType] = useState<WeekType>("normal");
+  const [isGuideImportModalOpen, setIsGuideImportModalOpen] = useState(false);
+  const [guideFileName, setGuideFileName] = useState("");
+  const [guideWeeks, setGuideWeeks] = useState<MeetingGuideWeek[]>([]);
+  const [guideError, setGuideError] = useState("");
+  const [guideImporting, setGuideImporting] = useState(false);
 
   const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
@@ -238,6 +247,109 @@ export const ProgramsWorkspace: React.FC = () => {
       setIsNewProgramModalOpen(false);
       setNewMeetingDate("");
       setFeedback(`Nuevo programa borrador creado en memoria para el ${newMeetingDate}.`);
+    }
+  }
+
+  async function handleGuideFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    setGuideError("");
+    setGuideWeeks([]);
+    setGuideFileName("");
+    if (!file.name.toLowerCase().endsWith(".epub")) {
+      setGuideError("Selecciona la guía original en formato EPUB.");
+      return;
+    }
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const parsed = parseMeetingGuideEpub(bytes, file.name);
+      setGuideFileName(file.name);
+      setGuideWeeks(parsed);
+    } catch (error) {
+      setGuideError(error instanceof Error ? error.message : "No se pudo leer la guía.");
+    }
+  }
+
+  async function handleApplyGuideImport() {
+    if (guideImporting || guideWeeks.length === 0) return;
+    if (mode !== "connected" || !client || !userId || !canManage) {
+      setGuideError("Necesitas una sesión autorizada y conexión a Neon para importar la guía.");
+      return;
+    }
+
+    setGuideImporting(true);
+    setGuideError("");
+    let createdCount = 0;
+    let updatedCount = 0;
+    let unchangedCount = 0;
+    let publishedCount = 0;
+    let currentWeekLabel = "";
+    const expectedPrograms: MeetingProgramDetail[] = [];
+
+    try {
+      const existingPrograms = await getMeetingProgramsFromNeon(client);
+      const byDate = new Map(existingPrograms.map((program) => [program.meetingDate, program]));
+
+      for (const week of guideWeeks) {
+        currentWeekLabel = week.label;
+        const existing = byDate.get(week.startDate);
+        if (existing?.status === "published") {
+          publishedCount += 1;
+          continue;
+        }
+
+        const baseProgram = existing ?? buildDefaultMeetingProgram(week.startDate, "normal");
+        const nextProgram = applyMeetingGuideTitles(baseProgram, week);
+        const programChanged = !existing
+          || existing.weeklyBibleReading !== nextProgram.weeklyBibleReading
+          || nextProgram.slots.some((slot) => {
+            const previous = existing.slots.find((item) => item.id === slot.id);
+            return !previous
+              || previous.title !== slot.title
+              || previous.assignmentType !== slot.assignmentType
+              || previous.durationMinutes !== slot.durationMinutes
+              || previous.isStudentPart !== slot.isStudentPart;
+          });
+
+        if (!programChanged) {
+          unchangedCount += 1;
+          continue;
+        }
+
+        await saveMeetingProgramToNeon(client, userId, nextProgram);
+        expectedPrograms.push(nextProgram);
+        byDate.set(week.startDate, nextProgram);
+        if (existing) updatedCount += 1;
+        else createdCount += 1;
+      }
+
+      const refreshed = await getMeetingProgramsFromNeon(client);
+      for (const expected of expectedPrograms) {
+        verifyProgramRoundTrip(expected, refreshed.find((program) => program.id === expected.id));
+      }
+      setPrograms(refreshed);
+      const firstImported = guideWeeks.find((week) => refreshed.some((program) => program.meetingDate === week.startDate));
+      if (firstImported) {
+        const selected = refreshed.find((program) => program.meetingDate === firstImported.startDate);
+        if (selected) setSelectedProgramId(selected.id);
+      }
+      setIsGuideImportModalOpen(false);
+      setFeedback(
+        `Guía aplicada: ${createdCount} borradores creados, ${updatedCount} actualizados, ${unchangedCount} sin cambios y ${publishedCount} publicados protegidos.`,
+      );
+      setPageError("");
+    } catch (error) {
+      try {
+        setPrograms(await getMeetingProgramsFromNeon(client));
+      } catch {
+        // Mantener el estado actual si la recarga también falla.
+      }
+      setGuideError(
+        `La importación se detuvo en la semana ${currentWeekLabel || "desconocida"}. Se crearon ${createdCount} y se actualizaron ${updatedCount} programas antes del error. ${error instanceof Error ? error.message : "No se pudo guardar la semana."}`,
+      );
+    } finally {
+      setGuideImporting(false);
     }
   }
 
@@ -409,6 +521,7 @@ export const ProgramsWorkspace: React.FC = () => {
         </div>
         <div className="head-actions">
           {mode === "demo" ? <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span> : <span className="status-pill"><span className="demo-dot" /> CONECTADO A NEON</span>}
+          {canManage && mode === "connected" && <button type="button" className="button" onClick={() => { setGuideError(""); setGuideWeeks([]); setGuideFileName(""); setIsGuideImportModalOpen(true); }}><Upload size={16} /> Importar guía EPUB</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
         </div>
       </header>
@@ -639,6 +752,61 @@ export const ProgramsWorkspace: React.FC = () => {
                 <button type="submit" className="button button-primary" disabled={saving}>{saving ? "Guardando…" : "Crear programa"}</button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {isGuideImportModalOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && !guideImporting) setIsGuideImportModalOpen(false); }}>
+          <section className="modal-card" style={{ width: "min(100%, 880px)" }} role="dialog" aria-modal="true" aria-labelledby="guide-import-title">
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title" id="guide-import-title">Importar guía de actividades</h2>
+                <p className="modal-description">Los títulos de la guía se usarán en los programas semanales y en el S-140.</p>
+              </div>
+              <button type="button" className="icon-button" disabled={guideImporting} onClick={() => setIsGuideImportModalOpen(false)} aria-label="Cerrar importación"><X size={17} /></button>
+            </div>
+            <div style={{ padding: "20px 24px" }}>
+              <p style={{ margin: "0 0 12px", color: "var(--color-text-muted)", fontSize: 12, lineHeight: 1.6 }}>
+                Selecciona el EPUB original. Se crearán borradores para las semanas que falten y se actualizarán los borradores existentes. Los programas publicados no se modificarán y los participantes asignados se conservarán.
+              </p>
+              <div className="form-field">
+                <label className="field-label" htmlFor="meeting-guide-file">Archivo de la guía (.epub)</label>
+                <input id="meeting-guide-file" className="field" type="file" accept=".epub,application/epub+zip" onChange={(event) => void handleGuideFileSelected(event)} disabled={guideImporting} />
+              </div>
+              {guideFileName && <p className="small-note" style={{ marginTop: 8 }}>Archivo leído: <strong>{guideFileName}</strong></p>}
+              {guideError && <div className="inline-alert pre" role="alert" style={{ marginTop: 12 }}><AlertTriangle size={15} />{guideError}</div>}
+              {guideWeeks.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                    <strong>{guideWeeks.length} semanas detectadas</strong>
+                    <span className="small-note">Vista previa de títulos</span>
+                  </div>
+                  <div style={{ maxHeight: 300, overflow: "auto", border: "1px solid var(--color-border)", borderRadius: 8 }}>
+                    {guideWeeks.map((week) => (
+                      <article key={week.startDate} style={{ padding: "12px 14px", borderBottom: "1px solid var(--color-border)" }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 6, marginBottom: 6 }}>
+                          <strong>{week.label}</strong>
+                          <span className="small-note">{week.weeklyBibleReading}</span>
+                        </div>
+                        <p style={{ margin: "3px 0", fontSize: 12 }}><strong>Tesoros:</strong> {week.treasuresTalkTitle}</p>
+                        <p style={{ margin: "3px 0", fontSize: 12 }}><strong>Lectura:</strong> {week.bibleReadingTitle || "Sin rango de versículos detectado"}</p>
+                        {week.ministryParts.map((part, index) => (
+                          <p key={index} style={{ margin: "3px 0", fontSize: 12 }}><strong>Asignación {index + 4}:</strong> {part.title} ({part.durationMinutes} min.)</p>
+                        ))}
+                        <p style={{ margin: "3px 0", fontSize: 12 }}><strong>Nuestra vida cristiana:</strong> {week.livingTitle}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="button" onClick={() => setIsGuideImportModalOpen(false)} disabled={guideImporting}>Cancelar</button>
+              <button type="button" className="button button-primary" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0}>
+                <Upload size={15} /> {guideImporting ? "Aplicando guía…" : "Aplicar a los programas"}
+              </button>
+            </div>
           </section>
         </div>
       )}
