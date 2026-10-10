@@ -11,13 +11,13 @@ export function normalizeAssignmentTitle(value: string): string {
 }
 
 /** Identifica la asignación especial «¿Qué diría?» dentro de Seamos mejores maestros. */
-export function isWhatWouldYouSayAssignment(slot: Pick<AssignmentSlotDetail, "section" | "title">): boolean {
+export function isWhatWouldYouSayAssignment(slot: { section: string; title: string }): boolean {
   return slot.section === "ministers" && normalizeAssignmentTitle(slot.title).includes("que diria");
 }
 
 /** Estas asignaciones están reservadas a un hermano anciano o siervo ministerial activo. */
 export function slotRequiresAppointedBrother(
-  slot: Pick<AssignmentSlotDetail, "section" | "title" | "assignmentType">,
+  slot: { section: string; title: string; assignmentType?: string | null },
 ): boolean {
   return slot.assignmentType === "treasures_talk"
     || slot.assignmentType === "gems"
