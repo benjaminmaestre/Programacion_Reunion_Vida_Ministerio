@@ -1,14 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpenCheck, CalendarDays, Users, ShieldCheck } from "lucide-react";
+import { useCallback, useState } from "react";
+import { BookOpenCheck, CalendarDays, LogOut, Users, ShieldCheck } from "lucide-react";
 import { MembersWorkspace } from "@/features/members/MembersWorkspace";
 import { ProgramsWorkspace } from "@/features/programs/ProgramsWorkspace";
 
 type Tab = "programs" | "members";
+type SignOutAction = () => Promise<void>;
 
 export default function HomePage() {
   const [tab, setTab] = useState<Tab>("programs");
+  const [signOutAction, setSignOutAction] = useState<SignOutAction | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const registerSignOutAction = useCallback((action: SignOutAction | null) => {
+    setSignOutAction(() => action);
+  }, []);
+
+  async function handleSidebarSignOut() {
+    if (!signOutAction || isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOutAction();
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
   const items: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "programs", label: "Programas", icon: CalendarDays },
     { id: "members", label: "Directorio", icon: Users },
@@ -43,9 +59,23 @@ export default function HomePage() {
             <span className="rail-link-icon" aria-hidden="true"><ShieldCheck size={19} strokeWidth={1.9} /></span>
             <span className="rail-link-label">Usuarios</span>
           </a>
+          <button
+            type="button"
+            className="rail-link rail-link-logout"
+            onClick={() => void handleSidebarSignOut()}
+            disabled={!signOutAction || isSigningOut}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+          >
+            <span className="rail-link-icon" aria-hidden="true"><LogOut size={19} strokeWidth={1.9} /></span>
+            <span className="rail-link-label">{isSigningOut ? "Cerrando sesión…" : "Cerrar sesión"}</span>
+          </button>
         </div>
       </nav>
-      <main>{tab === "members" ? <MembersWorkspace /> : <ProgramsWorkspace />}</main>
+      <main>{tab === "members"
+        ? <MembersWorkspace onRegisterSignOut={registerSignOutAction} />
+        : <ProgramsWorkspace onRegisterSignOut={registerSignOutAction} />}
+      </main>
     </div>
   );
 }
