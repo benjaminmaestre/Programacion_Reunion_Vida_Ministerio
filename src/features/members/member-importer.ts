@@ -1,9 +1,9 @@
 import type { OfficialMemberImportRecord } from "./official-directory-data";
 import type { DirectoryMember, MemberAppointment, MemberGender } from "./demo-data";
 import { assertCanManageDirectory, type MemberWriteInput } from "./members-repository";
-import type { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { createNeonBrowserClient } from "@/lib/neon/client";
 
-type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 
 function memberKey(firstName: string, lastName: string): string {
   return `${normalize(firstName)}|${normalize(lastName)}`;
@@ -209,19 +209,19 @@ export function previewMemberImport(
   };
 }
 
-export async function executeOfficialImportToSupabase(
-  supabase: SupabaseBrowserClient,
+export async function executeOfficialImportToNeon(
+  neon: NeonBrowserClient,
   userId: string,
   recordsToImport: OfficialMemberImportRecord[],
   overwriteExisting = false,
 ): Promise<ImportExecutionResult> {
-  await assertCanManageDirectory(supabase, userId);
+  await assertCanManageDirectory(neon, userId);
   const validation = validateOfficialImportData(recordsToImport);
   if (!validation.isValidStructure) {
     throw new Error(`La importación fue bloqueada: ${validation.errors.join(" ")}`);
   }
 
-  const { data: existingRows, error: fetchError } = await supabase
+  const { data: existingRows, error: fetchError } = await neon
     .from("members")
     .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes");
 
@@ -255,7 +255,7 @@ export async function executeOfficialImportToSupabase(
 
     if (existing) {
       if (overwriteExisting) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await neon
           .from("members")
           .update({
             first_name: payload.firstName,
@@ -276,7 +276,7 @@ export async function executeOfficialImportToSupabase(
         skippedCount++;
       }
     } else {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await neon
         .from("members")
         .insert({
           first_name: payload.firstName,
@@ -297,7 +297,7 @@ export async function executeOfficialImportToSupabase(
   }
 
   // Reload fresh list
-  const { data: freshData, error: reloadError } = await supabase
+  const { data: freshData, error: reloadError } = await neon
     .from("members")
     .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
     .order("first_name", { ascending: true })
