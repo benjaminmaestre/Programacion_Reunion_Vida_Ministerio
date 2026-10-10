@@ -119,11 +119,26 @@ $function$;
 REVOKE ALL ON FUNCTION public.admin_list_app_users() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_list_app_users() TO authenticated;
 
+-- El esquema auth está administrado por Neon y puede no conceder USAGE directamente
+-- al rol authenticated. Encapsular auth.uid() en una función SECURITY DEFINER evita
+-- que la política necesite resolver la función del esquema auth desde la consulta REST.
+CREATE OR REPLACE FUNCTION public.current_app_user_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+AS $function$
+  SELECT auth.uid();
+$function$;
+REVOKE ALL ON FUNCTION public.current_app_user_id() FROM PUBLIC, anonymous;
+GRANT EXECUTE ON FUNCTION public.current_app_user_id() TO authenticated;
+
 -- app_users: una persona activa solo puede leer su propia fila.
 -- Únicamente el administrador supremo puede crear o gestionar cuentas ordinarias.
 CREATE POLICY app_users_select_self
   ON public.app_users FOR SELECT TO authenticated
-  USING (user_id = auth.uid() AND is_active IS TRUE);
+  USING (user_id = public.current_app_user_id() AND is_active IS TRUE);
 
 CREATE POLICY app_users_insert_regular_user_admin_only
   ON public.app_users FOR INSERT TO authenticated
