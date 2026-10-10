@@ -105,12 +105,18 @@ function parseWeekRange(label: string, baseYear: number): { startDate: string; e
     endDate: isoDate(endYear, endMonth, Number(across[4])),
   };
 }
+function stripDurationAnnotations(value: string): string {
+  return value
+    .replace(/\s*\(\s*\d{1,2}\s*(?:mins?|minutos?)\.?\s*\)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function parseNumberedHeader(headerHtml: string): { number: number; title: string } | null {
   const match = plainText(headerHtml).match(/^(\d+)\.\s*(.+)$/);
-  return match ? { number: Number(match[1]), title: match[2].trim() } : null;
+  return match ? { number: Number(match[1]), title: stripDurationAnnotations(match[2]) } : null;
 }
 function extractMinutes(body: string, fallback: number): number {
-  const match = plainText(body).match(/\((\d{1,2})\s*mins?\.?\)/i);
+  const match = plainText(body).match(/\(\s*(\d{1,2})\s*(?:mins?|minutos?)\.?\s*\)/i);
   return match ? Number(match[1]) : fallback;
 }
 function extractSpeechTitle(body: string, fallback: string): string {
@@ -126,8 +132,14 @@ function classifyMinistryType(title: string): NonNullable<AssignmentSlotDetail["
   return "student_talk";
 }
 function extractBibleReadingTitle(body: string): string {
-  const match = plainText(body).match(/\(\s*\d+\s*mins?\.?\)\s*([^()]+?)(?=\s*\(|$)/i);
-  return match?.[1]?.trim().replace(/[.\s]+$/, "") ?? "";
+  const text = plainText(body);
+  const afterDuration = text.match(/\(\s*\d+\s*(?:mins?|minutos?)\.?\s*\)\s*([^()]+?)(?=\s*\(|$)/i);
+  if (afterDuration) return afterDuration[1].trim().replace(/[.\s]+$/, "");
+
+  // In some EPUB layouts, the time is in the heading and the body begins directly
+  // with the scripture range (followed by the study lesson reference).
+  const withoutDuration = text.match(/^([\s\S]+?)(?=\s*\(\s*(?:th|lmd)\b|$)/i);
+  return withoutDuration?.[1]?.trim().replace(/[.\s]+$/, "") ?? "";
 }
 function sectionFromHeading(value: string): Section | null {
   const text = normalizeForParsing(value);
@@ -240,7 +252,7 @@ export function parseMeetingGuideEpub(bytes: Uint8Array, filename = "guia.epub")
         originalHeading: parsed.title,
         body,
         section: activeSection,
-        minutes: extractMinutes(body, DEFAULT_DURATIONS[parsed.number] ?? 5),
+        minutes: extractMinutes(`${header[1]} ${body}`, DEFAULT_DURATIONS[parsed.number] ?? 5),
       });
     }
 
@@ -404,11 +416,11 @@ export function applyMeetingGuideTitles(program: MeetingProgramDetail, week: Mee
 
     if (assignment.assignmentType === "bible_study") {
       const study = { ...assignment, section: "living" as const, isStudentPart: false };
-      buildSlot(study, "bible_study_conductor", "Estudio bíblico de la congregación (Conductor)", 30, nextOrderIndex++, false);
-      buildSlot(study, "bible_study_reader", "Estudio bíblico de la congregación (Lector)", 30, nextOrderIndex++, false);
+      buildSlot(study, "bible_study_conductor", "Estudio bíblico de la congregación (Conductor)", study.durationMinutes, nextOrderIndex++, false);
+      buildSlot(study, "bible_study_reader", "Estudio bíblico de la congregación (Lector)", study.durationMinutes, nextOrderIndex++, false);
     } else {
       const paired = ["conversation", "revisit", "disciples", "explain_beliefs"].includes(assignment.assignmentType);
-      const durationMinutes = assignment.assignmentType === "treasures_talk" ? 10 : assignment.durationMinutes;
+      const durationMinutes = assignment.durationMinutes;
       buildSlot(assignment, assignment.assignmentType as NonNullable<AssignmentSlotDetail["assignmentType"]>,
         title, durationMinutes, nextOrderIndex++, paired);
     }
