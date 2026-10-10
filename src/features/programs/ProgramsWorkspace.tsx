@@ -589,7 +589,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
     const roleErrors = validateAssignmentRoleRestrictions(selectedProgram, members);
     if (roleErrors.length > 0) {
-      setPageError("No se puede guardar el programa. Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
+      setPageError("No se puede guardar el programa. Corrige estas restricciones:\n• " + roleErrors.slice(0, 8).join("\n• "));
       return;
     }
 
@@ -628,7 +628,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     }
     const roleErrors = validateAssignmentRoleRestrictions(selectedProgram, members);
     if (roleErrors.length > 0) {
-      setPageError("No se puede generar el S-140. Corrige estas restricciones:\\n• " + roleErrors.slice(0, 8).join("\\n• "));
+      setPageError("No se puede generar el S-140. Corrige estas restricciones:\n• " + roleErrors.slice(0, 8).join("\n• "));
       return;
     }
     setGenerating(true);
