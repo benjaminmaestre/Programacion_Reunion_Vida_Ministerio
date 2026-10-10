@@ -9,13 +9,13 @@ Aplicación web para administrar el directorio de la congregación, preparar pro
 - **Autenticación Neon Auth y Data API:** configuradas.
 - **Esquema:** migraciones 001 a 006 aplicadas, incluidas reglas de autorización por rol y la RPC transaccional para guardar programas.
 - **Directorio importado y verificado:** 139 personas únicas: 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 128 activos y 11 inactivos. El estado de bautismo está en `NULL` para las 139 personas porque la fuente no lo especificaba.
-- **Seguridad:** RLS está habilitado en las ocho tablas públicas de la aplicación. El acceso de usuarios requiere una cuenta Neon Auth y una fila activa en `public.app_users` con el rol correspondiente.
+- **Seguridad:** RLS está habilitado en las ocho tablas públicas. El modelo de acceso tiene solo dos roles: `administrator` (administrador supremo, una sola cuenta) y `user` (usuario normal).
 
 ## Integración de la aplicación
 
 La base de datos, Neon Auth y Neon Data API están configurados. El frontend usa el SDK de Neon y las políticas RLS de PostgreSQL; el generador S-140 valida la sesión mediante un JWT y consulta los datos con el rol del usuario.
 
-Las contraseñas de cuentas de Supabase Auth no se pueden transferir a Neon Auth; cada usuario necesita crear nuevas credenciales. Las cuentas nuevas no reciben un rol de aplicación automáticamente: un administrador debe asociarlas a `public.app_users`.
+Las contraseñas de cuentas antiguas de Supabase Auth no se pueden transferir a Neon Auth. El registro público está bloqueado. Solo el administrador supremo puede crear o habilitar cuentas desde **Usuarios**; los usuarios normales gestionan participantes, relaciones y programaciones, pero no pueden crear accesos.
 
 ## Migraciones SQL
 
