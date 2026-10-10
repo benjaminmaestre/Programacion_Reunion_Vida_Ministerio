@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, LockKeyhole, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isNeonConfigured } from "@/lib/neon/env";
