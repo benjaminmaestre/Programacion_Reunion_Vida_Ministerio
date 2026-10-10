@@ -79,8 +79,8 @@ export const ProgramsWorkspace: React.FC = () => {
       getMeetingProgramsFromNeon(neon),
     ]);
     setUserId(activeUserId);
-    setCanManage(["administrator", "elder", "coordinator"].includes(appUser.role));
-    setCanConfirmEligibility(["administrator", "elder"].includes(appUser.role));
+    setCanManage(["administrator", "user"].includes(appUser.role));
+    setCanConfirmEligibility(["administrator", "user"].includes(appUser.role));
     setMembers(directory.members);
     setPrograms(savedPrograms);
     setSelectedProgramId((current) => savedPrograms.some((program) => program.id === current)
@@ -342,7 +342,7 @@ export const ProgramsWorkspace: React.FC = () => {
         <label className="block text-sm">Contraseña<input name="password" type="password" required autoComplete="current-password" className="mt-1 w-full rounded border p-2" /></label>
         {loginError && <p role="alert" className="text-sm text-red-700">{loginError}</p>}
         <button disabled={signingIn} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{signingIn ? "Ingresando…" : "Entrar"}</button>
-        <p className="text-sm text-slate-600">¿Primera vez aquí? <a className="font-semibold text-blue-700 underline" href="/auth/register">Crear cuenta Neon</a>. Un administrador debe autorizar tu acceso.</p>
+        <p className="text-sm text-slate-600">¿No tienes acceso? Solicítale al administrador supremo que cree tu cuenta.</p>
       </form>
     </main>
   );
@@ -465,7 +465,7 @@ export const ProgramsWorkspace: React.FC = () => {
                 )}
                 <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm md:col-span-2">
                   <input type="checkbox" checked={selectedProgram.leadershipReviewConfirmed === true} disabled={!!readOnly || (mode === "connected" && !canConfirmEligibility)} onChange={(event) => { updateProgram({ ...selectedProgram, leadershipReviewConfirmed: event.target.checked, leadershipReviewConfirmedBy: event.target.checked ? userId ?? undefined : undefined, leadershipReviewConfirmedAt: event.target.checked ? selectedProgram.leadershipReviewConfirmedAt : undefined, updatedAt: new Date().toISOString() }); setFeedback(""); }} className="mt-1" />
-                  <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Solo un anciano o administrador debe confirmar la elegibilidad antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
+                  <span><strong>Presidencia y Consejería revisadas</strong><span className="block text-xs text-slate-600">Un usuario autorizado puede registrar la revisión antes de publicar. Cambiar el presidente o consejero invalida esta revisión.</span></span>
                 </label>
               </div>
               <div className="overflow-hidden rounded-xl border divide-y">
@@ -517,7 +517,7 @@ export const ProgramsWorkspace: React.FC = () => {
                 </div>}
                 <button type="button" onClick={() => void handleGenerateS140()} disabled={generating || mode !== "connected"} className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"><Download className="h-4 w-4" />{generating ? "Generando S-140…" : "Generar S-140"}</button>
               </div>
-              {!canManage && mode === "connected" && <p className="text-sm text-amber-700"><ShieldAlert className="mr-1 inline h-4 w-4" />Tu rol no permite editar ni publicar programas.</p>}
+              {!canManage && mode === "connected" && <p className="text-sm text-amber-700"><ShieldAlert className="mr-1 inline h-4 w-4" />Tu cuenta no tiene permiso para editar ni publicar programas.</p>}
             </>
           )}
         </section>
