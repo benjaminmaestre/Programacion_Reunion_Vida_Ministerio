@@ -54,18 +54,28 @@ function formatSpanishDate(iso:string):string {
 }
 function pairNames(speaker:string,assistant?:string):string { const a=speaker.trim(),b=assistant?.trim(); return a&&b?a+" / "+b:a||b||""; }
 function compactLongTitleRun(xml: string, title: string): string {
-  if (title.trim().length < 18) return xml;
+  const normalizedTitle = title.trim();
+  if (normalizedTitle.length < 18) return xml;
   let changed = false;
   return xml.replace(/<w:r\b[\s\S]*?<\/w:r>/g, (run) => {
-    if (changed || !visibleText(run).includes(title.trim()) || !/<w:rPr\b/.test(run)) return run;
-    const sizeTag = /<w:sz\b[^>]*\/>/.exec(run)?.[0];
-    if (!sizeTag) return run;
-    const sizeValue = Number(/w:val=["'](\d+)["']/.exec(sizeTag)?.[1] ?? 0);
-    if (!sizeValue || sizeValue <= 14) return run;
+    if (changed || !visibleText(run).includes(normalizedTitle)) return run;
     changed = true;
-    return run
-      .replace(/<w:sz\b[^>]*\/>/, '<w:sz w:val="14"/>')
-      .replace(/<w:szCs\b[^>]*\/>/, '<w:szCs w:val="14"/>');
+    const runProperties = /<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/.exec(run)?.[0];
+    if (runProperties) {
+      let compactProperties = runProperties;
+      if (/<w:sz\b[^>]*\/>/.test(compactProperties)) {
+        compactProperties = compactProperties.replace(/<w:sz\b[^>]*\/>/, '<w:sz w:val="16"/>');
+      } else {
+        compactProperties = compactProperties.replace(/<\/w:rPr>$/, '<w:sz w:val="16"/>');
+      }
+      if (/<w:szCs\b[^>]*\/>/.test(compactProperties)) {
+        compactProperties = compactProperties.replace(/<w:szCs\b[^>]*\/>/, '<w:szCs w:val="16"/>');
+      } else {
+        compactProperties = compactProperties.replace(/<\/w:rPr>$/, '<w:szCs w:val="16"/>');
+      }
+      return run.replace(runProperties, compactProperties);
+    }
+    return run.replace(/^(<w:r\b[^>]*>)/, '$1<w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr>');
   });
 }
 
@@ -136,6 +146,7 @@ function fillMinistryTable(table:string,data:S140AssignmentData):string {
     if(rowIndex===0)return row;
     if(rowIndex===1){
       let current=setTextNode(row,"[Título]",parts[0]?.title||"",0);
+      current=compactLongTitleRun(current, parts[0]?.title || "");
       current=setTextNode(current,"(X mins.)",parts[0]?"("+(parts[0].durationMinutes??3)+" mins.)":"",0);
       current=setTextNode(current,"[Consejero]",data.auxiliaryCounselor||"",0);
       return setTextNode(current,"[Presidente]",data.chairman||"",0);
@@ -194,25 +205,26 @@ function createTwoMeetingPageTemplate(documentXml: string): { body: string; sect
   if (!match) throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
 
   const rawSection = match[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ?? "";
-  const section = compactSectionMargins(rawSection);
+  const section = compactSectionMargins(rawSection.replace(/<w:docGrid\b[^>]*\/>/g, ""));
   let body = match[1].replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/, "");
   const formStarts = findS140FormStarts(body);
   if (formStarts.length < 2) {
     throw new Error("La plantilla S-140 no contiene espacio para dos reuniones por página.");
   }
 
-  if (formStarts.length > 2) {
-    const secondStart = formStarts[1].offset;
-    const thirdStart = formStarts[2].offset;
-    const betweenSecondAndThird = body.slice(secondStart, thirdStart);
-    const explicitBreaks = [...betweenSecondAndThird.matchAll(/<w:br\b[^>]*\bw:type=["']page["'][^>]*\/>/g)];
-    const breakBeforeParagraphs = [...betweenSecondAndThird.matchAll(/<w:p\b[^>]*>[\s\S]*?<w:pageBreakBefore\b[^>]*\/>[\s\S]*?<\/w:p>/g)];
-    const lastBreak = [
-      explicitBreaks.length ? { index: explicitBreaks[explicitBreaks.length - 1].index ?? -1 } : null,
-      breakBeforeParagraphs.length ? { index: breakBeforeParagraphs[breakBeforeParagraphs.length - 1].index ?? -1 } : null,
-    ].filter((entry): entry is { index: number } => Boolean(entry && entry.index >= 0))
-      .sort((a, b) => b.index - a.index)[0];
-    body = body.slice(0, lastBreak ? secondStart + lastBreak.index : thirdStart);
+  if (formStarts.length > 1) {
+    // Cada formulario S-140 usa cinco tablas; descartamos el encabezado sobrante
+    // que la plantilla trae inmediatamente después del segundo formulario.
+    const targetTableIndex = formStarts[1].tableIndex + 4;
+    let tableIndex = 0;
+    let targetEnd = -1;
+    body.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table, offset: number) => {
+      if (tableIndex === targetTableIndex) targetEnd = offset + table.length;
+      tableIndex += 1;
+      return table;
+    });
+    if (targetEnd < 0) throw new Error("No se pudo delimitar el segundo formulario de la plantilla S-140.");
+    body = body.slice(0, targetEnd);
   }
 
   return { body: stripTemplatePageBreaks(body), section };

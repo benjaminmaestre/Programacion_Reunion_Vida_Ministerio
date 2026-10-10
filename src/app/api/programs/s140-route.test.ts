@@ -355,6 +355,8 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     const outputXml = outputZip.file("word/document.xml")?.asText() ?? "";
     expect(outputXml).toContain("5 de noviembre de 2026");
     expect(outputXml).toContain('w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"');
+    expect(outputXml).not.toContain("<w:docGrid");
+    expect((outputXml.match(/LAS VIOLETAS/g) ?? []).length).toBe(1);
     generatorSpy.mockRestore();
   });
 });
