@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DirectoryMember } from "../members/demo-data";
 import type { MeetingProgramDetail } from "./program-types";
 import { invalidateReviewIfChanged, validateProgramForPublication } from "./program-validation";
+import { isWhatWouldYouSayAssignment, slotRequiresAppointedBrother, validateAssignmentRoleRestrictions } from "./assignment-eligibility";
 
 const members: DirectoryMember[] = [
   { id: "m1", firstName: "Laura", lastName: "Vega", gender: "female", appointment: "none", isActive: true, isBaptized: true },
@@ -9,6 +10,7 @@ const members: DirectoryMember[] = [
   { id: "m3", firstName: "David", lastName: "Morales", gender: "male", appointment: "elder", isActive: true, isBaptized: true },
   { id: "m4", firstName: "Carlos", lastName: "Jiménez", gender: "male", appointment: "none", isActive: false, isBaptized: null },
   { id: "m5", firstName: "Miguel", lastName: "Ríos", gender: "male", appointment: "ministerial_servant", isActive: true, isBaptized: true },
+  { id: "m6", firstName: "Andrés", lastName: "Pérez", gender: "male", appointment: "none", isActive: true, isBaptized: true },
 ];
 
 function program(overrides: Partial<MeetingProgramDetail> = {}): MeetingProgramDetail {
@@ -47,6 +49,59 @@ describe("validación de publicación de programas", () => {
     expect(result.isValid).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([]);
+  });
+
+  it("exige que el presidente sea anciano, sin excepción por el número de ancianos", () => {
+    const candidate = program({ chairmanId: "m5" });
+    const result = validateProgramForPublication(candidate, members);
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain("El presidente de la reunión debe ser un anciano activo.");
+  });
+
+  it("reserva ¿Qué diría? a ancianos o siervos ministeriales, pero deja el resto de estudiantes según sus requisitos generales", () => {
+    const unappointedSpeaker = program({ slots: [{
+      ...program().slots[0],
+      section: "ministers",
+      title: "¿Qué diría?",
+      assignmentType: "student_talk",
+      primaryParticipantId: "m6",
+      assistantParticipantId: undefined,
+    }] });
+    const rejected = validateProgramForPublication(unappointedSpeaker, members);
+    expect(rejected.errors).toContain("¿Qué diría?: la parte «¿Qué diría?» requiere un anciano o siervo ministerial activo.");
+
+    const appointedSpeaker = program({ slots: [{
+      ...program().slots[0],
+      section: "ministers",
+      title: "¿Qué diría?",
+      assignmentType: "student_talk",
+      primaryParticipantId: "m5",
+      assistantParticipantId: undefined,
+    }] });
+    expect(validateProgramForPublication(appointedSpeaker, members).errors).toEqual([]);
+  });
+
+  it("identifica las asignaciones reservadas y bloquea borradores con nombramientos incorrectos", () => {
+    expect(slotRequiresAppointedBrother({ section: "treasures", title: "Tesoros", assignmentType: "treasures_talk" })).toBe(true);
+    expect(slotRequiresAppointedBrother({ section: "treasures", title: "Lectura de la Biblia", assignmentType: "bible_reading" })).toBe(false);
+    expect(slotRequiresAppointedBrother({ section: "ministers", title: "¿Qué diría?", assignmentType: "student_talk" })).toBe(true);
+    expect(isWhatWouldYouSayAssignment({ section: "ministers", title: "Que diria?" })).toBe(true);
+    expect(slotRequiresAppointedBrother({ section: "ministers", title: "Hagamos revisitas", assignmentType: "revisit" })).toBe(false);
+
+    const candidate = program({
+      chairmanId: "m5",
+      slots: [{
+        ...program().slots[0],
+        section: "ministers",
+        title: "¿Qué diría?",
+        assignmentType: "student_talk",
+        primaryParticipantId: "m6",
+        assistantParticipantId: undefined,
+      }],
+    });
+    const errors = validateAssignmentRoleRestrictions(candidate, members);
+    expect(errors).toContain("El presidente de la reunión debe ser un anciano activo.");
+    expect(errors).toContain("¿Qué diría?: el participante debe ser un anciano o siervo ministerial activo.");
   });
 
   it("permite semanas de asamblea sin intervenciones ordinarias", () => {
