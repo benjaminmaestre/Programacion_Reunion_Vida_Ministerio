@@ -275,8 +275,8 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
           return {
             select: vi.fn().mockResolvedValue({
               data: [
-                { id: "m-1", first_name: "David", last_name: "Morales", is_active: true },
-                { id: "m-2", first_name: "Félix", last_name: "Pérez", is_active: true },
+                { id: "m-1", first_name: "David", last_name: "Morales", gender: "male", appointment: "elder", is_active: true },
+                { id: "m-2", first_name: "Félix", last_name: "Pérez", gender: "male", appointment: "ministerial_servant", is_active: true },
               ],
               error: null,
             }),
