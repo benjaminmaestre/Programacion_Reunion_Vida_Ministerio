@@ -286,6 +286,71 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .gate-actions { display: flex; justify-content: flex-start; }
   .gate-footnote { margin: 23px 0 0; padding-top: 16px; border-top: 1px solid var(--color-border); color: #8a95a5; font-size: 10px; line-height: 1.6; }
 
+  /* Selector EPUB visual y estado explícito del archivo elegido */
+  .guide-upload-input {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  .guide-upload {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; padding: 13px;
+    border: 1px dashed #d8a65e; border-radius: 10px; color: var(--color-text);
+    background: #fffaf1; cursor: pointer; transition: background .16s, border-color .16s, box-shadow .16s;
+  }
+  .guide-upload:hover { border-color: #bc7b24; background: #fff5e2; }
+  .guide-upload-input:focus-visible + .guide-upload {
+    outline: 3px solid rgba(30, 58, 95, .35); outline-offset: 3px;
+  }
+  .guide-upload.is-selected {
+    border: 1px solid #91c9a9; background: #f0faf3;
+  }
+  .guide-upload.is-selected:hover { border-color: #369363; background: #eaf8ef; }
+  .guide-upload.is-disabled { cursor: not-allowed; opacity: .65; }
+  .guide-upload-icon {
+    display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
+    border-radius: 9px; color: #9a6118; background: #ffedce;
+  }
+  .guide-upload.is-selected .guide-upload-icon { color: #20784f; background: #d9f2e2; }
+  .guide-upload-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
+  .guide-upload-copy > strong { font-size: 12px; line-height: 1.3; }
+  .guide-upload-copy > span:not(.guide-upload-filename) { color: var(--color-text-muted); font-size: 10.5px; line-height: 1.45; }
+  .guide-upload-filename {
+    display: flex; align-items: center; gap: 5px; min-width: 0; margin-top: 2px;
+    color: #176b47; font-size: 11px; font-weight: 800; overflow-wrap: anywhere; word-break: break-word;
+  }
+  .guide-upload-filename > span { min-width: 0; }
+  .guide-upload-action {
+    flex: 0 0 auto; padding: 7px 9px; border: 1px solid #e1c18b; border-radius: 7px;
+    color: #895914; background: rgba(255,255,255,.8); font-size: 10px; font-weight: 800; white-space: nowrap;
+  }
+  .guide-upload.is-selected .guide-upload-action { border-color: #b8dec6; color: #176b47; }
+  .guide-period-note {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin: 10px 0 0;
+    padding: 8px 10px; border: 1px solid #c5e7d2; border-radius: 7px;
+    color: #236c4b; background: #effaf3; font-size: 10.5px; line-height: 1.5;
+  }
+  .guide-period-note strong { color: #185b3c; }
+  .guide-weeks-preview {
+    max-height: 320px; overflow: auto; border: 1px solid var(--color-border);
+    border-radius: 9px; text-align: left; background: #fff;
+  }
+  .guide-week-preview { padding: 12px; border-bottom: 1px solid var(--color-border); }
+  .guide-week-preview:last-child { border-bottom: 0; }
+  .guide-week-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .guide-week-heading strong { font-size: 12px; }
+  .guide-week-heading > span { flex-shrink: 0; color: var(--color-text-muted); font-size: 10px; }
+  .guide-week-reading { margin: 5px 0 10px; color: var(--color-text-muted); font-size: 10.5px; }
+  .guide-preview-assignments { display: grid; gap: 5px; }
+  .guide-preview-assignment {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+    padding: 6px 7px; border-radius: 6px; background: #f8fafc;
+  }
+  .guide-preview-assignment-title { display: flex; gap: 5px; min-width: 0; font-size: 10.5px; line-height: 1.45; }
+  .guide-preview-number { flex: 0 0 auto; color: var(--color-text-muted); font-weight: 800; }
+  .guide-preview-duration {
+    flex: 0 0 auto; margin-top: 1px; padding: 3px 6px; border-radius: 5px;
+    color: #895914; background: #fff0d4; font-size: 9.5px; font-weight: 850; line-height: 1.2; white-space: nowrap;
+  }
+
   /* Popover de historial de asignaciones en selector de participante */
   .select-wrapper { position: relative; display: block; width: 100%; }
   .history-popover {
@@ -305,6 +370,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .popover-item-meta { font-size: 9.5px; color: var(--color-text-muted); }
   .popover-item-date { color: var(--color-primary); font-weight: 700; font-size: 9.5px; white-space: nowrap; }
   .popover-empty { color: var(--color-text-muted); font-size: 10px; text-align: center; padding: 6px 0; }
+}
+
+@media (max-width: 480px) {
+  .gate-page { padding: 16px; }
+  .gate-panel { padding: 22px 18px; }
+  .gate-brand { align-items: flex-start; font-size: 12px; line-height: 1.4; }
+  .guide-upload { gap: 9px; padding: 10px; }
+  .guide-upload-icon { flex-basis: 36px; width: 36px; height: 36px; }
+  .guide-upload-action { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
