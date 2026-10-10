@@ -8,7 +8,7 @@ import type {
 } from "./demo-data";
 
 type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
-export type AppUserRole = "administrator" | "elder" | "coordinator" | "viewer";
+export type AppUserRole = "administrator" | "user";
 
 interface AppUserRow {
   user_id: string;
@@ -62,7 +62,7 @@ export class MembershipRequiredError extends Error {
 }
 
 export class PermissionRequiredError extends Error {
-  constructor(message = "Tu rol no permite realizar esta operación.") {
+  constructor(message = "Tu cuenta no tiene permisos para realizar esta operación.") {
     super(message);
     this.name = "PermissionRequiredError";
   }
@@ -109,10 +109,10 @@ function toDatabaseRow(input: MemberWriteInput) {
 }
 
 function canManageDirectory(role: AppUserRole) {
-  return role === "administrator" || role === "elder" || role === "coordinator";
+  return role === "administrator" || role === "user";
 }
 
-/** Verifica la membresía activa y el rol antes de ejecutar operaciones administrativas. */
+/** Verifica que la cuenta esté activa antes de ejecutar operaciones protegidas. */
 export async function assertCanManageDirectory(
   neon: NeonBrowserClient,
   userId: string,
