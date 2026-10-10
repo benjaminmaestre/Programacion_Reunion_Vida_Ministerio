@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import {
   AlertTriangle, BookOpen, Eye, EyeOff, Gem, LockKeyhole, Mail,
-  Network, ShieldCheck, Users,
+  Languages, Network, ShieldCheck, Users,
 } from "lucide-react";
 
 type LoginScreenProps = {
@@ -47,6 +47,7 @@ export function LoginScreen({
           </svg>
           <div className="auth-illustration-icons">
             <div className="auth-icon-tile auth-icon-users"><Users size={36} strokeWidth={1.5} /></div>
+            <div className="auth-icon-tile auth-icon-translate"><Languages size={36} strokeWidth={1.5} /></div>
             <div className="auth-icon-tile auth-icon-gem"><Gem size={38} strokeWidth={1.5} /></div>
             <div className="auth-icon-tile auth-icon-network"><Network size={38} strokeWidth={1.5} /></div>
             <div className="auth-book-emblem"><BookOpen size={100} strokeWidth={1.35} /></div>
@@ -61,7 +62,7 @@ export function LoginScreen({
 
       <div className="auth-login-side">
         <div className="auth-login-card">
-          <div className="auth-login-mark">RVM</div>
+          <img className="auth-login-mark" src="/images/jw-org-logo.webp" alt="JW.org" width={72} height={72} />
           <h2>Iniciar sesión</h2>
           <p className="auth-login-description">{description}</p>
 
