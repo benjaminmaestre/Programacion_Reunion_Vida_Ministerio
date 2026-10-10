@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDefaultMeetingProgram, calculateBimonthCycle, calculateHistoryPeriod } from "./program-builder";
+import { buildDefaultMeetingProgram, calculateBimonthCycle, calculateHistoryPeriod, formatBimonthCycleLabel } from "./program-builder";
 
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -37,6 +37,15 @@ describe("Constructor de programas e identificadores UUID válidos", () => {
     expect(calculateHistoryPeriod("2026-06-30")).toBe("2026-S1");
     expect(calculateHistoryPeriod("2026-07-01")).toBe("2026-S2");
     expect(calculateHistoryPeriod("2026-12-31")).toBe("2026-S2");
+  });
+
+  it("presenta los ciclos en orden enero-febrero, marzo-abril y así sucesivamente", () => {
+    expect(formatBimonthCycleLabel("2027-1")).toBe("Enero - Febrero 2027");
+    expect(formatBimonthCycleLabel("2027-2")).toBe("Marzo - Abril 2027");
+    expect(formatBimonthCycleLabel("2027-3")).toBe("Mayo - Junio 2027");
+    expect(formatBimonthCycleLabel("2027-4")).toBe("Julio - Agosto 2027");
+    expect(formatBimonthCycleLabel("2027-5")).toBe("Septiembre - Octubre 2027");
+    expect(formatBimonthCycleLabel("2027-6")).toBe("Noviembre - Diciembre 2027");
   });
 
   it("construye la estructura adecuada según el tipo de semana (normal, visita, asamblea, conmemoración)", () => {

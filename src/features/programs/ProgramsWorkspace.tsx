@@ -11,7 +11,7 @@ import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
-import { buildDefaultMeetingProgram, calculateBimonthCycle } from "./program-builder";
+import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
 import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
 import type { Section, WeekType } from "@/types/domain";
@@ -45,6 +45,13 @@ function addDays(value: string, days: number) {
 }
 function Gate({ children }: { children: React.ReactNode }) {
   return <div className="gate-page" style={{ minHeight: "100vh" }}><section className="gate-panel">{children}</section></div>;
+}
+
+function findInactiveAssignedIds(program: MeetingProgramDetail, members: DirectoryMember[]): string[] {
+  const activeIds = new Set(members.filter((member) => member.isActive).map((member) => member.id));
+  const assignedIds = [program.chairmanId, program.auxiliaryCounselorId,
+    ...program.slots.flatMap((slot) => [slot.primaryParticipantId, slot.assistantParticipantId])];
+  return [...new Set(assignedIds.filter((id): id is string => Boolean(id) && !activeIds.has(id as string)))];
 }
 
 function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingProgramDetail | undefined) {
@@ -472,6 +479,10 @@ export const ProgramsWorkspace: React.FC = () => {
       setPageError("Este programa está publicado y es de solo lectura para proteger el historial.");
       return;
     }
+    if (findInactiveAssignedIds(selectedProgram, members).length > 0) {
+      setPageError("No se puede guardar: hay participantes inactivos asignados. Reemplaza esas asignaciones por personas activas.");
+      return;
+    }
 
     if (status === "published") {
       const validation = validateProgramForPublication(selectedProgram, members);
@@ -500,6 +511,10 @@ export const ProgramsWorkspace: React.FC = () => {
   async function handleGenerateS140() {
     if (!selectedProgram || generating || mode !== "connected" || !client || !userId) {
       setPageError("La generación del S-140 requiere una sesión conectada a Neon.");
+      return;
+    }
+    if (findInactiveAssignedIds(selectedProgram, members).length > 0) {
+      setPageError("No se puede generar el S-140: hay participantes inactivos asignados. Reemplaza esas asignaciones por personas activas.");
       return;
     }
     setGenerating(true);
@@ -620,6 +635,15 @@ export const ProgramsWorkspace: React.FC = () => {
   const reviewed = slots.filter((s) => s.eligibilityConfirmed).length;
   const resetLeadership = { leadershipReviewConfirmed: false, leadershipReviewConfirmedBy: undefined, leadershipReviewConfirmedAt: undefined };
   const people = (opts: DirectoryMember[]) => opts.map((m) => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>);
+  const isAppointedBrother = (member: DirectoryMember) =>
+    member.isActive && member.gender === "male"
+    && (member.appointment === "elder" || member.appointment === "ministerial_servant");
+  const peopleForSlot = (slot: AssignmentSlotDetail) => {
+    const requiresAppointment = slot.assignmentType === "treasures_talk"
+      || slot.assignmentType === "gems"
+      || slot.section === "living";
+    return people(requiresAppointment ? activeMembers.filter(isAppointedBrother) : activeMembers);
+  };
 
   // El resumen refleja exactamente las semanas presentes en la guía bimestral activa.
   const cycleKey = activeGuide
@@ -670,7 +694,7 @@ export const ProgramsWorkspace: React.FC = () => {
             const draft = list.filter((p) => p.status === "draft").length;
             return (
               <article key={cycle} className="panel" style={{ padding: 20 }}>
-                <h3 style={{ margin: "0 0 8px", font: "500 20px var(--font-display)" }}>Ciclo {cycle}</h3>
+                <h3 style={{ margin: "0 0 8px", font: "500 20px var(--font-display)" }}>{formatBimonthCycleLabel(cycle)}</h3>
                 <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: 13 }}>{list.length} reuniones · {pub} publicadas · {draft} borradores</p>
               </article>
             );
@@ -681,7 +705,7 @@ export const ProgramsWorkspace: React.FC = () => {
           {programs.length > 0 && (
             <>
               <div className="cycle-line">
-                <span><strong>Ciclo {cycleKey}</strong> · {cycleWeeks.length} semanas</span>
+                <span><strong>{formatBimonthCycleLabel(cycleKey ?? "")}</strong> · {cycleWeeks.length} semanas</span>
                 <span>{scheduledCount} de {cycleWeeks.length} programadas · {publishedCount} publicadas</span>
               </div>
               <div className="date-strip" role="group" aria-label="Semanas del ciclo">
@@ -714,7 +738,7 @@ export const ProgramsWorkspace: React.FC = () => {
             <div className="meeting-grid">
               <div>
                 <h2 className="meeting-title">{longDate(selectedProgram.meetingDate)}</h2>
-                <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · Ciclo {selectedProgram.bimonthCycle}</p>
+                <p className="meeting-sub">{WEEK_LABELS[selectedProgram.weekType]} · {formatBimonthCycleLabel(selectedProgram.bimonthCycle)}</p>
 
                 {readOnly && (
                   <div className="alert-info">
@@ -782,14 +806,14 @@ export const ProgramsWorkspace: React.FC = () => {
                                   <label className="lbl">Titular
                                     <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
                                       onChange={(e) => updateSlot(slot.id, { primaryParticipantId: e.target.value || undefined }, true)}>
-                                      <option value="">Seleccionar titular…</option>{people(activeMembers)}
+                                      <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
                                     </select>
                                   </label>
                                   {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && (
                                     <label className="lbl">Ayudante
                                       <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
                                         onChange={(e) => updateSlot(slot.id, { assistantParticipantId: e.target.value || undefined }, true)}>
-                                        <option value="">Seleccionar ayudante…</option>{people(activeMembers)}
+                                        <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
                                       </select>
                                     </label>
                                   )}

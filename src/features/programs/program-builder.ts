@@ -9,6 +9,19 @@ export function calculateBimonthCycle(dateStr: string): string {
   return `${year}-${bimonthNumber}`;
 }
 
+const BIMONTH_LABELS = [
+  "Enero - Febrero", "Marzo - Abril", "Mayo - Junio",
+  "Julio - Agosto", "Septiembre - Octubre", "Noviembre - Diciembre",
+];
+
+export function formatBimonthCycleLabel(cycleKey: string): string {
+  const match = cycleKey.match(/^(\d{4})-(\d)$/);
+  if (!match) return cycleKey;
+  const cycleNumber = Number(match[2]);
+  const label = BIMONTH_LABELS[cycleNumber - 1];
+  return label ? `${label} ${match[1]}` : cycleKey;
+}
+
 export function calculateHistoryPeriod(dateStr: string): string {
   const date = new Date(`${dateStr}T12:00:00Z`);
   const year = date.getUTCFullYear();
