@@ -78,6 +78,19 @@ export async function POST(
     }
 
     const members = (memberRows ?? []) as MemberRow[];
+    const membersById = new Map(members.map((member) => [member.id, member]));
+    const slots = (slotRows ?? []) as SlotRow[];
+    const assignedIds = [
+      program.chairman_id,
+      program.auxiliary_counselor_id,
+      ...slots.flatMap((slot) => [slot.primary_participant_id, slot.assistant_participant_id]),
+    ].filter((id): id is string => typeof id === "string" && id.length > 0);
+    const inactiveAssignedIds = [...new Set(assignedIds.filter((id) => membersById.get(id)?.is_active !== true))];
+    if (inactiveAssignedIds.length > 0) {
+      return NextResponse.json({
+        error: "No se puede generar el S-140: hay participantes inactivos o ausentes del directorio en el programa. Reasigna esas funciones a personas activas.",
+      }, { status: 409 });
+    }
     const memberNames = new Map(
       members.map((member) => [
         member.id,
@@ -85,7 +98,6 @@ export async function POST(
       ]),
     );
     const nameFor = (id: string | null | undefined) => id ? memberNames.get(id) ?? "" : "";
-    const slots = (slotRows ?? []) as SlotRow[];
     const byType = (type: string) => slots.find((slot) => slot.assignment_type === type);
     const treasures = byType("treasures_talk");
     const gems = byType("gems");

@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
         <section className="gate-panel">
           <div className="gate-icon"><LockKeyhole size={22} /></div>
           <h1 className="gate-title">Inicia sesión</h1>
-          <p className="gate-description">Solo el administrador supremo puede crear o habilitar cuentas.</p>
+          <p className="gate-description">Solo el administrador puede crear o habilitar cuentas.</p>
           <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }} href="/">Volver al inicio de sesión</a>
         </section>
       </main>
@@ -163,7 +163,7 @@ export default function AdminUsersPage() {
         <section className="gate-panel">
           <div className="gate-icon"><ShieldCheck size={22} /></div>
           <h1 className="gate-title">Acceso restringido</h1>
-          <p className="gate-description">La administración de cuentas está reservada al administrador supremo. Tu rol no permite crear usuarios ni conceder acceso a la plataforma.</p>
+          <p className="gate-description">La administración de cuentas está reservada al administrador. Tu rol no permite crear usuarios ni conceder acceso a la plataforma.</p>
           <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center" }} href="/">Volver a la aplicación</a>
         </section>
       </main>
@@ -248,7 +248,7 @@ export default function AdminUsersPage() {
                     <p className="member-name">{user.display_name || user.email || "Usuario"}</p>
                     <p className="member-meta" style={{ marginTop: 2 }}>{user.email || user.user_id}</p>
                     <p className="member-meta" style={{ marginTop: 4 }}>
-                      {user.role === "administrator" ? "Administrador supremo" : "Usuario"} · creado {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(user.created_at))}
+                      {user.role === "administrator" ? "Administrador" : "Usuario"} · creado {new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(user.created_at))}
                     </p>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
