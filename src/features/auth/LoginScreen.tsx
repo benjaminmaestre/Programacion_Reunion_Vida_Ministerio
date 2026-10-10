@@ -23,17 +23,19 @@ export function LoginScreen({
   return (
     <section className="auth-screen" aria-label="Inicio de sesión">
       <div className="auth-visual">
-        <div className="auth-visual-brand">
-          <span className="auth-brand-mark">RVM</span>
-          <span>Reunión Vida y Ministerio Cristianos</span>
-        </div>
+        <div className="auth-visual-heading">
+          <div className="auth-visual-brand">
+            <span className="auth-brand-mark">RVM</span>
+            <span>Reunión Vida y Ministerio Cristianos</span>
+          </div>
 
-        <div className="auth-visual-copy">
-          <p className="auth-eyebrow">Planificación de la congregación</p>
-          <h1>Programación de la Reunión Vida y Ministerio Cristianos</h1>
-          <p className="auth-visual-description">
-            Organiza las asignaciones semanales, consulta la participación y prepara los formularios S-140 desde un mismo lugar.
-          </p>
+          <div className="auth-visual-copy">
+            <p className="auth-eyebrow">Planificación de la congregación</p>
+            <h1>Programación de la Reunión Vida y Ministerio Cristianos</h1>
+            <p className="auth-visual-description">
+              Organiza las asignaciones semanales, consulta la participación y prepara los formularios S-140 desde un mismo lugar.
+            </p>
+          </div>
         </div>
 
         <div className="auth-illustration">
