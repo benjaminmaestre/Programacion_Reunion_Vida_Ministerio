@@ -419,7 +419,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     position: relative; display: flex; flex-direction: column; justify-content: space-between;
     min-width: 0; min-height: 100vh; padding: clamp(30px, 4.6vw, 66px);
     overflow: hidden; color: #fff;
-    background: linear-gradient(145deg, #4d72a9 0%, #3b629b 55%, #294d80 100%);
+    background: #496ca6;
   }
   .auth-visual::before, .auth-visual::after {
     position: absolute; content: ""; border: 1px solid rgba(255,255,255,.10);
@@ -449,26 +449,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     max-width: 47ch; margin: 18px 0 0; color: #e0eafa;
     font-size: clamp(13px, 1.2vw, 15px); line-height: 1.75;
   }
-  .auth-illustration { position: relative; z-index: 1; min-height: 250px; margin: 20px -12px 2px; }
-  .auth-wave-lines { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: rgba(255,255,255,.35); stroke-width: 1.1; }
-  .auth-illustration-icons { position: absolute; inset: 0; }
-  .auth-icon-tile {
-    position: absolute; display: grid; place-items: center; width: 68px; height: 68px;
-    border: 1px solid rgba(255,255,255,.45); border-radius: 18px;
-    color: #fff; background: rgba(255,255,255,.09); backdrop-filter: blur(5px);
-  }
-  .auth-icon-users { top: 2%; left: 52%; transform: translateX(-50%); }
-  .auth-icon-translate { top: 2%; left: 8%; }
-  .auth-icon-gem { top: 38%; left: 16%; }
-  .auth-icon-network { top: 38%; right: 16%; }
-  .auth-book-emblem {
-    position: absolute; left: 50%; bottom: 2%; display: grid; place-items: center;
-    width: 190px; height: 110px; transform: translateX(-50%); color: #fff;
-    filter: drop-shadow(0 14px 22px rgba(9,28,61,.12));
+  .auth-illustration { position: relative; z-index: 1; min-height: 0; margin: 20px -12px 2px; }
+  .auth-artwork {
+    display: block; width: 100%; max-width: 760px; max-height: 300px; height: auto;
+    margin: 0 auto; object-fit: contain;
   }
   .auth-visual-caption {
-    position: absolute; z-index: 1; bottom: 16px; left: 0;
-    display: flex; align-items: center; gap: 7px; color: #dbe7f8; font-size: 10.5px;
+    position: relative; z-index: 1; display: flex; align-items: center; gap: 7px;
+    margin: 6px 12px 0; color: #dbe7f8; font-size: 10.5px;
   }
   .auth-visual-footer { position: relative; z-index: 1; margin-top: 22px; color: #dbe7f8; font-size: 10.5px; }
 
@@ -554,10 +542,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .auth-visual-copy { margin-top: 26px; }
   .auth-eyebrow { margin-bottom: 10px; }
   .auth-visual-description { margin-top: 12px; line-height: 1.55; }
-  .auth-illustration { min-height: 145px; max-height: 170px; margin-top: 4px; }
-  .auth-icon-tile { width: 54px; height: 54px; }
-  .auth-book-emblem { width: 150px; height: 80px; }
-  .auth-book-emblem svg { width: 75px; height: 75px; }
+  .auth-illustration { min-height: 0; max-height: none; margin-top: 4px; }
+  .auth-artwork { max-height: 170px; }
+  .auth-visual-caption { margin-top: 5px; }
   .auth-visual-footer { margin-top: 14px; font-size: 10px; }
 }
 
@@ -567,11 +554,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .auth-visual-copy { margin-top: 38px; }
   .auth-visual-copy h1 { max-width: 17ch; font-size: clamp(29px, 6vw, 42px); }
   .auth-visual-description { max-width: 58ch; margin-top: 13px; }
-  .auth-illustration { min-height: 174px; max-height: 205px; margin-top: 10px; }
-  .auth-icon-tile { width: 56px; height: 56px; border-radius: 15px; }
-  .auth-book-emblem { width: 150px; height: 85px; }
-  .auth-book-emblem svg { width: 78px; height: 78px; }
-  .auth-visual-caption { bottom: 3px; }
+  .auth-illustration { min-height: 0; max-height: none; margin-top: 10px; }
+  .auth-artwork { max-height: 230px; }
+  .auth-visual-caption { margin-top: 5px; }
   .auth-visual-footer { margin-top: 16px; }
   .auth-login-side { min-height: auto; padding: 34px 20px 44px; }
   .auth-login-card { width: min(100%, 460px); }
@@ -585,15 +570,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .auth-visual-copy h1 { font-size: 31px; letter-spacing: -1px; }
   .auth-eyebrow { margin-bottom: 11px; font-size: 9px; }
   .auth-visual-description { font-size: 12px; line-height: 1.6; }
-  .auth-illustration { min-height: 145px; }
-  .auth-icon-tile { width: 46px; height: 46px; border-radius: 12px; }
-  .auth-icon-tile svg { width: 25px; height: 25px; }
-  .auth-icon-gem { left: 8%; }
-  .auth-icon-network { right: 8%; }
-  .auth-book-emblem { width: 130px; height: 66px; }
-  .auth-book-emblem svg { width: 63px; height: 63px; }
-  .auth-icon-translate { top: 1%; left: 5%; }
-  .auth-visual-caption { font-size: 9px; }
+  .auth-illustration { min-height: 0; }
+  .auth-artwork { max-height: 190px; }
+  .auth-visual-caption { font-size: 9px; margin-left: 4px; margin-right: 4px; }
   .auth-visual-footer { font-size: 9px; }
   .auth-login-side { padding: 24px 16px 32px; }
   .auth-login-card { padding: 26px 22px; }
