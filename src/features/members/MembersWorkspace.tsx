@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle, Archive, ArrowDownUp, Check, ChevronRight,
   CircleHelp, Clock3, History, ListChecks,
-  KeyRound, LockKeyhole, LogOut, Plus, Search, ShieldCheck,
+  KeyRound, LockKeyhole, Plus, Search, ShieldCheck,
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
@@ -55,7 +55,14 @@ function sortLatest(entries: AssignmentHistoryEntry[]) {
   return [...entries].sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function MembersWorkspace() {
+type SignOutHandler = () => Promise<void>;
+
+export function MembersWorkspace({
+  onRegisterSignOut,
+}: {
+  onRegisterSignOut: (handler: SignOutHandler | null) => void;
+}) {
+  const signOutActionRef = useRef<SignOutHandler | null>(null);
   const [mode, setMode] = useState<WorkspaceMode>("loading");
   const [client, setClient] = useState<NeonBrowserClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -301,13 +308,30 @@ function openNewMemberForm() {
 
   async function signOut() {
     if (!client) return;
-    await client.auth.signOut();
+    const { error } = await client.auth.signOut();
+    if (error) {
+      setPageError("No se pudo cerrar sesión. Inténtalo de nuevo.");
+      return;
+    }
     setUserId(null);
     setMembers([]);
     setSelectedMemberId("");
     setHistoryEntries([]);
     setMode("login");
   }
+
+  signOutActionRef.current = signOut;
+  useEffect(() => {
+    if (!client) {
+      onRegisterSignOut(null);
+      return;
+    }
+    const sidebarAction: SignOutHandler = async () => {
+      await signOutActionRef.current?.();
+    };
+    onRegisterSignOut(sidebarAction);
+    return () => onRegisterSignOut(null);
+  }, [client, onRegisterSignOut]);
 
   if (mode === "loading" || !isReady) {
     return <GatePage title="Preparando el directorio" description="Verificando configuración y acceso." icon={<Users size={22} />} />;
@@ -334,7 +358,6 @@ function openNewMemberForm() {
       title="Falta configurar tu acceso"
       description="Tu cuenta inició sesión, pero no tiene acceso asignado a esta plataforma. Solo el administrador supremo puede crear o habilitar cuentas."
       icon={<LockKeyhole size={22} />}
-      action={client ? <button className="button" onClick={() => void client.auth.signOut().then(() => setMode("login"))} type="button"><LogOut size={15} /> Cerrar sesión</button> : undefined}
     />;
   }
   if (mode === "error") {
@@ -352,7 +375,6 @@ function openNewMemberForm() {
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A NEON"}</span>
               {!demoMode && client && <button className="button" type="button" onClick={() => setIsPasswordDialogOpen(true)}><KeyRound size={14} /> Cambiar contraseña</button>}
-              {!demoMode && <button className="button" type="button" onClick={() => void signOut()}><LogOut size={14} /> Salir</button>}
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
           </div>
