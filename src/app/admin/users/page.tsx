@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, CheckCircle, CircleOff, LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle, CircleOff, KeyRound, LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { getCurrentAppUser, MembershipRequiredError } from "@/features/members/members-repository";
+import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
 
 type AccessState = "loading" | "login" | "forbidden" | "ready" | "error";
 type AdminUser = {
@@ -26,6 +27,7 @@ export default function AdminUsersPage() {
   const [changingId, setChangingId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 
   const loadUsers = useCallback(async (neon: ReturnType<typeof createNeonBrowserClient>) => {
     const { data, error: listError } = await neon.rpc("admin_list_app_users", {});
@@ -194,6 +196,9 @@ export default function AdminUsersPage() {
             <p>Aquí se crean las cuentas que pueden iniciar sesión. Los usuarios normales pueden gestionar participantes y programaciones, pero no pueden dar acceso a otras personas.</p>
           </div>
           <div className="head-actions">
+            {client && <button type="button" className="button" onClick={() => setIsPasswordDialogOpen(true)}>
+              <KeyRound size={15} /> Cambiar contraseña
+            </button>}
             <span className="status-pill" style={{ padding: "8px 12px", fontSize: 12 }}>
               <Users size={16} style={{ verticalAlign: "-3px", marginRight: 6 }} />
               <strong>{users.length}</strong> cuentas registradas
@@ -268,6 +273,12 @@ export default function AdminUsersPage() {
           )}
         </section>
       </div>
+      {isPasswordDialogOpen && client && (
+        <PasswordChangeDialog
+          client={client}
+          onClose={() => setIsPasswordDialogOpen(false)}
+        />
+      )}
     </main>
   );
 }
