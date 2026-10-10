@@ -457,7 +457,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     border: 1px solid rgba(255,255,255,.45); border-radius: 18px;
     color: #fff; background: rgba(255,255,255,.09); backdrop-filter: blur(5px);
   }
-  .auth-icon-users { top: 2%; left: 45%; transform: translateX(-50%); }
+  .auth-icon-users { top: 2%; left: 52%; transform: translateX(-50%); }
+  .auth-icon-translate { top: 2%; left: 8%; }
   .auth-icon-gem { top: 38%; left: 16%; }
   .auth-icon-network { top: 38%; right: 16%; }
   .auth-book-emblem {
@@ -481,9 +482,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     box-shadow: 0 18px 48px rgba(25, 43, 72, .09);
   }
   .auth-login-mark {
-    display: grid; place-items: center; width: 62px; height: 62px; margin: 0 auto 17px;
-    border-radius: 9px; color: #fff; background: #456a9e;
-    box-shadow: 0 5px 13px rgba(45,75,120,.15); font-size: 18px; font-weight: 850; letter-spacing: -1px;
+    display: block; width: 72px; height: 72px; margin: 0 auto 17px; object-fit: cover;
+    border: 1px solid #e4e9f1; border-radius: 8px; background: #4a6ca4;
+    box-shadow: 0 5px 13px rgba(45,75,120,.15);
   }
   .auth-login-card h2 { margin: 0; text-align: center; font-size: 27px; font-weight: 760; letter-spacing: -.85px; line-height: 1.2; }
   .auth-login-description { max-width: 35ch; margin: 9px auto 27px; color: var(--color-text-muted); font-size: 12px; line-height: 1.6; text-align: center; }
@@ -523,6 +524,28 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     border-top: 1px solid #edf0f5; color: #788598; font-size: 10px; line-height: 1.55;
   }
   .auth-login-footer svg { flex: 0 0 auto; margin-top: 1px; color: #4b719f; }
+
+  /* Modal para cambiar la contraseña desde cualquier módulo autenticado */
+  .password-dialog { width: min(100%, 480px); }
+  .password-dialog .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .password-dialog-heading { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .password-dialog-icon {
+    display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
+    border-radius: 9px; color: #456a9e; background: #eaf0f8;
+  }
+  .password-dialog .modal-description { margin: 4px 0 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.45; }
+  .password-dialog-body { display: grid; gap: 15px; padding: 20px 24px; }
+  .password-dialog-note { margin: 0; color: var(--color-text-muted); font-size: 11px; line-height: 1.6; }
+  .password-dialog-input { position: relative; }
+  .password-dialog-input > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #7b899b; pointer-events: none; }
+  .password-dialog-input .field { padding-left: 38px; }
+  .password-dialog-show { display: flex; align-items: center; gap: 8px; color: var(--color-text-muted); font-size: 11px; }
+  .password-dialog-show input { width: 15px; height: 15px; accent-color: var(--color-primary); }
+  .password-dialog-success { display: grid; justify-items: center; gap: 10px; padding: 32px 28px; text-align: center; }
+  .password-dialog-success > svg { color: #248057; }
+  .password-dialog-success h3 { margin: 0; font-size: 18px; font-weight: 800; }
+  .password-dialog-success p { max-width: 34ch; margin: 0 0 10px; color: var(--color-text-muted); font-size: 12px; line-height: 1.65; }
+  .password-dialog-success .button { min-width: 120px; }
 
 }
 
@@ -569,6 +592,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .auth-icon-network { right: 8%; }
   .auth-book-emblem { width: 130px; height: 66px; }
   .auth-book-emblem svg { width: 63px; height: 63px; }
+  .auth-icon-translate { top: 1%; left: 5%; }
   .auth-visual-caption { font-size: 9px; }
   .auth-visual-footer { font-size: 9px; }
   .auth-login-side { padding: 24px 16px 32px; }
