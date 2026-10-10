@@ -2,8 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import {
-  AlertTriangle, BookOpen, Eye, EyeOff, Gem, LockKeyhole, Mail,
-  Languages, Network, ShieldCheck, Users,
+  AlertTriangle, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck,
 } from "lucide-react";
 
 type LoginScreenProps = {
@@ -37,21 +36,14 @@ export function LoginScreen({
           </p>
         </div>
 
-        <div className="auth-illustration" aria-hidden="true">
-          <svg className="auth-wave-lines" viewBox="0 0 760 300" preserveAspectRatio="none">
-            <path d="M-20 176 C105 80 145 260 270 164 S445 80 565 164 S680 223 790 122" />
-            <path d="M-20 194 C105 98 145 278 270 182 S445 98 565 182 S680 241 790 140" />
-            <path d="M-20 212 C105 116 145 296 270 200 S445 116 565 200 S680 259 790 158" />
-            <path d="M-20 230 C105 134 145 314 270 218 S445 134 565 218 S680 277 790 176" />
-            <path d="M-20 248 C105 152 145 332 270 236 S445 152 565 236 S680 295 790 194" />
-          </svg>
-          <div className="auth-illustration-icons">
-            <div className="auth-icon-tile auth-icon-users"><Users size={36} strokeWidth={1.5} /></div>
-            <div className="auth-icon-tile auth-icon-translate"><Languages size={36} strokeWidth={1.5} /></div>
-            <div className="auth-icon-tile auth-icon-gem"><Gem size={38} strokeWidth={1.5} /></div>
-            <div className="auth-icon-tile auth-icon-network"><Network size={38} strokeWidth={1.5} /></div>
-            <div className="auth-book-emblem"><BookOpen size={100} strokeWidth={1.35} /></div>
-          </div>
+        <div className="auth-illustration">
+          <img
+            className="auth-artwork"
+            src="/images/login-illustrations.webp"
+            alt="Ilustraciones de la congregación, el estudio bíblico, la enseñanza y la traducción."
+            width={600}
+            height={300}
+          />
           <div className="auth-visual-caption"><ShieldCheck size={15} /> Acceso seguro para usuarios autorizados</div>
         </div>
 
