@@ -11,9 +11,11 @@ Aplicación web para administrar el directorio de la congregación, preparar pro
 - **Directorio importado y verificado:** 139 personas únicas: 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 128 activos y 11 inactivos. El estado de bautismo está en `NULL` para las 139 personas porque la fuente no lo especificaba.
 - **Seguridad:** RLS está habilitado en las ocho tablas públicas de la aplicación. El acceso de usuarios requiere una cuenta Neon Auth y una fila activa en `public.app_users` con el rol correspondiente.
 
-## Integración de la aplicación pendiente
+## Integración de la aplicación
 
-La infraestructura y los datos ya están en Neon, pero el código de la interfaz todavía usa el cliente de Supabase (`@supabase/supabase-js` y `@supabase/ssr`). **No apuntes el sitio a los datos reales hasta completar y probar la sustitución del cliente y la autenticación por Neon.** Las URLs públicas de Neon están documentadas en `docs/NEON_SETUP.md`; las cadenas de conexión y secretos no se guardan en Git.
+La base de datos, Neon Auth y Neon Data API están configurados. El frontend usa el SDK de Neon y las políticas RLS de PostgreSQL; el generador S-140 valida la sesión mediante un JWT y consulta los datos con el rol del usuario.
+
+Las contraseñas de cuentas de Supabase Auth no se pueden transferir a Neon Auth; cada usuario necesita crear nuevas credenciales. Las cuentas nuevas no reciben un rol de aplicación automáticamente: un administrador debe asociarlas a `public.app_users`.
 
 ## Migraciones SQL
 
@@ -41,3 +43,14 @@ npm run build
 ```
 
 La conexión real de la interfaz y las pruebas integrales de autenticación deben completarse antes de producción.
+
+
+## Acceso inicial
+
+Asigna a cada usuario solo el rol necesario en `public.app_users`:
+- `administrator`: administración total.
+- `elder`: tareas restringidas a ancianos.
+- `coordinator`: edición y publicación de programas.
+- `viewer`: solo consulta.
+
+La aplicación no concede permisos administrativos automáticamente a una cuenta nueva.

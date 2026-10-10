@@ -13,14 +13,14 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.meeting_progr
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.assignment_slots'::regclass), 'RLS habilitado: assignment_slots');
 
 -- El rol anónimo no tiene acceso de lectura a ninguna tabla de la aplicación.
-SELECT ok(NOT has_table_privilege('anon', 'public.app_users', 'SELECT'), 'anon no puede leer app_users');
-SELECT ok(NOT has_table_privilege('anon', 'public.members', 'SELECT'), 'anon no puede leer members');
-SELECT ok(NOT has_table_privilege('anon', 'public.member_eligibilities', 'SELECT'), 'anon no puede leer member_eligibilities');
-SELECT ok(NOT has_table_privilege('anon', 'public.family_relationships', 'SELECT'), 'anon no puede leer family_relationships');
-SELECT ok(NOT has_table_privilege('anon', 'public.planning_cycles', 'SELECT'), 'anon no puede leer planning_cycles');
-SELECT ok(NOT has_table_privilege('anon', 'public.history_periods', 'SELECT'), 'anon no puede leer history_periods');
-SELECT ok(NOT has_table_privilege('anon', 'public.meeting_programs', 'SELECT'), 'anon no puede leer meeting_programs');
-SELECT ok(NOT has_table_privilege('anon', 'public.assignment_slots', 'SELECT'), 'anon no puede leer assignment_slots');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.app_users', 'SELECT'), 'anonymous no puede leer app_users');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.members', 'SELECT'), 'anonymous no puede leer members');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.member_eligibilities', 'SELECT'), 'anonymous no puede leer member_eligibilities');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.family_relationships', 'SELECT'), 'anonymous no puede leer family_relationships');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.planning_cycles', 'SELECT'), 'anonymous no puede leer planning_cycles');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.history_periods', 'SELECT'), 'anonymous no puede leer history_periods');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.meeting_programs', 'SELECT'), 'anonymous no puede leer meeting_programs');
+SELECT ok(NOT has_table_privilege('anonymous', 'public.assignment_slots', 'SELECT'), 'anonymous no puede leer assignment_slots');
 
 -- La aplicación no permite borrados ni cambios de rol desde el cliente.
 SELECT ok(NOT has_table_privilege('authenticated', 'public.app_users', 'INSERT'), 'authenticated no puede crear perfiles ni autoasignarse rol');

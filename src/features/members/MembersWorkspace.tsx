@@ -8,8 +8,8 @@ import {
   LockKeyhole, LogOut, Plus, Search, ShieldCheck, SlidersHorizontal,
   Users, X,
 } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createNeonBrowserClient } from "@/lib/neon/client";
+import { isNeonConfigured } from "@/lib/neon/env";
 import {
   createMember, getMemberHistory, listMembers, MembershipRequiredError, updateMember,
 } from "./members-repository";
@@ -24,7 +24,7 @@ const LEGACY_STORAGE_KEY = "s140-directory-demo-v1";
 type ActiveFilter = "active" | "all" | "inactive";
 type CategoryFilter = "all" | HistoryCategory;
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
-type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 
 function fullName(member: DirectoryMember) {
   return `${member.firstName} ${member.lastName}`.trim();
@@ -54,7 +54,7 @@ function sortLatest(entries: AssignmentHistoryEntry[]) {
 
 export function MembersWorkspace() {
   const [mode, setMode] = useState<WorkspaceMode>("loading");
-  const [client, setClient] = useState<SupabaseBrowserClient | null>(null);
+  const [client, setClient] = useState<NeonBrowserClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
@@ -81,10 +81,10 @@ export function MembersWorkspace() {
       // La demostración actual solo vive en memoria y no persiste datos personales en el navegador.
       try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* almacenamiento bloqueado */ }
 
-      if (!isSupabaseConfigured()) {
+      if (!isNeonConfigured()) {
         if (cancelled) return;
         if (process.env.NODE_ENV === "production") {
-          setPageError("La conexión con Supabase no está configurada. No se habilitará el modo de demostración en producción.");
+          setPageError("La conexión con Neon no está configurada. No se habilitará el modo de demostración en producción.");
           setMode("error");
         } else {
           setMembers(DEMO_MEMBERS);
@@ -96,16 +96,16 @@ export function MembersWorkspace() {
       }
 
       try {
-        const supabase = createSupabaseBrowserClient();
+        const neon = createNeonBrowserClient();
         if (cancelled) return;
-        setClient(supabase);
-        const { data, error } = await supabase.auth.getUser();
+        setClient(neon);
+        const { data, error } = await neon.auth.getUser();
         if (error) throw new Error("No se pudo verificar la sesión. Vuelve a iniciar sesión.");
         if (!data.user) {
           if (!cancelled) setMode("login");
           return;
         }
-        const result = await listMembers(supabase, data.user.id);
+        const result = await listMembers(neon, data.user.id);
         if (cancelled) return;
         setUserId(data.user.id);
         setMembers(result.members);
@@ -116,7 +116,7 @@ export function MembersWorkspace() {
         if (error instanceof MembershipRequiredError) {
           setMode("membership");
         } else {
-          setPageError(error instanceof Error ? error.message : "No se pudo conectar con Supabase.");
+          setPageError(error instanceof Error ? error.message : "No se pudo conectar con Neon.");
           setMode("error");
         }
       } finally {
@@ -305,7 +305,7 @@ function openNewMemberForm() {
   if (mode === "membership") {
     return <GatePage
       title="Falta configurar tu acceso"
-      description="Tu cuenta inició sesión, pero todavía no tiene una membresía activa en una congregación. Un administrador debe asociar tu usuario y asignarte el rol correspondiente en Supabase."
+      description="Tu cuenta inició sesión, pero todavía no tiene una membresía activa en una congregación. Un administrador debe asociar tu usuario y asignarte el rol correspondiente en Neon."
       icon={<LockKeyhole size={22} />}
       action={client ? <button className="button" onClick={() => void client.auth.signOut().then(() => setMode("login"))} type="button"><LogOut size={15} /> Cerrar sesión</button> : undefined}
     />;
@@ -360,7 +360,7 @@ function openNewMemberForm() {
           {demoMode ? (
             <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración: nombres ficticios</strong><p>Los nombres son ficticios. Los cambios de esta sesión son temporales y no se guardan en el navegador. La importación oficial permanecerá deshabilitada hasta contar con un flujo administrativo seguro.</p></div></div>
           ) : (
-            <div className="connected-banner" role="status"><ShieldCheck size={17} /><div><strong>Sesión autenticada</strong><p>Las operaciones se ejecutan con tu sesión de Supabase. La base de datos aplica las políticas de acceso y el rol que te fue asignado.</p></div></div>
+            <div className="connected-banner" role="status"><ShieldCheck size={17} /><div><strong>Sesión autenticada</strong><p>Las operaciones se ejecutan con tu sesión de Neon. La base de datos aplica las políticas de acceso y el rol que te fue asignado.</p></div></div>
           )}
 
           {pageError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}

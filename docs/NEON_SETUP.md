@@ -1,36 +1,39 @@
-# Configuración de Neon para Programacion_Vida_Ministerio
+# Configuración de Neon — Programacion_Vida_Ministerio
 
 ## Proyecto y base de datos
-
-- Proyecto Neon: `Programacion_Vida_Ministerio`
-- Project ID: `curly-voice-68375078`
-- Rama principal: `main`
-- Branch ID: `br-tiny-pine-b6lbs8l0`
+- Proyecto: `Programacion_Vida_Ministerio`
+- ID de proyecto: `curly-voice-68375078`
+- Rama principal: `main` (`br-tiny-pine-b6lbs8l0`)
 - Región: AWS South America East (São Paulo), `aws-sa-east-1`
-- Nombre PostgreSQL interno: `programacion_vida_ministerio`
+- Base PostgreSQL: `programacion_vida_ministerio`
+- PostgreSQL: versión 17
 
-## Endpoints públicos de servicio
-
-- Neon Data API: `https://ep-dark-hall-b6qitq6a.apirest.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/rest/v1`
-- Neon Auth: `https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/auth`
+## Endpoints
+- Data API: `https://ep-dark-hall-b6qitq6a.apirest.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/rest/v1`
+- Auth: `https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/auth`
 - JWKS: `https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/auth/.well-known/jwks.json`
 
-Las URLs son identificadores públicos de endpoint; **no son credenciales**. No publiques contraseñas de roles ni cadenas de conexión de PostgreSQL.
-
-## Variables que requerirá el frontend tras la migración
+## Variables de entorno para Vercel
+Crear las siguientes variables en Preview, Development y Production:
 
 ```dotenv
 NEXT_PUBLIC_NEON_DATA_API_URL=https://ep-dark-hall-b6qitq6a.apirest.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/rest/v1
 NEXT_PUBLIC_NEON_AUTH_URL=https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/auth
 NEON_AUTH_BASE_URL=https://ep-dark-hall-b6qitq6a.neonauth.c-2.sa-east-1.aws.neon.tech/programacion_vida_ministerio/auth
+NEON_AUTH_COOKIE_SECRET=<secreto aleatorio de al menos 32 caracteres>
 ```
 
-La integración server-side de Neon Auth también puede requerir `NEON_AUTH_COOKIE_SECRET`; debe generarse en el entorno de despliegue y no almacenarse en Git. Antes de usar producción, registrar el origen final de la aplicación en los dominios confiables de Neon Auth y crear/asignar el primer usuario administrador.
+Genera un secreto aleatorio exclusivo para `NEON_AUTH_COOKIE_SECRET` y guárdalo solo en Vercel, no en Git ni en variables públicas. El cliente usa el proxy de mismo origen `/api/auth`. Debe agregarse el dominio desplegado de Vercel a los orígenes confiables de Neon Auth.
 
-## Estado de seguridad y datos
+## Estado de la migración
+- Esquema SQL 001–006 aplicado.
+- Neon Auth (Better Auth) y Neon Data API activos.
+- 139 registros de directorio verificados: 12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 128 activos y 11 inactivos.
+- RLS habilitado en las ocho tablas públicas y 22 políticas creadas.
+- El frontend ahora usa `@neondatabase/neon-js`; las funciones auth se enrutan por `/api/auth`.
+- La API de generación S-140 requiere un JWT de Neon Auth y consulta exclusivamente mediante Data API/RLS.
+- Los usuarios de Supabase Auth no conservan sus contraseñas al cambiar a Neon Auth. Cada usuario debe crear nuevas credenciales.
+- Una cuenta recién creada no obtiene una membresía ni rol de aplicación. Para autorizarla, un administrador debe insertar su UUID en `public.app_users` tras comprobar su identidad.
 
-- Neon Auth usa Better Auth y sus usuarios tienen UUID.
-- La API de datos tiene como rol anónimo `anonymous`; no se concedieron privilegios públicos por defecto.
-- RLS está activado en `app_users`, `members`, `member_eligibilities`, `family_relationships`, `planning_cycles`, `history_periods`, `meeting_programs` y `assignment_slots`.
-- La autorización distingue `administrator`, `elder`, `coordinator` y `viewer` mediante `public.app_users`.
-- El sitio web aún debe migrar sus clientes de Supabase a Neon antes de poder usar esta base de datos.
+## Migraciones reproducibles
+Las migraciones están en `neon/migrations/` en orden 001–006. La importación inicial está en `neon/imports/listado_unificado_las_violetas_2026_10_09.sql` y aborta si la tabla ya contiene personas.

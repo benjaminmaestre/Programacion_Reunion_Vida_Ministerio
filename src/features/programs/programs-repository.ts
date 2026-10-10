@@ -1,8 +1,8 @@
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createNeonBrowserClient } from "@/lib/neon/client";
 import { assertCanManageDirectory } from "../members/members-repository";
 import { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
 
-type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 
 interface DbMeetingProgramRow {
   id: string;
@@ -39,16 +39,16 @@ interface DbAssignmentSlotRow {
   notes: string | null;
 }
 
-export async function getMeetingProgramsFromSupabase(
-  supabase: SupabaseBrowserClient
+export async function getMeetingProgramsFromNeon(
+  neon: NeonBrowserClient
 ): Promise<MeetingProgramDetail[]> {
-  const { data: programsData, error: progError } = await supabase
+  const { data: programsData, error: progError } = await neon
     .from("meeting_programs")
     .select("*")
     .order("meeting_date", { ascending: true });
 
   if (progError) {
-    throw new Error("No se pudieron cargar los programas de la reunión desde Supabase.");
+    throw new Error("No se pudieron cargar los programas de la reunión desde Neon.");
   }
 
   if (!programsData || programsData.length === 0) {
@@ -57,12 +57,12 @@ export async function getMeetingProgramsFromSupabase(
 
   const typedPrograms = programsData as unknown as DbMeetingProgramRow[];
   const programIds = typedPrograms.map((p) => p.id);
-  const { data: cyclesData, error: cyclesError } = await supabase
+  const { data: cyclesData, error: cyclesError } = await neon
     .from("planning_cycles")
     .select("id, year, bimonth_number");
   if (cyclesError) throw new Error("No se pudieron cargar los ciclos de planificación.");
 
-  const { data: periodsData, error: periodsError } = await supabase
+  const { data: periodsData, error: periodsError } = await neon
     .from("history_periods")
     .select("id, year, semester");
   if (periodsError) throw new Error("No se pudieron cargar los períodos históricos.");
@@ -76,7 +76,7 @@ export async function getMeetingProgramsFromSupabase(
       .map((period) => [period.id, `${period.year}-S${period.semester}`]),
   );
 
-  const { data: slotsData, error: slotsError } = await supabase
+  const { data: slotsData, error: slotsError } = await neon
     .from("assignment_slots")
     .select("*")
     .in("meeting_program_id", programIds)
@@ -84,7 +84,7 @@ export async function getMeetingProgramsFromSupabase(
     .order("order_index", { ascending: true });
 
   if (slotsError) {
-    throw new Error("No se pudieron cargar los espacios de asignaciones desde Supabase.");
+    throw new Error("No se pudieron cargar los espacios de asignaciones desde Neon.");
   }
 
   const slotsByProgram = new Map<string, AssignmentSlotDetail[]>();
@@ -131,20 +131,20 @@ export async function getMeetingProgramsFromSupabase(
   }));
 }
 
-export async function saveMeetingProgramToSupabase(
-  supabase: SupabaseBrowserClient,
+export async function saveMeetingProgramToNeon(
+  neon: NeonBrowserClient,
   userId: string,
   program: MeetingProgramDetail
 ): Promise<void> {
   // Esta comprobación mejora el mensaje en interfaz; PostgreSQL vuelve a comprobar
   // identidad y rol dentro de la RPC privilegiada.
-  await assertCanManageDirectory(supabase, userId);
+  await assertCanManageDirectory(neon, userId);
 
-  if (typeof supabase.rpc !== "function") {
-    throw new Error("El cliente de Supabase no soporta llamadas RPC transaccionales.");
+  if (typeof neon.rpc !== "function") {
+    throw new Error("El cliente de Neon no soporta llamadas RPC transaccionales.");
   }
 
-  const { data, error } = await supabase.rpc("save_meeting_program_transaction", {
+  const { data, error } = await neon.rpc("save_meeting_program_transaction", {
     p_program_id: program.id,
     p_meeting_date: program.meetingDate,
     p_week_type: program.weekType,
@@ -177,12 +177,12 @@ export async function saveMeetingProgramToSupabase(
   if (error) {
     const rpcError = error as { code?: string; message?: string };
     if (rpcError.code === "PGRST202" || /could not find the function|schema cache/i.test(rpcError.message ?? "")) {
-      throw new Error("No está desplegada la RPC save_meeting_program_transaction. Revisa las migraciones requeridas en el proyecto Supabase autorizado.");
+      throw new Error("No está desplegada la RPC save_meeting_program_transaction. Revisa las migraciones requeridas en el proyecto Neon autorizado.");
     }
-    throw new Error(rpcError.message || "No se pudo guardar el programa mediante la transacción atómica de Supabase.");
+    throw new Error(rpcError.message || "No se pudo guardar el programa mediante la transacción atómica de Neon.");
   }
 
   if (typeof data === "string" && data.toLowerCase() !== program.id.toLowerCase()) {
-    throw new Error("Supabase devolvió un identificador diferente al del programa guardado.");
+    throw new Error("Neon devolvió un identificador diferente al del programa guardado.");
   }
 }

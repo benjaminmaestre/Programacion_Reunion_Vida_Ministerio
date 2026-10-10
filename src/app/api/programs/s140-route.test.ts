@@ -2,15 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { S140DocxGenerator } from "../../../features/printing/s140-docx-generator";
 import { POST } from "./[programId]/s140/route";
 
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn().mockResolvedValue({
-    getAll: () => [],
-    set: () => {},
-  }),
+vi.mock("@neondatabase/neon-js", () => ({
+  createClient: vi.fn(),
 }));
 
 describe("Generación del documento S-140 DOCX y Route Handler", () => {
@@ -73,28 +66,28 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(findZipSignature([0x50, 0x4b, 0x05, 0x06])).toBeGreaterThan(-1);
   });
 
-  it("devuelve 503 si Supabase no está configurado", async () => {
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  it("devuelve 503 si Neon no está configurado", async () => {
+    delete process.env.NEXT_PUBLIC_NEON_DATA_API_URL;
+    delete process.env.NEXT_PUBLIC_NEON_AUTH_URL;
 
     const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
     const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
 
     expect(response.status).toBe(503);
     const json = await response.json();
-    expect(json.error).toContain("Supabase no está configurado");
+    expect(json.error).toContain("Neon no está configurado");
   });
 
   it("devuelve 401 si no hay usuario autenticado", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+    process.env.NEXT_PUBLIC_NEON_DATA_API_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_NEON_AUTH_URL = "dummy-key";
 
-    const { createServerClient } = await import("@supabase/ssr");
-    vi.mocked(createServerClient).mockReturnValue({
+    const { createClient } = await import("@neondatabase/neon-js");
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new Error("No session") }),
       },
-    } as unknown as ReturnType<typeof createServerClient>);
+    } as unknown as ReturnType<typeof createClient>);
 
     const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
     const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
@@ -105,11 +98,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
   });
 
   it("devuelve 403 si el usuario no tiene acceso activo en app_users", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+    process.env.NEXT_PUBLIC_NEON_DATA_API_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_NEON_AUTH_URL = "dummy-key";
 
-    const { createServerClient } = await import("@supabase/ssr");
-    vi.mocked(createServerClient).mockReturnValue({
+    const { createClient } = await import("@neondatabase/neon-js");
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
       },
@@ -118,9 +111,9 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
         eq: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       }),
-    } as unknown as ReturnType<typeof createServerClient>);
+    } as unknown as ReturnType<typeof createClient>);
 
-    const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST" });
+    const request = new Request("http://localhost/api/programs/prog-1/s140", { method: "POST", headers: { Authorization: "Bearer test-token" } });
     const response = await POST(request, { params: Promise.resolve({ programId: "prog-1" }) });
 
     expect(response.status).toBe(403);
@@ -129,11 +122,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
   });
 
   it("devuelve 404 si el programa no existe", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+    process.env.NEXT_PUBLIC_NEON_DATA_API_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_NEON_AUTH_URL = "dummy-key";
 
-    const { createServerClient } = await import("@supabase/ssr");
-    vi.mocked(createServerClient).mockReturnValue({
+    const { createClient } = await import("@neondatabase/neon-js");
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
       },
@@ -154,9 +147,9 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
         }
         return {};
       }),
-    } as unknown as ReturnType<typeof createServerClient>);
+    } as unknown as ReturnType<typeof createClient>);
 
-    const request = new Request("http://localhost/api/programs/prog-missing/s140", { method: "POST" });
+    const request = new Request("http://localhost/api/programs/prog-missing/s140", { method: "POST", headers: { Authorization: "Bearer test-token" } });
     const response = await POST(request, { params: Promise.resolve({ programId: "prog-missing" }) });
 
     expect(response.status).toBe(404);
@@ -165,11 +158,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
   });
 
   it("devuelve 500 ante un error en la consulta de intervenciones", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+    process.env.NEXT_PUBLIC_NEON_DATA_API_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_NEON_AUTH_URL = "dummy-key";
 
-    const { createServerClient } = await import("@supabase/ssr");
-    vi.mocked(createServerClient).mockReturnValue({
+    const { createClient } = await import("@neondatabase/neon-js");
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
       },
@@ -197,9 +190,9 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
         }
         return {};
       }),
-    } as unknown as ReturnType<typeof createServerClient>);
+    } as unknown as ReturnType<typeof createClient>);
 
-    const request = new Request("http://localhost/api/programs/p-1/s140", { method: "POST" });
+    const request = new Request("http://localhost/api/programs/p-1/s140", { method: "POST", headers: { Authorization: "Bearer test-token" } });
     const response = await POST(request, { params: Promise.resolve({ programId: "p-1" }) });
 
     expect(response.status).toBe(500);
@@ -208,11 +201,11 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
   });
 
   it("devuelve 200 y un contenedor DOCX válido (PK magic bytes) excluyendo intervenciones retiradas", async () => {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "dummy-key";
+    process.env.NEXT_PUBLIC_NEON_DATA_API_URL = "http://localhost:54321";
+    process.env.NEXT_PUBLIC_NEON_AUTH_URL = "dummy-key";
 
-    const { createServerClient } = await import("@supabase/ssr");
-    vi.mocked(createServerClient).mockReturnValue({
+    const { createClient } = await import("@neondatabase/neon-js");
+    vi.mocked(createClient).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-123" } }, error: null }),
       },
@@ -290,10 +283,10 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
         }
         return {};
       }),
-    } as unknown as ReturnType<typeof createServerClient>);
+    } as unknown as ReturnType<typeof createClient>);
 
     const generatorSpy = vi.spyOn(S140DocxGenerator, "generateDocx");
-    const request = new Request("http://localhost/api/programs/prog-valid/s140", { method: "POST" });
+    const request = new Request("http://localhost/api/programs/prog-valid/s140", { method: "POST", headers: { Authorization: "Bearer test-token" } });
     const response = await POST(request, { params: Promise.resolve({ programId: "prog-valid" }) });
 
     expect(response.status).toBe(200);

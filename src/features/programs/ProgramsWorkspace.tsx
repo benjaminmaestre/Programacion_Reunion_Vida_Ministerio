@@ -2,24 +2,24 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Calendar, CheckCircle, Download, LockKeyhole, Plus, Save, ShieldAlert, Trash2, X } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createNeonBrowserClient } from "@/lib/neon/client";
+import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, listMembers, MembershipRequiredError } from "../members/members-repository";
 import type { DirectoryMember } from "../members/demo-data";
 import { DEMO_MEMBERS } from "../members/demo-data";
 import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
-import { getMeetingProgramsFromSupabase, saveMeetingProgramToSupabase } from "./programs-repository";
+import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram } from "./program-builder";
 import type { WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "membership" | "error";
-type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 const PAIRED_ASSIGNMENTS = new Set(["conversation", "revisit", "disciples", "explain_beliefs"]);
 
 function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingProgramDetail | undefined) {
-  if (!actual) throw new Error("Supabase no devolvió la reunión después de guardarla.");
+  if (!actual) throw new Error("Neon no devolvió la reunión después de guardarla.");
   if (actual.meetingDate !== expected.meetingDate || actual.weekType !== expected.weekType) {
     throw new Error("La reunión recuperada no coincide con la fecha o el tipo de semana.");
   }
@@ -40,7 +40,7 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
       || actualSlot.assignmentType !== expectedSlot.assignmentType
       || (actualSlot.primaryParticipantId ?? "") !== (expectedSlot.primaryParticipantId ?? "")
       || (actualSlot.assistantParticipantId ?? "") !== (expectedSlot.assistantParticipantId ?? "")) {
-      throw new Error("La reunión recuperada contiene una intervención distinta a la enviada a Supabase.");
+      throw new Error("La reunión recuperada contiene una intervención distinta a la enviada a Neon.");
     }
   }
   if ((actual.status === "published") !== (expected.status === "published")) {
@@ -50,7 +50,7 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
 
 export const ProgramsWorkspace: React.FC = () => {
   const [mode, setMode] = useState<WorkspaceMode>("loading");
-  const [client, setClient] = useState<SupabaseBrowserClient | null>(null);
+  const [client, setClient] = useState<NeonBrowserClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
   const [canConfirmEligibility, setCanConfirmEligibility] = useState(false);
@@ -72,11 +72,11 @@ export const ProgramsWorkspace: React.FC = () => {
 
   const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
-  async function loadConnectedData(supabase: SupabaseBrowserClient, activeUserId: string) {
+  async function loadConnectedData(neon: NeonBrowserClient, activeUserId: string) {
     const [appUser, directory, savedPrograms] = await Promise.all([
-      getCurrentAppUser(supabase, activeUserId),
-      listMembers(supabase, activeUserId),
-      getMeetingProgramsFromSupabase(supabase),
+      getCurrentAppUser(neon, activeUserId),
+      listMembers(neon, activeUserId),
+      getMeetingProgramsFromNeon(neon),
     ]);
     setUserId(activeUserId);
     setCanManage(["administrator", "elder", "coordinator"].includes(appUser.role));
@@ -92,10 +92,10 @@ export const ProgramsWorkspace: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     async function initialize() {
-      if (!isSupabaseConfigured()) {
+      if (!isNeonConfigured()) {
         if (process.env.NODE_ENV === "production") {
           if (!cancelled) {
-            setPageError("Supabase no está configurado. La demostración está deshabilitada en producción.");
+            setPageError("Neon no está configurado. La demostración está deshabilitada en producción.");
             setMode("error");
           }
         } else if (!cancelled) {
@@ -110,16 +110,16 @@ export const ProgramsWorkspace: React.FC = () => {
       }
 
       try {
-        const supabase = createSupabaseBrowserClient();
+        const neon = createNeonBrowserClient();
         if (cancelled) return;
-        setClient(supabase);
-        const { data, error } = await supabase.auth.getUser();
+        setClient(neon);
+        const { data, error } = await neon.auth.getUser();
         if (error) throw new Error("No se pudo verificar la sesión.");
         if (!data.user) {
           setMode("login");
           return;
         }
-        await loadConnectedData(supabase, data.user.id);
+        await loadConnectedData(neon, data.user.id);
       } catch (error) {
         if (cancelled) return;
         if (error instanceof MembershipRequiredError) setMode("membership");
@@ -191,16 +191,16 @@ export const ProgramsWorkspace: React.FC = () => {
       }
       setSaving(true);
       try {
-        await saveMeetingProgramToSupabase(client, userId, newProgram);
-        const freshPrograms = await getMeetingProgramsFromSupabase(client);
+        await saveMeetingProgramToNeon(client, userId, newProgram);
+        const freshPrograms = await getMeetingProgramsFromNeon(client);
         verifyProgramRoundTrip(newProgram, freshPrograms.find((program) => program.id === newProgram.id));
         setPrograms(freshPrograms);
         setSelectedProgramId(newProgram.id);
         setIsNewProgramModalOpen(false);
         setNewMeetingDate("");
-        setFeedback(`Nuevo programa borrador creado y guardado en Supabase para el ${newMeetingDate}.`);
+        setFeedback(`Nuevo programa borrador creado y guardado en Neon para el ${newMeetingDate}.`);
       } catch (err) {
-        setPageError(err instanceof Error ? err.message : "No se pudo crear la reunión en Supabase.");
+        setPageError(err instanceof Error ? err.message : "No se pudo crear la reunión en Neon.");
       } finally {
         setSaving(false);
       }
@@ -220,7 +220,7 @@ export const ProgramsWorkspace: React.FC = () => {
 
     if (mode === "demo") {
       if (status === "published") {
-        setPageError("El modo demo no permite publicar programas. Conecta Supabase y usa una cuenta autorizada.");
+        setPageError("El modo demo no permite publicar programas. Conecta Neon y usa una cuenta autorizada.");
         return;
       }
       updateProgram({ ...selectedProgram, status: "draft", updatedAt: new Date().toISOString() });
@@ -252,12 +252,12 @@ export const ProgramsWorkspace: React.FC = () => {
     setSaving(true);
     try {
       const nextProgram = { ...selectedProgram, status, updatedAt: new Date().toISOString() };
-      await saveMeetingProgramToSupabase(client, userId, nextProgram);
-      const freshPrograms = await getMeetingProgramsFromSupabase(client);
+      await saveMeetingProgramToNeon(client, userId, nextProgram);
+      const freshPrograms = await getMeetingProgramsFromNeon(client);
       verifyProgramRoundTrip(nextProgram, freshPrograms.find((program) => program.id === nextProgram.id));
       setPrograms(freshPrograms);
       setSelectedProgramId(nextProgram.id);
-      setFeedback(status === "published" ? "Programa publicado y recuperado de Supabase." : "Borrador guardado y verificado en Supabase.");
+      setFeedback(status === "published" ? "Programa publicado y recuperado de Neon." : "Borrador guardado y verificado en Neon.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo guardar el programa.");
     } finally {
@@ -267,7 +267,7 @@ export const ProgramsWorkspace: React.FC = () => {
 
   async function handleGenerateS140() {
     if (!selectedProgram || generating || mode !== "connected" || !client || !userId) {
-      setPageError("La generación del S-140 requiere una sesión conectada a Supabase.");
+      setPageError("La generación del S-140 requiere una sesión conectada a Neon.");
       return;
     }
     setGenerating(true);
@@ -275,9 +275,17 @@ export const ProgramsWorkspace: React.FC = () => {
     setFeedback("");
     try {
       if (selectedProgram.status === "draft" && canManage) {
-        await saveMeetingProgramToSupabase(client, userId, selectedProgram);
+        await saveMeetingProgramToNeon(client, userId, selectedProgram);
       }
-      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140`, { method: "POST" });
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) {
+        throw new Error("La sesión de Neon ha expirado. Inicia sesión de nuevo.");
+      }
+      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(typeof payload.error === "string" ? payload.error : "No se pudo generar el S-140.");
@@ -291,7 +299,7 @@ export const ProgramsWorkspace: React.FC = () => {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-      setFeedback("Documento S-140 generado desde los datos guardados en Supabase.");
+      setFeedback("Documento S-140 generado desde los datos guardados en Neon.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo generar el S-140.");
     } finally {

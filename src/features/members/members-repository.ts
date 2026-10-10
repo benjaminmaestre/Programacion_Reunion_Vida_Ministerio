@@ -1,4 +1,4 @@
-import type { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { createNeonBrowserClient } from "@/lib/neon/client";
 import type {
   AssignmentHistoryEntry,
   DirectoryMember,
@@ -7,7 +7,7 @@ import type {
   MemberGender,
 } from "./demo-data";
 
-type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
+type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
 export type AppUserRole = "administrator" | "elder" | "coordinator" | "viewer";
 
 interface AppUserRow {
@@ -114,19 +114,19 @@ function canManageDirectory(role: AppUserRole) {
 
 /** Verifica la membresía activa y el rol antes de ejecutar operaciones administrativas. */
 export async function assertCanManageDirectory(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
 ): Promise<void> {
-  const appUser = await getCurrentAppUser(supabase, userId);
+  const appUser = await getCurrentAppUser(neon, userId);
   if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
 }
 
 /** Lee el perfil/rol de la cuenta autenticada. RLS permite consultar únicamente el propio perfil. */
 export async function getCurrentAppUser(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
 ): Promise<AppUserRow> {
-  const { data, error } = await supabase
+  const { data, error } = await neon
     .from("app_users")
     .select("user_id, role, is_active")
     .eq("user_id", userId)
@@ -140,11 +140,11 @@ export async function getCurrentAppUser(
 }
 
 export async function listMembers(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
 ): Promise<{ members: DirectoryMember[] }> {
-  await getCurrentAppUser(supabase, userId);
-  const { data, error } = await supabase
+  await getCurrentAppUser(neon, userId);
+  const { data, error } = await neon
     .from("members")
     .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
     .order("first_name", { ascending: true })
@@ -155,14 +155,14 @@ export async function listMembers(
 }
 
 export async function createMember(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
   input: MemberWriteInput,
 ): Promise<DirectoryMember> {
-  const appUser = await getCurrentAppUser(supabase, userId);
+  const appUser = await getCurrentAppUser(neon, userId);
   if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
 
-  const { data, error } = await supabase
+  const { data, error } = await neon
     .from("members")
     .insert(toDatabaseRow(input))
     .select("id, first_name, last_name, gender, appointment, is_regular_pioneer, additional_roles, is_active, is_baptized, phone, email, notes")
@@ -174,15 +174,15 @@ export async function createMember(
 }
 
 export async function updateMember(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
   memberId: string,
   input: MemberWriteInput,
 ): Promise<DirectoryMember> {
-  const appUser = await getCurrentAppUser(supabase, userId);
+  const appUser = await getCurrentAppUser(neon, userId);
   if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
 
-  const { data, error } = await supabase
+  const { data, error } = await neon
     .from("members")
     .update(toDatabaseRow(input))
     .eq("id", memberId)
@@ -226,13 +226,13 @@ function getMeeting(row: DbHistorySlotRow) {
 }
 
 export async function getMemberHistory(
-  supabase: SupabaseBrowserClient,
+  neon: NeonBrowserClient,
   userId: string,
   memberId: string,
 ): Promise<AssignmentHistoryEntry[]> {
-  await getCurrentAppUser(supabase, userId);
+  await getCurrentAppUser(neon, userId);
 
-  const { data: activePeriods, error: periodError } = await supabase
+  const { data: activePeriods, error: periodError } = await neon
     .from("history_periods")
     .select("start_date, end_date")
     .eq("is_active", true)
@@ -245,7 +245,7 @@ export async function getMemberHistory(
     ? { start: configuredPeriod.start_date, end: configuredPeriod.end_date }
     : getSemesterRange();
 
-  const { data, error } = await supabase
+  const { data, error } = await neon
     .from("assignment_slots")
     .select("id, section, title, primary_participant_id, assistant_participant_id, meeting_programs!inner(meeting_date)")
     .gte("meeting_programs.meeting_date", range.start)
@@ -280,7 +280,7 @@ export async function getMemberHistory(
   const namesById = new Map<string, string>();
 
   if (companionIds.length > 0) {
-    const { data: companions, error: companionError } = await supabase
+    const { data: companions, error: companionError } = await neon
       .from("members")
       .select("id, first_name, last_name")
       .in("id", companionIds);

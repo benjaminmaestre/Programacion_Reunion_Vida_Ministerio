@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { createNeonBrowserClient } from "@/lib/neon/client";
 import type { MeetingProgramDetail } from "./program-types";
-import { getMeetingProgramsFromSupabase, saveMeetingProgramToSupabase } from "./programs-repository";
+import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs-repository";
 
 type Row = Record<string, any>;
 
@@ -193,7 +193,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       notes: null,
     }];
 
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: programId,
       meetingDate: "2026-11-02",
@@ -216,8 +216,8 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       }],
     };
 
-    await saveMeetingProgramToSupabase(client, "user-elder", program);
-    const reloaded = await getMeetingProgramsFromSupabase(client);
+    await saveMeetingProgramToNeon(client, "user-elder", program);
+    const reloaded = await getMeetingProgramsFromNeon(client);
     expect(reloaded).toHaveLength(1);
     expect(reloaded[0].slots[0].title).toBe("Levítico 17:1-16 — La santidad de la sangre");
     expect(reloaded[0].slots[0].assignmentType).toBe("treasures_talk");
@@ -232,7 +232,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     db.tables.app_users = [{ user_id: "user-viewer", role: "viewer", is_active: true }];
     db.tables.meeting_programs = [];
     db.tables.assignment_slots = [];
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: "00000000-0000-4000-8000-000000000001",
       meetingDate: "2026-11-02",
@@ -243,7 +243,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await expect(saveMeetingProgramToSupabase(client, "user-viewer", program)).rejects.toThrow(/Tu rol no permite/);
+    await expect(saveMeetingProgramToNeon(client, "user-viewer", program)).rejects.toThrow(/Tu rol no permite/);
     expect(db.tables.meeting_programs).toHaveLength(0);
   });
 
@@ -254,7 +254,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     db.tables.app_users = [{ user_id: "user-elder", role: "elder", is_active: true }];
     db.tables.meeting_programs = [{ id: programId, is_draft: true }];
     db.tables.assignment_slots = [{ id: slotId, meeting_program_id: programId, is_deleted: false }];
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: programId,
       meetingDate: "2026-11-02",
@@ -265,7 +265,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await saveMeetingProgramToSupabase(client, "user-elder", program);
+    await saveMeetingProgramToNeon(client, "user-elder", program);
     expect(db.tables.assignment_slots).toHaveLength(1);
     expect(db.tables.assignment_slots[0].is_deleted).toBe(true);
   });
@@ -278,7 +278,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       is_draft: false,
     }];
     db.tables.assignment_slots = [];
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: "00000000-0000-4000-8000-000000000001",
       meetingDate: "2026-11-02",
@@ -289,7 +289,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       updatedAt: new Date().toISOString(),
       slots: [],
     };
-    await expect(saveMeetingProgramToSupabase(client, "user-elder", program)).rejects.toThrow(/ya está publicado/);
+    await expect(saveMeetingProgramToNeon(client, "user-elder", program)).rejects.toThrow(/ya está publicado/);
   });
 
   it("no hace escrituras directas ni crea ciclos si falla la RPC atómica", async () => {
@@ -301,7 +301,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     db.tables.assignment_slots = [];
     db.rpcFailure = { message: "permission denied", code: "42501" };
 
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: "00000000-0000-4000-8000-000000000099",
       meetingDate: "2026-11-16",
@@ -313,7 +313,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       slots: [],
     };
 
-    await expect(saveMeetingProgramToSupabase(client, "user-elder", program)).rejects.toThrow("permission denied");
+    await expect(saveMeetingProgramToNeon(client, "user-elder", program)).rejects.toThrow("permission denied");
     expect(db.rpcCalls).toBe(1);
     expect(db.tables.meeting_programs).toHaveLength(0);
     expect(db.tables.assignment_slots).toHaveLength(0);
@@ -329,7 +329,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
     db.tables.meeting_programs = [];
     db.tables.assignment_slots = [];
 
-    const client = db as unknown as ReturnType<typeof createSupabaseBrowserClient>;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
     const program: MeetingProgramDetail = {
       id: "00000000-0000-4000-8000-000000000001",
       meetingDate: "2026-11-02",
@@ -341,7 +341,7 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
       slots: [],
     };
 
-    await saveMeetingProgramToSupabase(client, "user-elder", program);
+    await saveMeetingProgramToNeon(client, "user-elder", program);
     expect(db.tables.planning_cycles).toHaveLength(1);
     expect(db.tables.planning_cycles[0].year).toBe(2026);
     expect(db.tables.planning_cycles[0].bimonth_number).toBe(6);

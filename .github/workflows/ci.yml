@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - name: Synchronize lockfile for dependency updates
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install dependencies
         run: npm ci
       - name: Check TypeScript

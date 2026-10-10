@@ -1,5 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@neondatabase/neon-js";
 import { NextResponse } from "next/server";
 import { S140DocxGenerator } from "../../../../../features/printing/s140-docx-generator";
 
@@ -18,36 +17,32 @@ type SlotRow = {
 };
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ programId: string }> },
 ) {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    if (!url || !key) {
-      return NextResponse.json({ error: "Supabase no está configurado." }, { status: 503 });
+    const dataApiUrl = process.env.NEXT_PUBLIC_NEON_DATA_API_URL?.trim();
+    if (!dataApiUrl) {
+      return NextResponse.json({ error: "Neon no está configurado." }, { status: 503 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(url, key, {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(values) {
-          try { values.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); }
-          catch { /* En Route Handlers los cambios de cookie pueden estar gestionados por middleware. */ }
-        },
-      },
-    });
-
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData.user) {
+    const accessToken = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!accessToken) {
       return NextResponse.json({ error: "Inicia sesión para generar el S-140." }, { status: 401 });
     }
 
-    const { data: appUser, error: roleError } = await supabase
+    // El Data API valida el JWT de Neon Auth y aplica los permisos y las políticas RLS.
+    // No se usa una credencial administrativa ni se confía en un userId del navegador.
+    const neon = createClient({
+      dataApi: {
+        url: dataApiUrl,
+        getToken: async () => accessToken,
+      },
+    });
+
+    const { data: appUser, error: roleError } = await neon
       .from("app_users")
       .select("user_id, is_active")
-      .eq("user_id", authData.user.id)
       .eq("is_active", true)
       .maybeSingle();
     if (roleError || !appUser) {
@@ -55,7 +50,7 @@ export async function POST(
     }
 
     const { programId } = await context.params;
-    const { data: program, error: programError } = await supabase
+    const { data: program, error: programError } = await neon
       .from("meeting_programs")
       .select("*")
       .eq("id", programId)
@@ -64,7 +59,7 @@ export async function POST(
       return NextResponse.json({ error: "No se encontró el programa solicitado." }, { status: 404 });
     }
 
-    const { data: slotRows, error: slotsError } = await supabase
+    const { data: slotRows, error: slotsError } = await neon
       .from("assignment_slots")
       .select("*")
       .eq("meeting_program_id", programId)
@@ -74,7 +69,7 @@ export async function POST(
       return NextResponse.json({ error: "No se pudieron cargar las intervenciones." }, { status: 500 });
     }
 
-    const { data: memberRows, error: membersError } = await supabase
+    const { data: memberRows, error: membersError } = await neon
       .from("members")
       .select("id, first_name, last_name, is_active");
     if (membersError) {
@@ -82,7 +77,12 @@ export async function POST(
     }
 
     const members = (memberRows ?? []) as MemberRow[];
-    const memberNames = new Map(members.map((member) => [member.id, member.is_active === false ? "" : `${member.first_name} ${member.last_name}`.trim()]));
+    const memberNames = new Map(
+      members.map((member) => [
+        member.id,
+        member.is_active === false ? "" : `${member.first_name} ${member.last_name}`.trim(),
+      ]),
+    );
     const nameFor = (id: string | null | undefined) => id ? memberNames.get(id) ?? "" : "";
     const slots = (slotRows ?? []) as SlotRow[];
     const byType = (type: string) => slots.find((slot) => slot.assignment_type === type);

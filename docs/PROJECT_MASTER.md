@@ -5,9 +5,9 @@
 - **Última actualización:** 9 de octubre de 2026
 - **Rama de desarrollo:** `main` exclusivamente. No crear ramas de funcionalidad ni Pull Requests.
 - **Repositorio:** https://github.com/benjaminmaestre/Programacion_Reunion_Vida_Ministerio
-- **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 125 personas únicas registradas en el dataset oficial.
+- **Alcance actual:** Congregación Las Violetas (Medellín, Colombia) — 139 personas únicas registradas en el dataset oficial.
 - **CI verificado:** el commit `a20a677` pasó 58 pruebas en 7 archivos, `npm run typecheck` y `npm run build` en GitHub Actions.
-- **Estado de despliegue:** migración 006 preparada en Git; no aplicada ni ejecutada contra una instancia Supabase real.
+- **Estado de despliegue:** migración 006 preparada en Git; no aplicada ni ejecutada contra una instancia Neon real.
 - **Avance global estimado:** no se declara porcentaje hasta validar las RPC, RLS, persistencia real y la salida visual S-140.
 
 ## 1. Objetivo
@@ -18,7 +18,7 @@ El sistema ayuda a responsables autorizados a tomar decisiones; no infiere por s
 
 ## 2. Alcance y arquitectura deliberada
 
-**Solo hay una congregación.** La congregación cuenta con 125 personas únicas. Los datos viven en una única base de datos y el acceso se controla con Supabase Auth, la tabla `app_users` y RLS.
+**Solo hay una congregación.** La congregación cuenta con 139 personas únicas. Los datos viven en una única base de datos y el acceso se controla con Neon Auth, la tabla `app_users` y RLS.
 
 Roles iniciales de aplicación:
 - `administrator`: administración del sistema y del directorio.
@@ -32,7 +32,7 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 
 - `templates/S-140_S.docx`: plantilla fuente de impresión; conservar sin modificar.
 - `templates/S-38_S.pdf`: instrucciones de la reunión, revisión 8/26.
-- `src/features/members/official-directory-data.ts`: dataset unificado oficial de 125 personas (12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 87 publicadores sin nombramiento/precursorado, 3 roles combinados nombramiento+PR y 1 responsabilidad adicional de Secretario).
+- `src/features/members/official-directory-data.ts`: dataset unificado oficial de 139 personas (12 ancianos, 7 siervos ministeriales, 22 precursores regulares, 87 publicadores sin nombramiento/precursorado, 3 roles combinados nombramiento+PR y 1 responsabilidad adicional de Secretario).
 
 ## 4. Estado verificable
 
@@ -43,15 +43,15 @@ La primera cuenta autorizada se agrega administrativamente a `app_users`. El cli
 - [x] Formato UUID v4 estricto para `meeting_programs.id` y `assignment_slots.id` en `program-builder.ts` y datos demo.
 - [x] Auto-creación estricta y resolución de UUIDs para `planning_cycles` y `history_periods`.
 - [x] Validación para semanas especiales y requisitos de aviso; falta contrastar el comportamiento final contra una instancia real y las instrucciones aplicables.
-- [x] Pruebas del Route Handler S-140 con Supabase simulado para respuestas 503, 401, 403, 404, 500 y 200; la inspección visual frente a la plantilla sigue pendiente.
+- [x] Pruebas del Route Handler S-140 con Neon simulado para respuestas 503, 401, 403, 404, 500 y 200; la inspección visual frente a la plantilla sigue pendiente.
 - [x] Modo demo aislado con datos ficticios exclusivamente.
 - [x] CI del commit `a20a677`: 58 pruebas aprobadas, TypeScript y build de producción correctos.
 
 ### Pendientes / Siguientes pasos prioritarios
-- [ ] Confirmar la instancia Supabase de destino y ejecutar las migraciones 001-006 en un entorno autorizado.
-- [ ] Probar RPC, RLS, atomicidad, concurrencia y bloqueo de publicación directa contra PostgreSQL/Supabase real.
+- [ ] Confirmar la instancia Neon de destino y ejecutar las migraciones 001-006 en un entorno autorizado.
+- [ ] Probar RPC, RLS, atomicidad, concurrencia y bloqueo de publicación directa contra PostgreSQL/Neon real.
 - [ ] Inspección visual final del DOCX con Microsoft Word o LibreOffice.
-- [ ] Mantener bloqueada la importación del directorio oficial de 125 personas hasta cerrar estas verificaciones.
+- [ ] Mantener bloqueada la importación del directorio oficial de 139 personas hasta cerrar estas verificaciones.
 
 ## 5. Historial semestral y planificación
 
