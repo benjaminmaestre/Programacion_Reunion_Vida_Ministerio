@@ -9,6 +9,7 @@ import {
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { LoginScreen } from "@/features/auth/LoginScreen";
 import { getActiveMeetingGuide } from "@/features/programs/meeting-guide-repository";
 import { isNeonConfigured } from "@/lib/neon/env";
 import {
@@ -310,7 +311,14 @@ function openNewMemberForm() {
     return <GatePage title="Preparando el directorio" description="Verificando configuración y acceso." icon={<Users size={22} />} />;
   }
   if (mode === "login") {
-    return <LoginGate onSubmit={handleSignIn} loading={isSigningIn} error={loginError} />;
+    return (
+      <LoginScreen
+        onSubmit={handleSignIn}
+        loading={isSigningIn}
+        error={loginError}
+        description="Accede con tu cuenta autorizada para consultar y administrar el directorio de la congregación."
+      />
+    );
   }
   if (mode === "guide_required") {
     return <GatePage
@@ -493,18 +501,4 @@ function GatePage({ title, description, icon, action }: { title: string; descrip
   return <main className="gate-page"><section className="gate-panel"><div className="gate-brand"><span className="brand-mark">VM</span><span>Vida y Ministerio</span></div><div className="gate-icon">{icon}</div><h1 className="gate-title">{title}</h1><p className="gate-description">{description}</p>{action && <div className="gate-actions">{action}</div>}<p className="gate-footnote">Sistema de gestión de asignaciones · Acceso restringido</p></section></main>;
 }
 
-function LoginGate({ onSubmit, loading, error }: { onSubmit: (event: FormEvent<HTMLFormElement>) => void; loading: boolean; error: string }) {
-  return <main className="gate-page"><section className="gate-panel">
-    <div className="gate-brand"><span className="brand-mark">VM</span><span>Vida y Ministerio</span></div>
-    <div className="gate-icon"><LockKeyhole size={22} /></div>
-    <h1 className="gate-title">Iniciar sesión</h1>
-    <p className="gate-description">Accede con tu cuenta autorizada para consultar y administrar el directorio de la congregación.</p>
-    <form className="gate-form" onSubmit={onSubmit}>
-      <div className="form-field"><label className="field-label" htmlFor="login-email">Correo electrónico</label><input id="login-email" className="field" name="email" type="email" autoComplete="username" required /></div>
-      <div className="form-field"><label className="field-label" htmlFor="login-password">Contraseña</label><input id="login-password" className="field" name="password" type="password" autoComplete="current-password" required /></div>
-      {error && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{error}</div>}
-      <button className="button button-primary gate-submit" disabled={loading} type="submit"><LockKeyhole size={15} />{loading ? "Verificando…" : "Entrar"}</button>
-    </form>
-    <p className="gate-footnote">¿Primer acceso? <a className="font-semibold text-blue-700 underline" href="/auth/register">Configurar cuenta inicial</a>. Después, solo el administrador supremo podrá crear cuentas.</p>
-  </section></main>;
-}
+
