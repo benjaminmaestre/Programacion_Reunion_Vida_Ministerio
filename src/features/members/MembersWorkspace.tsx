@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
-  AlertTriangle, Archive, ArrowDownUp, Check, ChevronRight,
+  AlertTriangle, Archive, ArrowDownUp, Award, Check, ChevronRight,
   CircleHelp, Clock3, History, ListChecks,
   KeyRound, LockKeyhole, Plus, Search, ShieldCheck,
   Users, X,
@@ -24,7 +24,7 @@ import type {
   MemberAppointment, MemberGender,
 } from "./demo-data";
 const LEGACY_STORAGE_KEY = "s140-directory-demo-v1";
-type ActiveFilter = "active" | "all" | "inactive";
+type DirectoryCardFilter = "all_active" | "elder" | "ministerial_servant" | "pioneer" | "inactive";
 type CategoryFilter = "all" | HistoryCategory;
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "guide_required" | "membership" | "error";
 type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
@@ -69,7 +69,7 @@ export function MembersWorkspace({
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<ActiveFilter>("active");
+  const [cardFilter, setCardFilter] = useState<DirectoryCardFilter>("all_active");
   const [historyCategory, setHistoryCategory] = useState<CategoryFilter>("all");
   const [historyEntries, setHistoryEntries] = useState<AssignmentHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -149,19 +149,29 @@ export function MembersWorkspace({
   }, []);
 
   const activeMembers = members.filter((member) => member.isActive);
-  const selectedMember = members.find((member) => member.id === selectedMemberId)
-    ?? activeMembers[0] ?? members[0];
 
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");
     return members.filter((member) => {
-      if (activeFilter === "active" && !member.isActive) return false;
-      if (activeFilter === "inactive" && member.isActive) return false;
-      if (!query) return true;
-      return [member.firstName, member.lastName, fullName(member), appointmentLabel(member.appointment), member.additionalRoles ?? ""]
-        .some((value) => value.toLocaleLowerCase("es").includes(query));
+      // Direct Search
+      if (query && ![member.firstName, member.lastName, fullName(member), appointmentLabel(member.appointment), member.additionalRoles ?? ""]
+        .some((value) => value.toLocaleLowerCase("es").includes(query))) {
+        return false;
+      }
+
+      // Card Filter
+      if (cardFilter === "all_active") return member.isActive;
+      if (cardFilter === "elder") return member.appointment === "elder";
+      if (cardFilter === "ministerial_servant") return member.appointment === "ministerial_servant";
+      if (cardFilter === "pioneer") return member.isRegularPioneer;
+      if (cardFilter === "inactive") return !member.isActive;
+
+      return true;
     }).sort((a, b) => fullName(a).localeCompare(fullName(b), "es"));
-  }, [members, search, activeFilter]);
+  }, [members, search, cardFilter]);
+
+  const selectedMember = members.find((member) => member.id === selectedMemberId)
+    ?? filteredMembers[0] ?? activeMembers[0] ?? members[0];
 
   useEffect(() => {
     if (!selectedMember || mode === "loading" || mode === "login" || mode === "guide_required" || mode === "membership" || mode === "error") {
@@ -203,9 +213,9 @@ export function MembersWorkspace({
     ? latestOverall
     : allSelectedHistory.find((entry) => entry.category === historyCategory);
 
-  const elderCount = activeMembers.filter((member) => member.appointment === "elder").length;
-  const servantCount = activeMembers.filter((member) => member.appointment === "ministerial_servant").length;
-  const pioneerCount = activeMembers.filter((member) => member.isRegularPioneer).length;
+  const elderCount = members.filter((member) => member.appointment === "elder").length;
+  const servantCount = members.filter((member) => member.appointment === "ministerial_servant").length;
+  const pioneerCount = members.filter((member) => member.isRegularPioneer).length;
   const inactiveCount = members.length - activeMembers.length;
 
 function openNewMemberForm() {
@@ -388,24 +398,62 @@ function openNewMemberForm() {
           {pageError && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}
 
           <section className="stats-grid" aria-label="Resumen del directorio">
-            <StatCard icon={<Users size={16} />} label="Personas registradas" value={members.length} caption="Incluye activos e inactivos" />
-            <StatCard icon={<Check size={16} />} label="Registros activos" value={activeMembers.length} caption="Disponibles para consulta" />
-            <StatCard icon={<ShieldCheck size={16} />} label="Ancianos / SM" value={elderCount + servantCount} caption={`${elderCount} ancianos · ${servantCount} siervos ministeriales`} />
-            <StatCard icon={<Archive size={16} />} label="Precursores / Inactivos" value={pioneerCount} caption={`${pioneerCount} precursores · ${inactiveCount} inactivos`} />
+            <StatCard
+              icon={<Check size={16} />}
+              label="Registros activos"
+              value={activeMembers.length}
+              caption={`De un total de ${members.length} personas`}
+              isSelected={cardFilter === "all_active"}
+              onClick={() => setCardFilter("all_active")}
+            />
+            <StatCard
+              icon={<ShieldCheck size={16} />}
+              label="Ancianos"
+              value={elderCount}
+              caption={`${elderCount} ancianos habilitados`}
+              isSelected={cardFilter === "elder"}
+              onClick={() => setCardFilter((prev) => (prev === "elder" ? "all_active" : "elder"))}
+            />
+            <StatCard
+              icon={<Users size={16} />}
+              label="Siervos ministeriales"
+              value={servantCount}
+              caption={`${servantCount} siervos ministeriales`}
+              isSelected={cardFilter === "ministerial_servant"}
+              onClick={() => setCardFilter((prev) => (prev === "ministerial_servant" ? "all_active" : "ministerial_servant"))}
+            />
+            <StatCard
+              icon={<Award size={16} />}
+              label="Precursores"
+              value={pioneerCount}
+              caption={`${pioneerCount} precursores regulares`}
+              isSelected={cardFilter === "pioneer"}
+              onClick={() => setCardFilter((prev) => (prev === "pioneer" ? "all_active" : "pioneer"))}
+            />
+            <StatCard
+              icon={<Archive size={16} />}
+              label="Inactivos"
+              value={inactiveCount}
+              caption={`${inactiveCount} registros inactivos`}
+              isSelected={cardFilter === "inactive"}
+              onClick={() => setCardFilter((prev) => (prev === "inactive" ? "all_active" : "inactive"))}
+            />
           </section>
 
           <section className="workspace-grid" id="directorio">
             <div className="panel">
-              <div className="panel-header"><div><h2 className="panel-title">Personas</h2><p className="panel-subtitle">Selecciona un registro para consultar su historial.</p></div><span className="panel-count">{filteredMembers.length} resultados</span></div>
+              <div className="panel-header"><div><h2 className="panel-title">Personas</h2><p className="panel-subtitle">Selecciona una card o usa la búsqueda para filtrar los integrantes.</p></div><span className="panel-count">{filteredMembers.length} resultados</span></div>
               <div className="panel-content">
                 <div className="search-row">
                   <label className="search-field"><Search size={16} aria-hidden="true" /><input className="field" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, nombramiento o rol..." aria-label="Buscar personas" /></label>
-                  <button className="button" type="button" onClick={() => { setSearch(""); setActiveFilter("active"); }} title="Restablecer búsqueda y filtros"><ArrowDownUp size={14} /> Limpiar</button>
+                  <button className="button" type="button" onClick={() => { setSearch(""); setCardFilter("all_active"); }} title="Restablecer búsqueda y filtros"><ArrowDownUp size={14} /> Limpiar</button>
                 </div>
-                <div className="filter-row" role="group" aria-label="Filtrar por estado">
-                  <button type="button" className={`filter-chip ${activeFilter === "active" ? "active" : ""}`} onClick={() => setActiveFilter("active")}>Activos</button>
-                  <button type="button" className={`filter-chip ${activeFilter === "all" ? "active" : ""}`} onClick={() => setActiveFilter("all")}>Todos</button>
-                  <button type="button" className={`filter-chip ${activeFilter === "inactive" ? "active" : ""}`} onClick={() => setActiveFilter("inactive")}>Inactivos</button>
+                <div className="filter-row" role="group" aria-label="Filtrar por categoría">
+                  <button type="button" className={`filter-chip ${cardFilter === "all_active" ? "active" : ""}`} onClick={() => setCardFilter("all_active")}>Activos</button>
+                  <button type="button" className={`filter-chip ${cardFilter === "elder" ? "active" : ""}`} onClick={() => setCardFilter("elder")}>Ancianos</button>
+                  <button type="button" className={`filter-chip ${cardFilter === "ministerial_servant" ? "active" : ""}`} onClick={() => setCardFilter("ministerial_servant")}>SM</button>
+                  <button type="button" className={`filter-chip ${cardFilter === "pioneer" ? "active" : ""}`} onClick={() => setCardFilter("pioneer")}>Precursores</button>
+                  <button type="button" className={`filter-chip ${cardFilter === "inactive" ? "active" : ""}`} onClick={() => setCardFilter("inactive")}>Inactivos</button>
                 </div>
                 <div className="member-list">
                   {filteredMembers.length === 0 ? <div className="empty-state"><strong>No hay resultados</strong>Prueba con otro nombre o cambia el filtro.</div> : filteredMembers.map((member) => (
@@ -524,8 +572,37 @@ function openNewMemberForm() {
   );
 }
 
-function StatCard({ icon, label, value, caption }: { icon: ReactNode; label: string; value: number; caption: string }) {
-  return <article className="stat-card"><div className="stat-top"><span>{label}</span><span className="stat-icon">{icon}</span></div><strong className="stat-value">{value}</strong><span className="stat-caption">{caption}</span></article>;
+function StatCard({
+  icon,
+  label,
+  value,
+  caption,
+  isSelected,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  caption: string;
+  isSelected?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <article
+      className={`stat-card ${isSelected ? "selected" : ""}`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="stat-top">
+        <span>{label}</span>
+        <span className="stat-icon">{icon}</span>
+      </div>
+      <strong className="stat-value">{value}</strong>
+      <span className="stat-caption">{caption}</span>
+    </article>
+  );
 }
 
 function GatePage({ title, description, icon, action }: { title: string; description: string; icon: ReactNode; action?: ReactNode }) {

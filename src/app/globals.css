@@ -231,8 +231,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   .demo-banner strong { display: block; margin-bottom: 2px; color: #6b4b11; }
   .demo-banner p { margin: 0; color: #896b31; line-height: 1.5; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
-  .stat-card { padding: 17px 18px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); box-shadow: none; }
+  .stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    padding: 16px 16px; border: 1.5px solid var(--color-border); border-radius: 8px; background: var(--color-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); cursor: pointer; transition: all 0.18s ease-in-out; user-select: none;
+  }
+  .stat-card:hover { border-color: #93c5fd; background: #f8fafc; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08); }
+  .stat-card.selected {
+    border: 2px solid #2563eb; background: #eff6ff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.16);
+  }
+  .stat-card.selected .stat-icon { background: #2563eb; color: white; }
+  .stat-card.selected .stat-top span { color: #1d4ed8; font-weight: 800; }
+  @media(max-width: 1024px) {
+    .stats-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
   .stat-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--color-text-muted); font-size: 11px; font-weight: 650; }
   .stat-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; color: var(--color-primary); background: var(--color-primary-soft); }
   .stat-value { display: block; margin-top: 10px; font-size: 26px; font-weight: 800; letter-spacing: -.7px; line-height: 1.1; }
