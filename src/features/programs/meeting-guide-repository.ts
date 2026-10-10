@@ -29,6 +29,17 @@ function asRecordArray(data: unknown): ActiveGuideRow[] {
 }
 
 export async function getActiveMeetingGuide(neon: NeonBrowserClient): Promise<ActiveMeetingGuide | null> {
+  const { data: ready, error: readinessError } = await neon.rpc("is_active_meeting_guide_ready", {});
+  if (readinessError) {
+    const details = readinessError as { message?: string; code?: string };
+    if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
+      throw new Error("La base de datos todavía no tiene instalada la migración de bloqueo de la guía bimestral.");
+    }
+    throw new Error(details.message || "No se pudo comprobar el estado de la guía bimestral.");
+  }
+  const readinessValue = Array.isArray(ready) ? ready[0] : ready;
+  if (readinessValue !== true && readinessValue !== "true") return null;
+
   const { data, error } = await neon.rpc("get_active_meeting_guide", {});
   if (error) {
     const details = error as { message?: string; code?: string };
@@ -58,7 +69,7 @@ export async function replaceActiveMeetingGuide(
   neon: NeonBrowserClient,
   guide: Pick<ActiveMeetingGuide, "fileName" | "periodLabel" | "periodStart" | "periodEnd" | "weeks">,
 ): Promise<ActiveMeetingGuide> {
-  const { data, error } = await neon.rpc("replace_active_meeting_guide", {
+  const { data, error } = await neon.rpc("replace_active_meeting_guide_locked", {
     p_file_name: guide.fileName,
     p_period_label: guide.periodLabel,
     p_period_start: guide.periodStart,
@@ -71,4 +82,20 @@ export async function replaceActiveMeetingGuide(
   }
   const uploadedAt = typeof data === "string" ? data : new Date().toISOString();
   return { ...guide, uploadedAt };
+}
+
+export async function beginActiveMeetingGuideReplacement(neon: NeonBrowserClient): Promise<void> {
+  const { error } = await neon.rpc("begin_meeting_guide_replacement", {});
+  if (error) {
+    const details = error as { message?: string };
+    throw new Error(details.message || "No se pudo bloquear el ciclo anterior para iniciar la nueva guía.");
+  }
+}
+
+export async function activateActiveMeetingGuide(neon: NeonBrowserClient): Promise<void> {
+  const { error } = await neon.rpc("activate_active_meeting_guide", {});
+  if (error) {
+    const details = error as { message?: string };
+    throw new Error(details.message || "No se pudo activar la guía después de preparar sus semanas.");
+  }
 }

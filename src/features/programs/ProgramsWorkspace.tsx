@@ -13,7 +13,7 @@ import { getMeetingProgramsFromNeon, saveMeetingProgramToNeon } from "./programs
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
-import { getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
+import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
 import type { Section, WeekType } from "@/types/domain";
 
 type WorkspaceMode = "loading" | "demo" | "login" | "connected" | "guide_required" | "membership" | "error";
@@ -273,6 +273,30 @@ export const ProgramsWorkspace: React.FC = () => {
     }
   }
 
+  async function handleBeginGuideReplacement() {
+    if (!client || !userId || !canManage || guideImporting) return;
+    setGuideImporting(true);
+    setPageError("");
+    setGuideError("");
+    try {
+      await beginActiveMeetingGuideReplacement(client);
+      setActiveGuide(null);
+      setMembers([]);
+      setPrograms([]);
+      setSelectedProgramId(null);
+      setGuideWeeks([]);
+      setGuideFileName("");
+      setGuidePeriodLabel("");
+      setIsGuideImportModalOpen(false);
+      setFeedback("");
+      setMode("guide_required");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo iniciar el nuevo ciclo bimestral.");
+    } finally {
+      setGuideImporting(false);
+    }
+  }
+
   async function handleGuideFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -380,6 +404,7 @@ export const ProgramsWorkspace: React.FC = () => {
         else createdCount += 1;
       }
 
+      await activateActiveMeetingGuide(client);
       const refreshed = await getMeetingProgramsFromNeon(client);
       for (const expected of expectedPrograms) {
         verifyProgramRoundTrip(expected, refreshed.find((program) => program.id === expected.id));
@@ -412,7 +437,7 @@ export const ProgramsWorkspace: React.FC = () => {
       }
       setGuideError(
         guideWasReplaced
-          ? `La guía nueva quedó activa, pero la aplicación de los programas se detuvo en ${currentWeekLabel || "una semana"}: ${errorText}`
+          ? `La guía nueva quedó guardada pero sigue bloqueada; no se habilitarán participantes hasta completar la preparación de sus semanas. Detenido en ${currentWeekLabel || "una semana"}: ${errorText}`
           : `No se reemplazó la guía anterior. ${errorText}`,
       );
     } finally {
@@ -623,7 +648,7 @@ export const ProgramsWorkspace: React.FC = () => {
         <div className="head-actions">
           {mode === "demo" ? <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span> : <span className="status-pill"><span className="demo-dot" /> CONECTADO A NEON</span>}
           {activeGuide && mode === "connected" && <span className="small-note">Guía activa: <strong>{activeGuide.periodLabel}</strong></span>}
-          {canManage && mode === "connected" && <button type="button" className="button" onClick={() => { setGuideError(""); setGuideWeeks([]); setGuideFileName(""); setGuidePeriodLabel(""); setIsGuideImportModalOpen(true); }}><Upload size={16} /> Cambiar guía bimestral</button>}
+          {canManage && mode === "connected" && <button type="button" className="button" onClick={() => void handleBeginGuideReplacement()} disabled={guideImporting}><Upload size={16} /> Iniciar nuevo ciclo bimestral</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
         </div>
       </header>

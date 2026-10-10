@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.active_meeting_guide (
   period_start DATE NOT NULL,
   period_end DATE NOT NULL,
   weeks JSONB NOT NULL CHECK (jsonb_typeof(weeks) = 'array' AND jsonb_array_length(weeks) > 0),
+  replacement_required BOOLEAN NOT NULL DEFAULT FALSE,
   uploaded_by UUID NOT NULL REFERENCES public.app_users(user_id) ON DELETE RESTRICT,
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (period_end >= period_start)
@@ -49,7 +50,7 @@ BEGIN
   RETURN QUERY
   SELECT g.file_name, g.period_label, g.period_start, g.period_end, g.weeks, g.uploaded_at
   FROM public.active_meeting_guide AS g
-  WHERE g.singleton = 1;
+  WHERE g.singleton = 1 AND g.replacement_required IS FALSE;
 END;
 $function$;
 
