@@ -100,6 +100,19 @@ export async function POST(
       }, { status: 409 });
     }
 
+    for (const [label, prayerId] of [
+      ["oración de apertura", program.opening_prayer_participant_id],
+      ["oración de conclusión", program.closing_prayer_participant_id],
+    ] as const) {
+      if (!prayerId) continue;
+      const member = membersById.get(prayerId);
+      if (member?.is_active === true && member.gender !== "male") {
+        return NextResponse.json({
+          error: `No se puede generar el S-140: la ${label} solo puede asignarse a un varón.`,
+        }, { status: 409 });
+      }
+    }
+
     if (program.chairman_id) {
       const chairman = membersById.get(program.chairman_id);
       if (chairman?.is_active === true && chairman.appointment !== "elder") {
