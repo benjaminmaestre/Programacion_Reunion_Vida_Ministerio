@@ -126,13 +126,10 @@ export async function getCurrentAppUser(
   neon: NeonBrowserClient,
   userId: string,
 ): Promise<AppUserRow> {
-  // La política RLS permite leer únicamente la membresía activa de la sesión actual.
-  const { data, error } = await neon
-    .from("app_users")
-    .select("user_id, role, is_active")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .maybeSingle();
+  // Usa la función protegida del servidor para resolver la membresía a partir de
+  // auth.uid(). Así evitamos que una consulta directa a app_users quede vacía por
+  // una discrepancia de evaluación de RLS en el Data API.
+  const { data, error } = await neon.rpc("get_current_app_user", {});
 
   if (error) {
     console.error("getCurrentAppUser falló", {
@@ -140,11 +137,21 @@ export async function getCurrentAppUser(
       message: error.message,
       details: error.details,
       hint: error.hint,
+      sessionUserId: userId,
     });
-    throw new Error("No se pudo comprobar tu acceso a la aplicación.");
+    throw new Error("No se pudo comprobar tu acceso a la aplicación. Vuelve a iniciar sesión e inténtalo de nuevo.");
   }
-  const appUser = data as AppUserRow | null;
-  if (!appUser) throw new MembershipRequiredError();
+
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  const appUser = rows.find((row) => {
+    const candidate = row as Partial<AppUserRow>;
+    return candidate.user_id === userId && candidate.is_active === true;
+  }) as AppUserRow | undefined;
+
+  if (!appUser) {
+    console.warn("La sesión no tiene una membresía activa asociada.", { sessionUserId: userId });
+    throw new MembershipRequiredError();
+  }
   return appUser;
 }
 
