@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import {
-  AlertTriangle, Archive, ArrowDownUp, CalendarDays, Check, ChevronRight,
-  CircleHelp, Clock3, FileText, History, LayoutDashboard, ListChecks,
-  LockKeyhole, LogOut, Plus, Search, ShieldCheck, SlidersHorizontal,
+  AlertTriangle, Archive, ArrowDownUp, Check, ChevronRight,
+  CircleHelp, Clock3, History, ListChecks,
+  LockKeyhole, LogOut, Plus, Search, ShieldCheck,
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
@@ -318,42 +318,14 @@ function openNewMemberForm() {
   const demoMode = mode === "demo";
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar" aria-label="Navegación principal">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">VM</div>
-          <div><p className="brand-title">Vida y Ministerio</p><span className="brand-subtitle">Gestión de asignaciones</span></div>
-        </div>
-        <div>
-          <p className="nav-label">Espacio de trabajo</p>
-          <nav className="nav-list">
-            <button className="nav-item" type="button" disabled title="Módulo pendiente de implementación"><LayoutDashboard size={17} /> Inicio <span className="nav-status">Próximo</span></button>
-            <button className="nav-item active" type="button" aria-current="page"><Users size={17} /> Directorio</button>
-            <button className="nav-item" type="button" disabled title="Módulo pendiente de implementación"><CalendarDays size={17} /> Programas <span className="nav-status">Próximo</span></button>
-            <button className="nav-item" type="button" disabled title="Módulo pendiente de implementación"><History size={17} /> Historial <span className="nav-status">Próximo</span></button>
-            <button className="nav-item" type="button" disabled title="Módulo pendiente de implementación"><FileText size={17} /> Impresión <span className="nav-status">Próximo</span></button>
-          </nav>
-        </div>
-        <div>
-          <p className="nav-label">Sistema</p>
-          <div className="nav-list"><button className="nav-item" type="button" disabled title="Configuración pendiente"><SlidersHorizontal size={17} /> Configuración</button></div>
-        </div>
-        <div className="sidebar-bottom"><div className="sidebar-note"><strong><ShieldCheck size={14} style={{ display: "inline", verticalAlign: "text-bottom", marginRight: 5 }} />Privacidad primero</strong>Los datos reales se consultan según la membresía activa y las políticas RLS de la base de datos.</div></div>
-      </aside>
-
-      <main className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb">Gestión de la reunión <ChevronRight size={12} style={{ display: "inline", verticalAlign: "middle", margin: "0 4px" }} /> <strong>Directorio</strong></div>
-          <div className="topbar-actions">
-            <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A SUPABASE"}</span>
-            {demoMode ? <div className="profile-avatar" title="Usuario de demostración">DE</div> : <button className="button" type="button" onClick={() => void signOut()}><LogOut size={14} /> Salir</button>}
-          </div>
-        </header>
-
-        <div className="page-content">
+    <div className="workspace-wrap">
+      <div className="main-area">
+        <div className="workspace">
           <div className="page-heading">
             <div><p className="eyebrow">Administración de personas</p><h1 className="page-title">Directorio de la congregación</h1><p className="page-description">Consulta a los hermanos y hermanas, mantén los datos actualizados y revisa las participaciones antes de preparar una asignación.</p></div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span className={demoMode ? "demo-pill" : "status-pill"}><span className="demo-dot" /> {demoMode ? "MODO DEMOSTRACIÓN" : "CONECTADO A SUPABASE"}</span>
+              {!demoMode && <button className="button" type="button" onClick={() => void signOut()}><LogOut size={14} /> Salir</button>}
               <button className="button button-primary" onClick={openNewMemberForm} type="button"><Plus size={16} /> Nuevo hermano/a</button>
             </div>
           </div>
@@ -462,8 +434,8 @@ function openNewMemberForm() {
             </div>
           </section>
           <footer className="screen-footer"><span>Gestión de asignaciones · Directorio</span><span>{demoMode ? "Memoria temporal de demostración" : "PostgreSQL protegido por RLS"}</span></footer>
-        </div>
-      </main>
+      </div>
+    </div>
 
       {/* Modal de Formulario de Persona */}
       {isFormOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsFormOpen(false); }}>
