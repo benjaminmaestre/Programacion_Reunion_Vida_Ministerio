@@ -517,6 +517,6 @@ function LoginGate({ onSubmit, loading, error }: { onSubmit: (event: FormEvent<H
       {error && <div className="inline-alert" role="alert"><AlertTriangle size={15} />{error}</div>}
       <button className="button button-primary gate-submit" disabled={loading} type="submit"><LockKeyhole size={15} />{loading ? "Verificando…" : "Entrar"}</button>
     </form>
-    <p className="gate-footnote">¿No tienes acceso? Solicítale al administrador supremo que cree tu cuenta.</p>
+    <p className="gate-footnote">¿Primer acceso? <a className="font-semibold text-blue-700 underline" href="/auth/register">Configurar cuenta inicial</a>. Después, solo el administrador supremo podrá crear cuentas.</p>
   </section></main>;
 }
