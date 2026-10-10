@@ -49,6 +49,16 @@ describe("findExistingAssignment", () => {
     expect(result).toBeNull();
   });
 
+  it("no despliega advertencia al seleccionar para una oración inicial", () => {
+    const result = findExistingAssignment(sampleProgram, "member-brother-1", "opening_prayer");
+    expect(result).toBeNull();
+  });
+
+  it("no despliega advertencia al seleccionar para una oración final", () => {
+    const result = findExistingAssignment(sampleProgram, "member-brother-1", "closing_prayer");
+    expect(result).toBeNull();
+  });
+
   it("detecta duplicado si el presidente intenta ser asignado como titular en un slot", () => {
     const result = findExistingAssignment(sampleProgram, "member-elder-1", "primary", "slot-reading");
     expect(result).toEqual({ title: "Presidente de la reunión" });
@@ -62,16 +72,6 @@ describe("findExistingAssignment", () => {
   it("detecta duplicado si el consejero auxiliar intenta ser asignado a un slot", () => {
     const result = findExistingAssignment(sampleProgram, "member-elder-2", "primary", "slot-talk");
     expect(result).toEqual({ title: "Consejero auxiliar" });
-  });
-
-  it("detecta duplicado si la persona asignada a la oración inicial se intenta asignar a un slot", () => {
-    const result = findExistingAssignment(sampleProgram, "member-elder-3", "primary", "slot-talk");
-    expect(result).toEqual({ title: "Oración inicial" });
-  });
-
-  it("detecta duplicado si la persona asignada a la oración final se intenta asignar a la oración inicial", () => {
-    const result = findExistingAssignment(sampleProgram, "member-brother-2", "opening_prayer");
-    expect(result).toEqual({ title: "Oración final" });
   });
 
   it("detecta duplicado si un titular ya asignado se selecciona como ayudante en otro slot", () => {

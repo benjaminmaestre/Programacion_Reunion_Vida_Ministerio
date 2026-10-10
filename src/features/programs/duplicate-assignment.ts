@@ -19,17 +19,16 @@ export function findExistingAssignment(
   targetRole: "chairman" | "auxiliary" | "opening_prayer" | "closing_prayer" | "primary" | "assistant",
   currentSlotId?: string
 ): { title: string } | null {
+  // Las oraciones no despliegan advertencia de duplicidad
+  if (targetRole === "opening_prayer" || targetRole === "closing_prayer") {
+    return null;
+  }
+
   if (targetRole !== "chairman" && program.chairmanId === memberId) {
     return { title: "Presidente de la reunión" };
   }
   if (targetRole !== "auxiliary" && program.auxiliaryCounselorId === memberId) {
     return { title: "Consejero auxiliar" };
-  }
-  if (targetRole !== "opening_prayer" && program.openingPrayerParticipantId === memberId) {
-    return { title: "Oración inicial" };
-  }
-  if (targetRole !== "closing_prayer" && program.closingPrayerParticipantId === memberId) {
-    return { title: "Oración final" };
   }
   for (const slot of program.slots) {
     if (slot.id === currentSlotId) {
