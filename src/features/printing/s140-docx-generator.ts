@@ -53,6 +53,65 @@ function formatSpanishDate(iso:string):string {
   return day+" de "+MONTHS_ES[month-1]+" de "+year;
 }
 function pairNames(speaker:string,assistant?:string):string { const a=speaker.trim(),b=assistant?.trim(); return a&&b?a+" / "+b:a||b||""; }
+function compactLongTitleRun(xml: string, title: string): string {
+  if (title.trim().length < 18) return xml;
+  let changed = false;
+  return xml.replace(/<w:r\b[\s\S]*?<\/w:r>/g, (run) => {
+    if (changed || !visibleText(run).includes(title.trim()) || !/<w:rPr\b/.test(run)) return run;
+    const sizeTag = /<w:sz\b[^>]*\/>/.exec(run)?.[0];
+    if (!sizeTag) return run;
+    const sizeValue = Number(/w:val=["'](\d+)["']/.exec(sizeTag)?.[1] ?? 0);
+    if (!sizeValue || sizeValue <= 14) return run;
+    changed = true;
+    return run
+      .replace(/<w:sz\b[^>]*\/>/, '<w:sz w:val="14"/>')
+      .replace(/<w:szCs\b[^>]*\/>/, '<w:szCs w:val="14"/>');
+  });
+}
+
+const COMPACT_PARAGRAPH_SPACING = '<w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"/>';
+
+function addOrReplaceCompactSpacing(pPr: string): string {
+  const spacingPattern = /<w:spacing\b[^>]*(?:\/>|>[\s\S]*?<\/w:spacing>)/;
+  if (spacingPattern.test(pPr)) return pPr.replace(spacingPattern, COMPACT_PARAGRAPH_SPACING);
+  const insertBefore = [
+    /<w:ind\b/,
+    /<w:contextualSpacing\b/,
+    /<w:mirrorIndents\b/,
+    /<w:jc\b/,
+    /<w:textDirection\b/,
+    /<w:rPr\b/,
+    /<w:sectPr\b/,
+    /<w:pPrChange\b/,
+  ];
+  for (const pattern of insertBefore) {
+    const match = pattern.exec(pPr);
+    if (match && match.index >= 0) {
+      return pPr.slice(0, match.index) + COMPACT_PARAGRAPH_SPACING + pPr.slice(match.index);
+    }
+  }
+  return pPr.replace(/<\/w:pPr>$/, COMPACT_PARAGRAPH_SPACING + '</w:pPr>');
+}
+
+function compactS140Body(body: string): string {
+  return body.replace(/<w:p\b([^>]*)>([\s\S]*?)<\/w:p>/g, (paragraph, attributes: string, content: string) => {
+    const properties = /<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/.exec(content);
+    if (!properties) {
+      return '<w:p' + attributes + '><w:pPr>' + COMPACT_PARAGRAPH_SPACING + '</w:pPr>' + content + '</w:p>';
+    }
+    const compactProperties = addOrReplaceCompactSpacing(properties[0]);
+    return paragraph.replace(properties[0], compactProperties);
+  });
+}
+
+function compactSectionMargins(section: string): string {
+  return section.replace(/<w:pgMar\b([^>]*)\/>/, (_whole, attributes: string) => {
+    const compactAttributes = attributes.replace(/w:(top|bottom)=["'](\d+)["']/g, (_attr: string, edge: string, raw: string) => {
+      return 'w:' + edge + '="' + Math.min(Number(raw), 500) + '"';
+    });
+    return '<w:pgMar' + compactAttributes + '/>';
+  });
+}
 function mapRows(table:string,mapper:(row:string,index:number)=>string):string { let index=0; return table.replace(/<w:tr\b[\s\S]*?<\/w:tr>/g,(row)=>mapper(row,index++)); }
 function fillDateTable(table:string,data:S140AssignmentData):string {
   let next=setTextNode(table,"[FECHA] | LECTURA SEMANAL DE LA BIBLIA",
@@ -83,6 +142,7 @@ function fillMinistryTable(table:string,data:S140AssignmentData):string {
     }
     const part=parts[rowIndex-1]; if(!part)return "";
     let current=setTextNode(row,"[Título]",part.title||"",0);
+    current=compactLongTitleRun(current, part.title || "");
     current=setTextNode(current,"(X mins.)","("+(part.durationMinutes??(rowIndex===2?4:5))+" mins.)",0);
     current=setTextNode(current,"[Nombre/Nombre]","",0);
     return setTextNode(current,"[Nombre/Nombre]",pairNames(part.speaker,part.assistant),0);
@@ -133,7 +193,8 @@ function createTwoMeetingPageTemplate(documentXml: string): { body: string; sect
   const match = documentXml.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
   if (!match) throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
 
-  const section = match[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ?? "";
+  const rawSection = match[1].match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/)?.[0] ?? "";
+  const section = compactSectionMargins(rawSection);
   let body = match[1].replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/, "");
   const formStarts = findS140FormStarts(body);
   if (formStarts.length < 2) {
@@ -176,7 +237,7 @@ function renderTwoMeetingPage(templateBody: string, meetings: [S140AssignmentDat
   const formStarts = findS140FormStarts(templateBody);
   if (formStarts.length < 2) throw new Error("No se encontraron los dos espacios de reunión en la plantilla S-140.");
   let tableIndex = 0;
-  return templateBody.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
+  const rendered = templateBody.replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, (table) => {
     const currentTableIndex = tableIndex++;
     let formIndex = -1;
     for (let index = 0; index < formStarts.length; index += 1) {
@@ -193,6 +254,7 @@ function renderTwoMeetingPage(templateBody: string, meetings: [S140AssignmentDat
     if (relativeIndex === 4) return fillLivingTable(table, meeting);
     return table;
   });
+  return compactS140Body(rendered);
 }
 
 export class S140DocxGenerator {

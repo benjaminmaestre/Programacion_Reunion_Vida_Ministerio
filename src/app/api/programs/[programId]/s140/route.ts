@@ -25,6 +25,14 @@ type SlotRow = {
   is_deleted?: boolean;
 };
 
+function addDaysToIsoDate(isoDate: string, days: number): string {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return isoDate;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ programId: string }> },
@@ -39,6 +47,15 @@ export async function POST(
     if (!accessToken) {
       return NextResponse.json({ error: "Inicia sesión para generar el S-140." }, { status: 401 });
     }
+
+    // meeting_date identifica el lunes de la semana de la guía; la fecha impresa debe
+    // ser el día efectivo elegido en la interfaz (lunes a viernes).
+    const dayOffsetParam = new URL(request.url).searchParams.get("meetingDayOffset");
+    const requestedDayOffset = dayOffsetParam === null ? 3 : Number(dayOffsetParam);
+    const meetingDayOffset = Number.isInteger(requestedDayOffset)
+      && requestedDayOffset >= 0 && requestedDayOffset <= 4
+      ? requestedDayOffset
+      : 3;
 
     // El Data API valida el JWT de Neon Auth y aplica los permisos y las políticas RLS.
     const neon = createClient({
@@ -187,11 +204,12 @@ export async function POST(
       const treasures = byType("treasures_talk");
       const gems = byType("gems");
       const reading = byType("bible_reading");
+      const congregationStudy = byType("bible_study");
       const conductor = byType("bible_study_conductor");
       const studyReader = byType("bible_study_reader");
 
       meetingData.push({
-        weekDate: String(program.meeting_date),
+        weekDate: addDaysToIsoDate(String(program.meeting_date), meetingDayOffset),
         weeklyBibleReading: program.weekly_bible_reading ?? "",
         openingSongNumber: program.opening_song_number ?? undefined,
         livingSongNumber: program.living_song_number ?? undefined,
@@ -215,6 +233,7 @@ export async function POST(
           })),
         livingParts: slots
           .filter((slot) => slot.section === "living"
+            && slot.assignment_type !== "bible_study"
             && slot.assignment_type !== "bible_study_conductor"
             && slot.assignment_type !== "bible_study_reader")
           .map((slot) => ({
@@ -222,8 +241,12 @@ export async function POST(
             speaker: nameFor(slot.primary_participant_id),
             durationMinutes: slot.duration_minutes,
           })),
-        congregationStudyConductor: nameFor(conductor?.primary_participant_id),
-        congregationStudyReader: nameFor(studyReader?.primary_participant_id),
+        congregationStudyConductor: nameFor(congregationStudy?.primary_participant_id ?? conductor?.primary_participant_id),
+        congregationStudyReader: nameFor(
+          congregationStudy?.assistant_participant_id
+            ?? studyReader?.primary_participant_id
+            ?? conductor?.assistant_participant_id
+        ),
       });
     }
 

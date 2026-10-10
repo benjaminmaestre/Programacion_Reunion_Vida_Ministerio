@@ -277,6 +277,18 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
               order_index: 2,
               is_deleted: true,
             },
+            {
+              id: "s-3",
+              meeting_program_id: "prog-valid",
+              section: "living",
+              title: "Estudio bíblico de la congregación",
+              assignment_type: "bible_study",
+              primary_participant_id: "m-1",
+              assistant_participant_id: "m-2",
+              order_index: 3,
+              duration_minutes: 30,
+              is_deleted: false,
+            },
           ];
           const query: any = {
             filters: [] as Array<{ field: string; value: unknown }>,
@@ -332,9 +344,17 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(generatorSpy).toHaveBeenCalledOnce();
     const generatedInput = generatorSpy.mock.calls[0][0];
     const generated = Array.isArray(generatedInput) ? generatedInput[0] : generatedInput;
+    expect(generated.weekDate).toBe("2026-11-05");
     expect(generated.treasuresTalkTitle).toBe("Tesoros de la Biblia");
     expect(generated.gemsSpeaker).toBe("");
+    expect(generated.congregationStudyConductor).toBe("David Morales");
+    expect(generated.congregationStudyReader).toBe("Félix Pérez");
+    expect(generated.livingParts.some((part) => part.title === "Estudio bíblico de la congregación")).toBe(false);
     expect(JSON.stringify(generated)).not.toContain("NO DEBE APARECER");
+    const outputZip = new PizZip(Buffer.from(buffer));
+    const outputXml = outputZip.file("word/document.xml")?.asText() ?? "";
+    expect(outputXml).toContain("5 de noviembre de 2026");
+    expect(outputXml).toContain('w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"');
     generatorSpy.mockRestore();
   });
 });

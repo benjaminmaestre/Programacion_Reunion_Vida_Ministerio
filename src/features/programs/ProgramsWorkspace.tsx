@@ -742,7 +742,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       if (sessionError || !accessToken) {
         throw new Error("Tu sesión ha expirado. Inicia sesión nuevamente.");
       }
-      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140`, {
+      const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140?meetingDayOffset=${meetingDayOffset}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
