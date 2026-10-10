@@ -3,10 +3,30 @@
 import { useState } from "react";
 import { MembersWorkspace } from "@/features/members/MembersWorkspace";
 import { ProgramsWorkspace } from "@/features/programs/ProgramsWorkspace";
-import { Users, Calendar, Printer } from "lucide-react";
+import { Users, Calendar, ShieldCheck } from "lucide-react";\nimport { createNeonBrowserClient } from "@/lib/neon/client";\nimport { isNeonConfigured } from "@/lib/neon/env";\nimport { getCurrentAppUser } from "@/features/members/members-repository";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"members" | "programs">("programs");
+  const [isAdministrator, setIsAdministrator] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkAdministrator() {
+      if (!isNeonConfigured()) return;
+      try {
+        const neon = createNeonBrowserClient();
+        const { data, error } = await neon.auth.getSession();
+        const user = data.session?.user;
+        if (error || !user) return;
+        const appUser = await getCurrentAppUser(neon, user.id);
+        if (!cancelled) setIsAdministrator(appUser.role === "administrator");
+      } catch {
+        if (!cancelled) setIsAdministrator(false);
+      }
+    }
+    void checkAdministrator();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
@@ -16,7 +36,7 @@ export default function HomePage() {
           <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
             S140
           </div>
-          <span className="font-bold text-base tracking-tight">Gestión de Asignaciones</span>
+          <span className="font-bold text-base tracking-tight">Vida y Ministerio</span>
         </div>
 
         <nav className="flex space-x-1">
