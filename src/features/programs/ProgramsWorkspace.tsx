@@ -110,7 +110,7 @@ function findInactiveAssignedIds(program: MeetingProgramDetail, members: Directo
 }
 
 function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingProgramDetail | undefined) {
-  if (!actual) throw new Error("Neon no devolvió la reunión después de guardarla.");
+  if (!actual) throw new Error("No se pudo confirmar el guardado de la reunión.");
   if (actual.meetingDate !== expected.meetingDate || actual.weekType !== expected.weekType) {
     throw new Error("La reunión recuperada no coincide con la fecha o el tipo de semana.");
   }
@@ -118,12 +118,12 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
     throw new Error("La reunión se guardó sin recuperar sus relaciones de ciclo bimestral y período semestral.");
   }
   if (expected.weeklyBibleReading && actual.weeklyBibleReading !== expected.weeklyBibleReading) {
-    throw new Error("La lectura bíblica semanal de la guía no se recuperó correctamente desde Neon.");
+    throw new Error("No se pudo verificar la lectura bíblica semanal de la guía.");
   }
   if (expected.openingSongNumber !== actual.openingSongNumber
     || expected.livingSongNumber !== actual.livingSongNumber
     || expected.closingSongNumber !== actual.closingSongNumber) {
-    throw new Error("Los números de canción de la guía no se recuperaron correctamente desde Neon.");
+    throw new Error("No se pudieron verificar los números de canción de la guía.");
   }
   if ((expected.bimonthCycle && actual.bimonthCycle !== expected.bimonthCycle)
     || (expected.historyPeriod && actual.historyPeriod !== expected.historyPeriod)) {
@@ -140,7 +140,7 @@ function verifyProgramRoundTrip(expected: MeetingProgramDetail, actual: MeetingP
       || actualSlot.durationMinutes !== expectedSlot.durationMinutes
       || (actualSlot.primaryParticipantId ?? "") !== (expectedSlot.primaryParticipantId ?? "")
       || (actualSlot.assistantParticipantId ?? "") !== (expectedSlot.assistantParticipantId ?? "")) {
-      throw new Error("La reunión recuperada contiene una intervención distinta a la enviada a Neon.");
+      throw new Error("La reunión guardada no coincide con los cambios realizados.");
     }
   }
   if ((actual.status === "published") !== (expected.status === "published")) {
@@ -236,7 +236,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       if (!isNeonConfigured()) {
         if (process.env.NODE_ENV === "production") {
           if (!cancelled) {
-            setPageError("Neon no está configurado. La demostración está deshabilitada en producción.");
+            setPageError("No se pudo establecer la conexión con el servicio. Inténtalo de nuevo más tarde.");
             setMode("error");
           }
         } else if (!cancelled) {
@@ -373,9 +373,9 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
         setSelectedProgramId(newProgram.id);
         setIsNewProgramModalOpen(false);
         setNewMeetingDate("");
-        setFeedback(`Nuevo programa borrador creado y guardado en Neon para el ${newMeetingDate}.`);
+        setFeedback(`Borrador del programa creado exitosamente para el ${newMeetingDate}.`);
       } catch (err) {
-        setPageError(err instanceof Error ? err.message : "No se pudo crear la reunión en Neon.");
+        setPageError("No se pudo crear el programa. Verifica los datos e inténtalo de nuevo.");
       } finally {
         setSaving(false);
       }
@@ -567,11 +567,11 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
     if (mode === "demo") {
       if (status === "published") {
-        setPageError("El modo demo no permite publicar programas. Conecta Neon y usa una cuenta autorizada.");
+        setPageError("La vista de demostración no permite publicar programas. Inicia sesión con una cuenta autorizada.");
         return;
       }
       updateProgram({ ...selectedProgram, status: "draft", updatedAt: new Date().toISOString() });
-      setFeedback("Cambio temporal en modo demo. No se guardó en una base de datos.");
+      setFeedback("Cambio temporal aplicado en la vista de demostración; no se guardó permanentemente.");
       return;
     }
 
@@ -614,7 +614,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       verifyProgramRoundTrip(nextProgram, freshPrograms.find((program) => program.id === nextProgram.id));
       setPrograms(freshPrograms);
       setSelectedProgramId(nextProgram.id);
-      setFeedback(status === "published" ? "Programa publicado y recuperado de Neon." : "Borrador guardado y verificado en Neon.");
+      setFeedback(status === "published" ? "Programa publicado exitosamente." : "Borrador guardado exitosamente.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo guardar el programa.");
     } finally {
@@ -624,7 +624,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
   async function handleGenerateS140() {
     if (!selectedProgram || generating || mode !== "connected" || !client || !userId) {
-      setPageError("La generación del S-140 requiere una sesión conectada a Neon.");
+      setPageError("Para generar el S-140, inicia sesión con una cuenta autorizada.");
       return;
     }
     if (findInactiveAssignedIds(selectedProgram, members).length > 0) {
@@ -646,7 +646,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       const { data: sessionData, error: sessionError } = await client.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) {
-        throw new Error("La sesión de Neon ha expirado. Inicia sesión de nuevo.");
+        throw new Error("Tu sesión ha expirado. Inicia sesión nuevamente.");
       }
       const response = await fetch(`/api/programs/${encodeURIComponent(selectedProgram.id)}/s140`, {
         method: "POST",
@@ -665,7 +665,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-      setFeedback("Documento S-140 generado desde los datos guardados en Neon.");
+      setFeedback("S-140 generado exitosamente.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo generar el S-140.");
     } finally {
@@ -979,7 +979,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
         </div>
       </header>
 
-      {mode === "demo" && <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración</strong><p>Los datos son ficticios y no se guardan en la base de datos. Para guardar programas y emitir el S-140 oficial, inicia sesión con Neon.</p></div></div>}
+      {mode === "demo" && <div className="demo-banner" role="note"><AlertTriangle size={17} /><div><strong>Entorno de demostración</strong><p>Los datos son ficticios y no se guardan permanentemente. Para guardar programas y emitir el S-140 oficial, inicia sesión con una cuenta autorizada.</p></div></div>}
       {pageError && <div className="inline-alert pre" role="alert"><AlertTriangle size={15} />{pageError}<button type="button" className="icon-button" onClick={() => setPageError("")} aria-label="Cerrar aviso"><X size={14} /></button></div>}
       {feedback && <div className="alert-ok" role="status">{feedback}</div>}
 
