@@ -816,23 +816,26 @@ export const ProgramsWorkspace: React.FC = () => {
     <div className="meter"><div><span>{label}</span><span>{value} de {slots.length}</span></div><p><i style={{ width: `${slots.length ? (value / slots.length) * 100 : 0}%` }} /></p></div>
   );
 
-  const renderHistoryPopover = (memberId?: string) => {
-    if (!memberId || previewMemberId !== memberId) return null;
-    const member = members.find((m) => m.id === memberId);
+  const renderSideHistoryCard = () => {
+    if (!previewMemberId) return null;
+    const member = members.find((m) => m.id === previewMemberId);
     if (!member) return null;
 
     return (
-      <div className="history-popover" role="tooltip">
+      <div className="card history-side-card">
         <div className="popover-header">
-          <span>Historial 3 meses ({member.firstName} {member.lastName})</span>
-          <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }} onClick={() => setPreviewMemberId(null)} aria-label="Cerrar vista previa">
-            <X size={12} />
+          <span>Historial (últimos 3 meses)</span>
+          <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", padding: 0 }} onClick={() => setPreviewMemberId(null)} aria-label="Cerrar historial">
+            <X size={14} />
           </button>
+        </div>
+        <div style={{ fontWeight: 800, marginBottom: 8, color: "var(--color-primary)" }}>
+          {member.firstName} {member.lastName}
         </div>
         {previewLoading ? (
           <div className="popover-empty">Cargando historial…</div>
         ) : previewHistory.length === 0 ? (
-          <div className="popover-empty">Sin asignaciones en los últimos 3 meses</div>
+          <div className="popover-empty">Sin asignaciones registradas en los últimos 3 meses</div>
         ) : (
           <ul className="popover-list">
             {previewHistory.map((item) => (
@@ -852,6 +855,39 @@ export const ProgramsWorkspace: React.FC = () => {
       </div>
     );
   };
+
+  // Función para comprobar si un participante ya tiene otra asignación en el mismo programa
+  function checkDuplicateAssignment(memberId: string | undefined, currentSlotId?: string, isLeadershipRole?: boolean) {
+    if (!memberId || !selectedProgram) return;
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+
+    // Conteo de asignaciones del participante en el mismo programa
+    let occurrences = 0;
+
+    // Si es presidente, se le permite repetir (oraciones, discursos, etc.)
+    const isChairman = selectedProgram.chairmanId === memberId;
+    if (isLeadershipRole && isChairman) return; // Permitido sin advertencia
+
+    if (selectedProgram.chairmanId === memberId) occurrences++;
+    if (selectedProgram.auxiliaryCounselorId === memberId) occurrences++;
+
+    for (const slot of selectedProgram.slots) {
+      if (slot.primaryParticipantId === memberId) occurrences++;
+      if (slot.assistantParticipantId === memberId) occurrences++;
+    }
+
+    // Si la persona ya figura en otra parte del programa y NO es el presidente que tiene exención
+    if (occurrences > 1) {
+      if (isChairman) {
+        // Mensaje informativo si es el presidente
+        setFeedback(`Nota: ${member.firstName} ${member.lastName} es el presidente de la reunión y tiene más de una asignación este día.`);
+      } else {
+        // Advertencia si es cualquier otro participante
+        setPageError(`⚠️ Advertencia: ${member.firstName} ${member.lastName} ya tiene otra asignación en este mismo programa (${longDate(selectedProgram.meetingDate)}).`);
+      }
+    }
+  }
 
   return (
     <div className="workspace">
@@ -909,14 +945,14 @@ export const ProgramsWorkspace: React.FC = () => {
                     const isPub = program.status === "published";
                     const isSelected = program.id === selectedProgramId;
                     return (
-                      <button key={date} type="button" className={`date-chip ${isPub ? "pub" : ""}`} aria-pressed={isSelected} onClick={() => { setSelectedProgramId(program.id); setPageError(""); setFeedback(""); }}>
+                      <button key={date} type="button" className={`date-chip ${isPub ? "pub" : ""}`} aria-pressed={isSelected} onClick={() => { setSelectedProgramId(program.id); setPageError(""); setFeedback(""); setPreviewMemberId(null); }}>
                         <b>{day} {month}</b>
                         <span><i />{isPub ? "Publicada" : "Borrador"}</span>
                       </button>
                     );
                   }
                   return (
-                    <button key={date} type="button" className="date-chip empty" disabled={!canManage} onClick={() => { setNewMeetingDate(date); setIsNewProgramModalOpen(true); }}>
+                    <button key={date} type="button" className="date-chip empty" disabled={!canManage} onClick={() => { setNewMeetingDate(date); setIsNewProgramModalOpen(true); setPreviewMemberId(null); }}>
                       <b>{day} {month}</b>
                       <span><i />Sin programar</span>
                     </button>
@@ -944,34 +980,28 @@ export const ProgramsWorkspace: React.FC = () => {
 
                 <div className="leaders">
                   <label className="lbl">Presidente de la reunión
-                    <div className="select-wrapper">
-                      <select className="select-field" aria-label="Presidente de la reunión" value={selectedProgram.chairmanId ?? ""} disabled={readOnly}
-                        onFocus={() => { if (selectedProgram.chairmanId) setPreviewMemberId(selectedProgram.chairmanId); }}
-                        onBlur={() => setPreviewMemberId(null)}
-                        onChange={(e) => {
-                          const val = e.target.value || undefined;
-                          updateProgram({ ...selectedProgram, chairmanId: val, ...resetLeadership });
-                          setPreviewMemberId(val ?? null);
-                        }}>
-                        <option value="">Seleccionar presidente…</option>{people(activeMembers)}
-                      </select>
-                      {renderHistoryPopover(selectedProgram.chairmanId)}
-                    </div>
+                    <select className="select-field" aria-label="Presidente de la reunión" value={selectedProgram.chairmanId ?? ""} disabled={readOnly}
+                      onFocus={() => { setPreviewMemberId(selectedProgram.chairmanId ?? null); }}
+                      onChange={(e) => {
+                        const val = e.target.value || undefined;
+                        updateProgram({ ...selectedProgram, chairmanId: val, ...resetLeadership });
+                        setPreviewMemberId(val ?? null);
+                        checkDuplicateAssignment(val, undefined, true);
+                      }}>
+                      <option value="">Seleccionar presidente…</option>{people(activeMembers)}
+                    </select>
                   </label>
                   <label className="lbl">Consejero auxiliar (opcional)
-                    <div className="select-wrapper">
-                      <select className="select-field" aria-label="Consejero auxiliar" value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={readOnly}
-                        onFocus={() => { if (selectedProgram.auxiliaryCounselorId) setPreviewMemberId(selectedProgram.auxiliaryCounselorId); }}
-                        onBlur={() => setPreviewMemberId(null)}
-                        onChange={(e) => {
-                          const val = e.target.value || undefined;
-                          updateProgram({ ...selectedProgram, auxiliaryCounselorId: val, ...resetLeadership });
-                          setPreviewMemberId(val ?? null);
-                        }}>
-                        <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
-                      </select>
-                      {renderHistoryPopover(selectedProgram.auxiliaryCounselorId)}
-                    </div>
+                    <select className="select-field" aria-label="Consejero auxiliar" value={selectedProgram.auxiliaryCounselorId ?? ""} disabled={readOnly}
+                      onFocus={() => { setPreviewMemberId(selectedProgram.auxiliaryCounselorId ?? null); }}
+                      onChange={(e) => {
+                        const val = e.target.value || undefined;
+                        updateProgram({ ...selectedProgram, auxiliaryCounselorId: val, ...resetLeadership });
+                        setPreviewMemberId(val ?? null);
+                        checkDuplicateAssignment(val);
+                      }}>
+                      <option value="">Ninguno</option>{people(activeMembers.filter((m) => m.appointment === "elder"))}
+                    </select>
                   </label>
                   {selectedProgram.weekType === "circuit_overseer" && (
                     <label className="lbl full">Título del discurso del superintendente de circuito
@@ -1016,35 +1046,29 @@ export const ProgramsWorkspace: React.FC = () => {
                                 </div>
                                 <div className="slot-people">
                                   <label className="lbl">Titular
-                                    <div className="select-wrapper">
-                                      <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
-                                        onFocus={() => { if (slot.primaryParticipantId) setPreviewMemberId(slot.primaryParticipantId); }}
-                                        onBlur={() => setPreviewMemberId(null)}
-                                        onChange={(e) => {
-                                          const val = e.target.value || undefined;
-                                          updateSlot(slot.id, { primaryParticipantId: val }, true);
-                                          setPreviewMemberId(val ?? null);
-                                        }}>
-                                        <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
-                                      </select>
-                                      {renderHistoryPopover(slot.primaryParticipantId)}
-                                    </div>
+                                    <select className="select-field" aria-label={`Titular de ${slot.title}`} value={slot.primaryParticipantId ?? ""} disabled={readOnly}
+                                      onFocus={() => { setPreviewMemberId(slot.primaryParticipantId ?? null); }}
+                                      onChange={(e) => {
+                                        const val = e.target.value || undefined;
+                                        updateSlot(slot.id, { primaryParticipantId: val }, true);
+                                        setPreviewMemberId(val ?? null);
+                                        checkDuplicateAssignment(val, slot.id);
+                                      }}>
+                                      <option value="">Seleccionar titular…</option>{peopleForSlot(slot)}
+                                    </select>
                                   </label>
                                   {(PAIRED_ASSIGNMENTS.has(slot.assignmentType ?? "") || slot.assistantParticipantId) && (
                                     <label className="lbl">Ayudante
-                                      <div className="select-wrapper">
-                                        <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
-                                          onFocus={() => { if (slot.assistantParticipantId) setPreviewMemberId(slot.assistantParticipantId); }}
-                                          onBlur={() => setPreviewMemberId(null)}
-                                          onChange={(e) => {
-                                            const val = e.target.value || undefined;
-                                            updateSlot(slot.id, { assistantParticipantId: val }, true);
-                                            setPreviewMemberId(val ?? null);
-                                          }}>
-                                          <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
-                                        </select>
-                                        {renderHistoryPopover(slot.assistantParticipantId)}
-                                      </div>
+                                      <select className="select-field" aria-label={`Ayudante de ${slot.title}`} value={slot.assistantParticipantId ?? ""} disabled={readOnly}
+                                        onFocus={() => { setPreviewMemberId(slot.assistantParticipantId ?? null); }}
+                                        onChange={(e) => {
+                                          const val = e.target.value || undefined;
+                                          updateSlot(slot.id, { assistantParticipantId: val }, true);
+                                          setPreviewMemberId(val ?? null);
+                                          checkDuplicateAssignment(val, slot.id);
+                                        }}>
+                                        <option value="">Seleccionar ayudante…</option>{peopleForSlot(slot)}
+                                      </select>
                                     </label>
                                   )}
                                 </div>
@@ -1074,6 +1098,8 @@ export const ProgramsWorkspace: React.FC = () => {
                   <p className="small-note">Duración total: {elapsed} min</p>
                 </div>
 
+                {renderSideHistoryCard()}
+
                 <div className="card stack">
                   {canManage && !readOnly && (
                     <>
@@ -1088,12 +1114,6 @@ export const ProgramsWorkspace: React.FC = () => {
                   <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>
                     <Download size={15} /> {generating ? "Generando…" : "Generar S-140"}
                   </button>
-                  {!canManage && mode === "connected" && (
-                    <p className="small-note" style={{ color: "var(--color-warning)" }}>
-                      <ShieldAlert size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                      Tu rol no permite editar ni publicar programas.
-                    </p>
-                  )}
                 </div>
               </aside>
             </div>

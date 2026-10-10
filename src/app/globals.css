@@ -286,6 +286,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .gate-actions { display: flex; justify-content: flex-start; }
   .gate-footnote { margin: 23px 0 0; padding-top: 16px; border-top: 1px solid var(--color-border); color: #8a95a5; font-size: 10px; line-height: 1.6; }
 
+<<<<<<< HEAD
   /* Selector EPUB visual y estado explícito del archivo elegido */
   .guide-upload-input {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
@@ -351,25 +352,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     color: #895914; background: #fff0d4; font-size: 9.5px; font-weight: 850; line-height: 1.2; white-space: nowrap;
   }
 
-  /* Popover de historial de asignaciones en selector de participante */
-  .select-wrapper { position: relative; display: block; width: 100%; }
-  .history-popover {
-    position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: 280px;
-    padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 6px;
-    background: var(--color-surface); box-shadow: 0 4px 16px rgba(23, 34, 43, 0.12);
-    font-size: 11px; line-height: 1.4; color: var(--color-text);
+  /* Tarjeta flotante de historial de asignaciones de 3 meses en la columna lateral */
+  .history-side-card {
+    padding: 14px 16px; border: 1.5px solid #a8c4f5; border-radius: 6px;
+    background: #f4f8ff; font-size: 11px; line-height: 1.4; color: var(--color-text);
+    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.08);
+    animation: slideInHistoryCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .popover-header {
+  .history-side-card .popover-header {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--color-border);
-    font-size: 10px; font-weight: 800; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.3px;
+    padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #d0e0fb;
+    font-size: 11px; font-weight: 800; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.3px;
   }
-  .popover-list { display: grid; gap: 5px; max-height: 150px; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
-  .popover-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 10.5px; }
-  .popover-item-title { font-weight: 700; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
-  .popover-item-meta { font-size: 9.5px; color: var(--color-text-muted); }
-  .popover-item-date { color: var(--color-primary); font-weight: 700; font-size: 9.5px; white-space: nowrap; }
-  .popover-empty { color: var(--color-text-muted); font-size: 10px; text-align: center; padding: 6px 0; }
+  .history-side-card .popover-list { display: grid; gap: 7px; max-height: 220px; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
+  .history-side-card .popover-item {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 11px;
+    padding: 6px 8px; border-radius: 4px; background: white; border: 1px solid #e1ebfa;
+  }
+  .history-side-card .popover-item-title { font-weight: 750; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+  .history-side-card .popover-item-meta { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; }
+  .history-side-card .popover-item-date { color: var(--color-primary); font-weight: 800; font-size: 10px; white-space: nowrap; background: #e6edf6; padding: 2px 6px; border-radius: 4px; }
+  .history-side-card .popover-empty { color: var(--color-text-muted); font-size: 11px; text-align: center; padding: 10px 0; }
+
+@keyframes slideInHistoryCard {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 }
 
 @media (max-width: 480px) {
