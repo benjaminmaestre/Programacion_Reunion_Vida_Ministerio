@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Download, FileText, FolderOpen, KeyRound, LogOut, Plus, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { isNeonConfigured } from "@/lib/neon/env";
 import { getCurrentAppUser, getMemberHistory, listMembers, MembershipRequiredError } from "../members/members-repository";
@@ -160,6 +161,7 @@ export const ProgramsWorkspace: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [activeGuide, setActiveGuide] = useState<ActiveMeetingGuide | null>(null);
 
@@ -898,6 +900,9 @@ export const ProgramsWorkspace: React.FC = () => {
           {activeGuide && mode === "connected" && <span className="small-note">Guía activa: <strong>{activeGuide.periodLabel}</strong></span>}
           {canManage && mode === "connected" && <button type="button" className="button" onClick={() => void handleBeginGuideReplacement()} disabled={guideImporting}><Upload size={16} /> Iniciar nuevo ciclo bimestral</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
+          {mode === "connected" && <button type="button" className="button" onClick={() => setIsPasswordDialogOpen(true)} disabled={saving || generating || guideImporting} title="Cambiar la contraseña de tu cuenta">
+            <KeyRound size={15} /> Cambiar contraseña
+          </button>}
           {mode === "connected" && <button type="button" className="button" onClick={() => void handleSignOut()} disabled={signingOut || saving || generating || guideImporting} title="Cerrar la sesión actual">
             <LogOut size={15} /> {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
           </button>}
@@ -1241,6 +1246,12 @@ export const ProgramsWorkspace: React.FC = () => {
             </div>
           </section>
         </div>
+      )}
+      {isPasswordDialogOpen && client && (
+        <PasswordChangeDialog
+          client={client}
+          onClose={() => setIsPasswordDialogOpen(false)}
+        />
       )}
     </div>
   );
