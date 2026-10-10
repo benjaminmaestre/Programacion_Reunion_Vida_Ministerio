@@ -1275,7 +1275,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                             const val = e.target.value || undefined;
                             handleParticipantSelect("closing_prayer", val);
                           }}>
-                          <option value="">Seleccionar oración final…</option>{people(activeMembers)}
+                          <option value="">Seleccionar oración final…</option>{people(activeMaleMembers)}
                         </select>
                       </label>
                     </div>
