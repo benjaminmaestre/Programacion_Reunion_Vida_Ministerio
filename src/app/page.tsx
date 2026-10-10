@@ -1,35 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MembersWorkspace } from "@/features/members/MembersWorkspace";
 import { ProgramsWorkspace } from "@/features/programs/ProgramsWorkspace";
 import { Users, Calendar, ShieldCheck } from "lucide-react";
-import { createNeonBrowserClient } from "@/lib/neon/client";
-import { isNeonConfigured } from "@/lib/neon/env";
-import { getCurrentAppUser } from "@/features/members/members-repository";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"members" | "programs">("programs");
-  const [isAdministrator, setIsAdministrator] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function checkAdministrator() {
-      if (!isNeonConfigured()) return;
-      try {
-        const neon = createNeonBrowserClient();
-        const { data, error } = await neon.auth.getSession();
-        const user = data.session?.user;
-        if (error || !user) return;
-        const appUser = await getCurrentAppUser(neon, user.id);
-        if (!cancelled) setIsAdministrator(appUser.role === "administrator");
-      } catch {
-        if (!cancelled) setIsAdministrator(false);
-      }
-    }
-    void checkAdministrator();
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
@@ -59,11 +36,9 @@ export default function HomePage() {
           >
             <Users className="w-4 h-4" /> Directorio
           </button>
-          {isAdministrator && (
-            <a href="/admin/users" className="px-3.5 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 text-slate-600 hover:bg-slate-100" aria-label="Administrar cuentas">
-              <ShieldCheck className="w-4 h-4" /> Usuarios
-            </a>
-          )}
+          <a href="/admin/users" className="px-3.5 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Administrar cuentas">
+            <ShieldCheck className="w-4 h-4" /> Usuarios
+          </a>
         </nav>
       </header>
       <main className="flex-1">
