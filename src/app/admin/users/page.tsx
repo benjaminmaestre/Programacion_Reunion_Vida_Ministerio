@@ -94,13 +94,13 @@ export default function AdminUsersPage() {
       const responseBody = await response.json().catch(() => ({}));
       if (!response.ok) {
         const detail = responseBody?.message ?? responseBody?.error?.message ?? responseBody?.error;
-        throw new Error(typeof detail === "string" ? detail : "Neon Auth rechazó la creación de la cuenta. Verifica tus permisos y el correo.");
+        throw new Error(typeof detail === "string" ? detail : "No se pudo crear la cuenta. Verifica los permisos y el correo e inténtalo de nuevo.");
       }
 
       const createdUser = responseBody?.user ?? responseBody?.data?.user ?? responseBody?.data ?? responseBody;
       const newUserId = createdUser?.id;
       if (typeof newUserId !== "string" || !newUserId) {
-        throw new Error("Neon creó una respuesta sin un identificador de cuenta válido. Revisa Neon Auth antes de repetir la operación.");
+        throw new Error("No se pudo confirmar la creación de la cuenta. Verifica el listado antes de volver a intentarlo.");
       }
 
       const { error: insertError } = await client.from("app_users").insert({
@@ -237,7 +237,7 @@ export default function AdminUsersPage() {
             <h2 className="panel-title" style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8 }}>
               <UserPlus size={18} /> Crear usuario
             </h2>
-            <p className="panel-subtitle">Se creará una cuenta en Neon Auth y se asignará el rol <strong>Usuario</strong>. La contraseña inicial debe comunicarse por un canal seguro.</p>
+            <p className="panel-subtitle">Se creará una cuenta de acceso y se asignará el rol <strong>Usuario</strong>. La contraseña inicial debe comunicarse por un canal seguro.</p>
           </div>
           <form onSubmit={createUser} className="form-grid" style={{ padding: 0 }}>
             <div className="form-field">
