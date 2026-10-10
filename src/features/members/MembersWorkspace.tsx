@@ -95,7 +95,7 @@ export function MembersWorkspace({
       if (!isNeonConfigured()) {
         if (cancelled) return;
         if (process.env.NODE_ENV === "production") {
-          setPageError("La conexión con Neon no está configurada. No se habilitará el modo de demostración en producción.");
+          setPageError("No se pudo establecer la conexión con el servicio. Inténtalo de nuevo más tarde.");
           setMode("error");
         } else {
           setMembers(DEMO_MEMBERS);
@@ -136,7 +136,7 @@ export function MembersWorkspace({
         if (error instanceof MembershipRequiredError) {
           setMode("membership");
         } else {
-          setPageError(error instanceof Error ? error.message : "No se pudo conectar con Neon.");
+          setPageError("No se pudo cargar el directorio. Inténtalo de nuevo.");
           setMode("error");
         }
       } finally {
@@ -317,7 +317,7 @@ function openNewMemberForm() {
         setUserId(null);
         setMode("membership");
       } else {
-        setLoginError(error instanceof Error ? error.message : "No se pudo conectar con la base de datos.");
+        setLoginError("No se pudo completar el inicio de sesión. Verifica tus credenciales e inténtalo de nuevo.");
       }
     } finally {
       setIsSigningIn(false);
@@ -516,7 +516,7 @@ function openNewMemberForm() {
 
                     <div className="history-block">
                       <h3 className="history-block-heading"><Clock3 size={14} /> Última asignación registrada</h3>
-                      {historyLoading ? <div className="empty-state">Consultando la base de datos…</div> : latestOverall ? (
+                      {historyLoading ? <div className="empty-state">Consultando el historial…</div> : latestOverall ? (
                         <div className="latest-card"><span className="latest-label">Participación más reciente · cualquier categoría</span><p className="latest-title">{latestOverall.assignment}</p><span className="latest-date">{formatDate(latestOverall.date)}</span><div className="latest-details"><div className="latest-detail"><span>Función</span><strong>{latestOverall.participation}</strong></div><div className="latest-detail"><span>Categoría</span><strong>{CATEGORY_LABELS[latestOverall.category]}</strong></div><div className="latest-detail"><span>{latestOverall.participation === "Ayudante" ? "Titular / compañero" : "Ayudante / compañero"}</span><strong>{latestOverall.companionName ?? "No registrado"}</strong></div></div></div>
                       ) : <div className="empty-state"><strong>Sin historial disponible</strong>Cuando la persona tenga participaciones registradas, aparecerán aquí.</div>}
                     </div>
@@ -533,7 +533,7 @@ function openNewMemberForm() {
                       {historyCategory !== "all" && latestInCategory && <div className="latest-card" style={{ marginBottom: 12 }}><span className="latest-label">Última de esta categoría</span><p className="latest-title">{latestInCategory.assignment}</p><span className="latest-date">{formatDate(latestInCategory.date)}</span><div className="latest-details"><div className="latest-detail"><span>Función</span><strong>{latestInCategory.participation}</strong></div><div className="latest-detail"><span>Ayudante / compañero</span><strong>{latestInCategory.companionName ?? "No registrado"}</strong></div></div></div>}
                       {historyLoading ? <div className="empty-state">Actualizando historial…</div> : memberHistory.length ? <div className="history-list">{memberHistory.slice(0, 5).map((entry) => <div className="history-entry" key={entry.id}><div className="timeline-track"><span className="timeline-dot" /></div><div><p className="history-entry-title">{entry.assignment}</p><p className="history-entry-detail">{entry.participation}{entry.companionName ? ` · ${entry.companionName}` : ""}</p><span className="history-entry-date">{formatDate(entry.date)}</span></div></div>)}</div> : <div className="empty-state"><strong>No hay registros para esta categoría</strong>{demoMode ? "No hay participaciones de ejemplo asociadas a esta categoría." : "No se encontraron participaciones en el período semestral activo."}</div>}
                     </div>
-                    <div className="helper-note"><CircleHelp size={15} /><span>{demoMode ? "Los nombres e historiales son ficticios. No corresponden a datos reales." : "El historial real se consulta en la base de datos y se limita al período semestral operativo activo."}</span></div>
+                    <div className="helper-note"><CircleHelp size={15} /><span>{demoMode ? "Los nombres e historiales son ficticios. No corresponden a datos reales." : "El historial muestra los registros del período semestral operativo activo."}</span></div>
                   </>
                 ) : <div className="empty-state"><strong>Selecciona una persona</strong>El historial contextual aparecerá aquí.</div>}
               </div>
