@@ -7,7 +7,7 @@ const ui = Instrument_Sans({ subsets: ["latin"], variable: "--font-ui", display:
 const serif = Newsreader({ subsets: ["latin"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Vida y Ministerio | Gestión de asignaciones",
+  title: "Reunión Vida y Ministerio Cristianos | Gestión de asignaciones",
   description: "Gestión del directorio, historial y preparación del programa Vida y Ministerio Cristianos.",
 };
 
