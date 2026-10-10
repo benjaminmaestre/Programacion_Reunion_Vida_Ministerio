@@ -330,7 +330,8 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(findZipSignature([0x50, 0x4b, 0x01, 0x02])).toBeGreaterThan(-1);
     expect(findZipSignature([0x50, 0x4b, 0x05, 0x06])).toBeGreaterThan(-1);
     expect(generatorSpy).toHaveBeenCalledOnce();
-    const generated = generatorSpy.mock.calls[0][0];
+    const generatedInput = generatorSpy.mock.calls[0][0];
+    const generated = Array.isArray(generatedInput) ? generatedInput[0] : generatedInput;
     expect(generated.treasuresTalkTitle).toBe("Tesoros de la Biblia");
     expect(generated.gemsSpeaker).toBe("");
     expect(JSON.stringify(generated)).not.toContain("NO DEBE APARECER");
