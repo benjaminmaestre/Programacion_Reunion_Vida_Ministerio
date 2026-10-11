@@ -58,6 +58,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   outline: 3px solid rgba(30, 58, 95, .35);
   outline-offset: 2px;
 }
+.auth-input-wrap > input:focus, .auth-input-wrap > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
 @layer components {
   .shell{min-height:100vh;display:grid;grid-template-columns:112px minmax(0,1fr)}

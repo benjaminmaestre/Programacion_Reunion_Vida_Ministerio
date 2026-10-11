@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, CheckCircle, CircleOff, KeyRound, LockKeyhole, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle, CircleOff, Eye, EyeOff, KeyRound, LockKeyhole, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { getCurrentAppUser, MembershipRequiredError } from "@/features/members/members-repository";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -28,6 +28,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const loadUsers = useCallback(async (neon: ReturnType<typeof createNeonBrowserClient>) => {
     const { data, error: listError } = await neon.rpc("admin_list_app_users", {});
@@ -261,7 +263,38 @@ export default function AdminUsersPage() {
             </div>
             <div className="form-field full">
               <label className="field-label" htmlFor="user-password">Contraseña inicial (mínimo 8 caracteres)</label>
-              <input id="user-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} type="password" autoComplete="new-password" className="field" />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  id="user-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="field"
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  style={{
+                    position: "absolute",
+                    right: 8,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-text-muted)",
+                    padding: 4,
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             </div>
             {error && <div className="form-field full"><p role="alert" className="inline-alert">{error}</p></div>}
             {notice && <div className="form-field full"><p role="status" className="alert-ok">{notice}</p></div>}
