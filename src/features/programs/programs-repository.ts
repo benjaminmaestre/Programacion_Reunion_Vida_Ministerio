@@ -278,25 +278,24 @@ export async function deleteDraftProgramInNeon(
 ): Promise<void> {
   await assertCanManageDirectory(neon, userId);
 
-  // Primero eliminar los slots asociados al programa
-  const { error: slotsError } = await neon
-    .from("assignment_slots")
-    .delete()
-    .eq("meeting_program_id", programId);
-
-  if (slotsError) {
-    throw new Error("No se pudieron eliminar los espacios de asignaciones del borrador.");
+  if (typeof neon.rpc !== "function") {
+    throw new Error("El cliente de Neon no soporta llamadas RPC transaccionales.");
   }
 
-  // Eliminar el programa garantizando que sea borrador (is_draft = true)
-  const { error: progError } = await neon
-    .from("meeting_programs")
-    .delete()
-    .eq("id", programId)
-    .eq("is_draft", true);
+  const { data, error } = await neon.rpc("delete_draft_meeting_program", {
+    p_program_id: programId,
+  });
 
-  if (progError) {
-    throw new Error("No se pudo eliminar el borrador de la reunión.");
+  if (error) {
+    const rpcError = error as { code?: string; message?: string };
+    if (rpcError.code === "PGRST202" || /could not find the function|schema cache/i.test(rpcError.message ?? "")) {
+      throw new Error("No está desplegada la RPC delete_draft_meeting_program. Revisa la migración de eliminación de borradores.");
+    }
+    throw new Error(rpcError.message || "No se pudo eliminar el borrador.");
+  }
+
+  if (typeof data === "string" && data.toLowerCase() !== programId.toLowerCase()) {
+    throw new Error("Neon devolvió un identificador diferente al del programa eliminado.");
   }
 }
 
