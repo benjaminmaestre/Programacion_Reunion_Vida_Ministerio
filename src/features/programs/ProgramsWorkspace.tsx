@@ -205,8 +205,8 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
   // Estado para día y hora preferidos de la reunión de entre semana (Lunes a Viernes)
   const [meetingDayOffset, setMeetingDayOffset] = useState<number>(3); // 3 = Jueves (Lunes + 3 días)
-  const [meetingHour, setMeetingHour] = useState<string>("19");
-  const [meetingMinute, setMeetingMinute] = useState<string>("00");
+  const [meetingHour, setMeetingHour] = useState<string>("18");
+  const [meetingMinute, setMeetingMinute] = useState<string>("45");
 
   // Estado para previsualización de historial de los últimos 3 meses y modal de advertencia flotante
   const [previewMemberId, setPreviewMemberId] = useState<string | null>(null);
