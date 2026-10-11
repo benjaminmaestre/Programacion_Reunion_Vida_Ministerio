@@ -50,6 +50,7 @@ export default function AdminUsersPage() {
           return;
         }
 
+        setClient(neon);
         const appUser = await getCurrentAppUser(neon, user.id);
         if (appUser.role !== "administrator") {
           if (!cancelled) setAccess("forbidden");
