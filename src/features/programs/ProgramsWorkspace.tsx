@@ -12,7 +12,7 @@ import type { AssignmentHistoryEntry, DirectoryMember } from "../members/demo-da
 import { CATEGORY_LABELS, DEMO_HISTORY, DEMO_MEMBERS } from "../members/demo-data";
 import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
-import { getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
+import { deleteDraftProgramInNeon, getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
@@ -195,7 +195,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const [pageError, setPageError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState(false);
-  const [savingAction, setSavingAction] = useState<"draft" | "published" | "reopening" | null>(null);
+  const [savingAction, setSavingAction] = useState<"draft" | "published" | "reopening" | "deleting" | null>(null);
   const [generating, setGenerating] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -747,6 +747,50 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       setFeedback("Programa reabierto. Puedes corregirlo y volver a publicarlo.");
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "No se pudo reabrir el programa.");
+    } finally {
+      setSaving(false);
+      setSavingAction(null);
+    }
+  }
+
+  async function handleDeleteDraftProgram() {
+    if (!selectedProgram || saving || selectedProgram.status !== "draft") return;
+    setPageError("");
+    setFeedback("");
+
+    if (!confirm(`¿Eliminar permanentemente el borrador del ${longDate(selectedProgram.meetingDate)}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    const programToDeleteId = selectedProgram.id;
+    const remainingPrograms = programs.filter((p) => p.id !== programToDeleteId);
+
+    if (mode === "demo") {
+      setPrograms(remainingPrograms);
+      setSelectedProgramId(remainingPrograms[0]?.id ?? null);
+      setFeedback("Borrador eliminado del estado de demostración.");
+      return;
+    }
+
+    if (mode !== "connected" || !client || !userId) {
+      setPageError("No hay una sesión válida para eliminar el borrador.");
+      return;
+    }
+    if (!canManage) {
+      setPageError("Tu rol no permite eliminar programas.");
+      return;
+    }
+
+    setSaving(true);
+    setSavingAction("deleting");
+    try {
+      await deleteDraftProgramInNeon(client, userId, programToDeleteId);
+      const freshPrograms = await getMeetingProgramsFromNeon(client);
+      setPrograms(freshPrograms);
+      setSelectedProgramId(freshPrograms[0]?.id ?? null);
+      setFeedback("Borrador eliminado permanentemente.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo eliminar el borrador.");
     } finally {
       setSaving(false);
       setSavingAction(null);
@@ -1436,6 +1480,9 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                       </button>
                       <button type="button" className="button" disabled={saving} onClick={handleClearAssignments} title="Borra todos los participantes asignados para volver a escogerlos">
                         <Eraser size={15} /> Limpiar formulario
+                      </button>
+                      <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} disabled={saving} onClick={() => void handleDeleteDraftProgram()} title="Elimina permanentemente este borrador">
+                        <Trash2 size={15} /> {savingAction === "deleting" ? "Eliminando…" : "Eliminar borrador"}
                       </button>
                       {mode === "connected" && (
                         <button type="button" className="button" disabled={saving} onClick={() => void handleReloadSavedDraft()} title="Carga la última versión guardada de este borrador">

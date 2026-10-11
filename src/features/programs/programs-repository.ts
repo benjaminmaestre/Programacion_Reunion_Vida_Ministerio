@@ -266,3 +266,37 @@ export async function reopenMeetingProgramInNeon(
     throw new Error("Neon devolvió un identificador diferente al del programa reabierto.");
   }
 }
+
+/**
+ * Elimina permanentemente un programa en borrador y sus intervenciones asociadas.
+ * Los programas publicados no se pueden eliminar directamente.
+ */
+export async function deleteDraftProgramInNeon(
+  neon: NeonBrowserClient,
+  userId: string,
+  programId: string
+): Promise<void> {
+  await assertCanManageDirectory(neon, userId);
+
+  // Primero eliminar los slots asociados al programa
+  const { error: slotsError } = await neon
+    .from("assignment_slots")
+    .delete()
+    .eq("meeting_program_id", programId);
+
+  if (slotsError) {
+    throw new Error("No se pudieron eliminar los espacios de asignaciones del borrador.");
+  }
+
+  // Eliminar el programa garantizando que sea borrador (is_draft = true)
+  const { error: progError } = await neon
+    .from("meeting_programs")
+    .delete()
+    .eq("id", programId)
+    .eq("is_draft", true);
+
+  if (progError) {
+    throw new Error("No se pudo eliminar el borrador de la reunión.");
+  }
+}
+
