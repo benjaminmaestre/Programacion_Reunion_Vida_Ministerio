@@ -26,7 +26,6 @@ export function LoginScreen({
         <div className="auth-visual-heading">
           <div className="auth-visual-brand">
             <span className="auth-brand-mark">RVM</span>
-            <span>Reunión Vida y Ministerio Cristianos</span>
           </div>
 
           <div className="auth-visual-copy">
@@ -46,13 +45,6 @@ export function LoginScreen({
             width={720}
             height={360}
           />
-        </div>
-
-        <div className="auth-visual-bottom">
-          <div className="auth-visual-caption"><ShieldCheck size={15} /> Acceso seguro para usuarios autorizados</div>
-          <div className="auth-visual-footer">
-            Herramientas para preparar las reuniones con orden y claridad.
-          </div>
         </div>
       </div>
 
