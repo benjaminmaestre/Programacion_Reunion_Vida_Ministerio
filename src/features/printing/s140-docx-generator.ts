@@ -129,17 +129,22 @@ function mapRows(table:string,mapper:(row:string,index:number)=>string):string {
 function setRunFontSize(run: string, size: number): string {
   const value = String(size);
   const runProperties = /<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/.exec(run)?.[0];
-  if (runProperties) {
-    let properties = runProperties;
-    for (const tag of ["sz", "szCs"]) {
-      const pattern = new RegExp("<w:" + tag + "\\b[^>]*\\/>");
-      const replacement = '<w:' + tag + ' w:val="' + value + '"/>';
-      if (pattern.test(properties)) properties = properties.replace(pattern, replacement);
-      else properties = properties.replace(/<\/w:rPr>$/, replacement);
-    }
-    return run.replace(runProperties, properties);
-  }
-  return run.replace(/^(<w:r\b[^>]*>)/, '$1<w:rPr><w:sz w:val="' + value + '"/><w:szCs w:val="' + value + '"/></w:rPr>');
+  // Edit only explicit existing size properties; do not introduce new OOXML
+  // children, and collapse duplicates while preserving their original positions.
+  if (!runProperties) return run;
+  let seenSize = false;
+  let seenComplexSize = false;
+  let properties = runProperties.replace(/<w:sz\b[^>]*\/>/g, () => {
+    if (seenSize) return "";
+    seenSize = true;
+    return '<w:sz w:val="' + value + '"/>';
+  });
+  properties = properties.replace(/<w:szCs\b[^>]*\/>/g, () => {
+    if (seenComplexSize) return "";
+    seenComplexSize = true;
+    return '<w:szCs w:val="' + value + '"/>';
+  });
+  return run.replace(runProperties, properties);
 }
 
 function compactAssignmentTable(table: string): string {

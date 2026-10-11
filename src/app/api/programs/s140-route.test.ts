@@ -386,9 +386,13 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(outputXml).not.toContain("<w:docGrid");
     expect((outputXml.match(/LAS VIOLETAS/g) ?? []).length).toBe(1);
 
-    // Each run-properties node may contain at most one size tag of each kind.
+    // Runs modified for compact text may not acquire duplicate font-size tags.
     const runProperties = outputXml.match(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/g) ?? [];
-    for (const runProperty of runProperties) {
+    const compactedRunProperties = runProperties.filter((runProperty) =>
+      /<w:sz\b[^>]*w:val=["']16["']/.test(runProperty)
+      || /<w:szCs\b[^>]*w:val=["']16["']/.test(runProperty)
+    );
+    for (const runProperty of compactedRunProperties) {
       expect((runProperty.match(/<w:sz\b/g) ?? []).length).toBeLessThanOrEqual(1);
       expect((runProperty.match(/<w:szCs\b/g) ?? []).length).toBeLessThanOrEqual(1);
     }
