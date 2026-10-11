@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, RefreshCw, RotateCcw, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, Eraser, Eye, FileText, FolderOpen, KeyRound, Plus, RefreshCw, RotateCcw, Save, ShieldAlert, Trash2, Undo2, Upload, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -373,6 +373,62 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     };
     updateProgram(updatedProgram);
     setFeedback(`Intervención "${slot.title}" retirada del borrador.`);
+  }
+
+  function handleClearAssignments() {
+    if (!selectedProgram || (mode === "connected" && selectedProgram.status === "published")) return;
+    if (!confirm("¿Deseas limpiar todas las asignaciones de participantes de esta reunión para volver a escogerlos?")) return;
+
+    const clearedSlots = selectedProgram.slots.map((slot) => ({
+      ...slot,
+      primaryParticipantId: undefined,
+      assistantParticipantId: undefined,
+      eligibilityConfirmed: false,
+      eligibilityConfirmedBy: undefined,
+      eligibilityConfirmedAt: undefined,
+    }));
+
+    const clearedProgram: MeetingProgramDetail = {
+      ...selectedProgram,
+      chairmanId: undefined,
+      auxiliaryCounselorId: undefined,
+      openingPrayerParticipantId: undefined,
+      closingPrayerParticipantId: undefined,
+      leadershipReviewConfirmed: false,
+      leadershipReviewConfirmedBy: undefined,
+      leadershipReviewConfirmedAt: undefined,
+      slots: clearedSlots,
+      updatedAt: new Date().toISOString(),
+    };
+
+    updateProgram(clearedProgram);
+    setPreviewMemberId(null);
+    setFeedback("Se han limpiado los participantes de la reunión. Ahora puedes seleccionar nuevos participantes.");
+    setPageError("");
+  }
+
+  async function handleReloadSavedDraft() {
+    if (!selectedProgram) return;
+    setPageError("");
+    setFeedback("");
+
+    if (mode === "connected" && client) {
+      setSaving(true);
+      try {
+        const freshPrograms = await getMeetingProgramsFromNeon(client);
+        setPrograms(freshPrograms);
+        const saved = freshPrograms.find((p) => p.id === selectedProgram.id);
+        if (saved) {
+          setFeedback(`Se ha restaurado la versión guardada del borrador (${new Intl.DateTimeFormat("es-CO", { timeStyle: "medium" }).format(new Date(saved.updatedAt))}).`);
+        }
+      } catch (err) {
+        setPageError("No se pudo cargar la versión guardada desde el servidor.");
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      setFeedback("Estás viendo la versión actual en memoria.");
+    }
   }
 
   async function handleCreateNewProgram(event: React.FormEvent) {
@@ -1378,6 +1434,14 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                       <button type="button" className="button button-primary" disabled={saving} onClick={() => void handleSave("published")}>
                         <CheckCircle size={15} /> {savingAction === "published" ? "Publicando…" : "Validar y publicar"}
                       </button>
+                      <button type="button" className="button" disabled={saving} onClick={handleClearAssignments} title="Borra todos los participantes asignados para volver a escogerlos">
+                        <Eraser size={15} /> Limpiar formulario
+                      </button>
+                      {mode === "connected" && (
+                        <button type="button" className="button" disabled={saving} onClick={() => void handleReloadSavedDraft()} title="Carga la última versión guardada de este borrador">
+                          <Eye size={15} /> Ver borrador guardado
+                        </button>
+                      )}
                     </>
                   ))}
                   <button type="button" className="button" disabled={generating} onClick={() => void handleGenerateS140()}>
