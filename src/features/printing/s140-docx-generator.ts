@@ -132,7 +132,7 @@ function setRunFontSize(run: string, size: number): string {
   if (runProperties) {
     let properties = runProperties;
     for (const tag of ["sz", "szCs"]) {
-      const pattern = new RegExp("<w:" + tag + "\\\\b[^>]*\\\\/>");
+      const pattern = new RegExp("<w:" + tag + "\\b[^>]*\\/>");
       const replacement = '<w:' + tag + ' w:val="' + value + '"/>';
       if (pattern.test(properties)) properties = properties.replace(pattern, replacement);
       else properties = properties.replace(/<\/w:rPr>$/, replacement);

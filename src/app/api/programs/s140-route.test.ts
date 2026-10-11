@@ -385,6 +385,28 @@ describe("Generación del documento S-140 DOCX y Route Handler", () => {
     expect(outputXml).toContain('w:spacing w:before="0" w:after="0" w:line="220" w:lineRule="auto"');
     expect(outputXml).not.toContain("<w:docGrid");
     expect((outputXml.match(/LAS VIOLETAS/g) ?? []).length).toBe(1);
+
+    // Each run-properties node may contain at most one size tag of each kind.
+    const runProperties = outputXml.match(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/g) ?? [];
+    for (const runProperty of runProperties) {
+      expect((runProperty.match(/<w:sz\b/g) ?? []).length).toBeLessThanOrEqual(1);
+      expect((runProperty.match(/<w:szCs\b/g) ?? []).length).toBeLessThanOrEqual(1);
+    }
+
+    // Check generated document.xml is structurally well-formed XML.
+    const xmlTags = outputXml.match(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<\/?[A-Za-z_][\w:.-]*(?:\s[^<>]*?)?\/?>/g) ?? [];
+    const xmlStack: string[] = [];
+    for (const tag of xmlTags) {
+      if (/^<!--|^<!\[CDATA\[|^<\?/.test(tag) || /^<[^>]+\/>$/.test(tag)) continue;
+      const closing = /^<\/([A-Za-z_][\w:.-]*)/.exec(tag);
+      if (closing) {
+        expect(xmlStack.pop()).toBe(closing[1]);
+      } else {
+        const opening = /^<([A-Za-z_][\w:.-]*)/.exec(tag);
+        if (opening) xmlStack.push(opening[1]);
+      }
+    }
+    expect(xmlStack).toEqual([]);
     generatorSpy.mockRestore();
   });
 });
