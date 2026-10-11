@@ -53,6 +53,15 @@ function formatSpanishDate(iso:string):string {
   return day+" de "+MONTHS_ES[month-1]+" de "+year;
 }
 function pairNames(speaker:string,assistant?:string):string { const a=speaker.trim(),b=assistant?.trim(); return a&&b?a+" / "+b:a||b||""; }
+// Elements that must appear after w:sz/w:szCs inside w:rPr (OOXML schema order).
+const RPR_AFTER_SIZE = /<w:(?:highlight|u|effect|bdr|shd|fitText|vertAlign|rtl|cs|em|lang|eastAsianLayout|specVanish|oMath)\b/;
+
+function insertRunPropertyBeforeLaterElements(runProperties: string, element: string): string {
+  const match = RPR_AFTER_SIZE.exec(runProperties);
+  if (match) return runProperties.slice(0, match.index) + element + runProperties.slice(match.index);
+  return runProperties.replace(/<\/w:rPr>$/, element + "</w:rPr>");
+}
+
 function compactLongTitleRun(xml: string, title: string): string {
   const normalizedTitle = title.trim();
   if (normalizedTitle.length < 18) return xml;
@@ -63,16 +72,12 @@ function compactLongTitleRun(xml: string, title: string): string {
     const runProperties = /<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/.exec(run)?.[0];
     if (runProperties) {
       let compactProperties = runProperties;
-      if (/<w:sz\b[^>]*\/>/.test(compactProperties)) {
-        compactProperties = compactProperties.replace(/<w:sz\b[^>]*\/>/, '<w:sz w:val="16"/>');
-      } else {
-        compactProperties = compactProperties.replace(/<\/w:rPr>$/, '<w:sz w:val="16"/>');
-      }
-      if (/<w:szCs\b[^>]*\/>/.test(compactProperties)) {
-        compactProperties = compactProperties.replace(/<w:szCs\b[^>]*\/>/, '<w:szCs w:val="16"/>');
-      } else {
-        compactProperties = compactProperties.replace(/<\/w:rPr>$/, '<w:szCs w:val="16"/>');
-      }
+      compactProperties = /<w:sz\b[^>]*\/>/.test(compactProperties)
+        ? compactProperties.replace(/<w:sz\b[^>]*\/>/, '<w:sz w:val="16"/>')
+        : insertRunPropertyBeforeLaterElements(compactProperties, '<w:sz w:val="16"/>');
+      compactProperties = /<w:szCs\b[^>]*\/>/.test(compactProperties)
+        ? compactProperties.replace(/<w:szCs\b[^>]*\/>/, '<w:szCs w:val="16"/>')
+        : compactProperties.replace(/(<w:sz w:val="16"\/>)/, '$1<w:szCs w:val="16"/>');
       return run.replace(runProperties, compactProperties);
     }
     return run.replace(/^(<w:r\b[^>]*>)/, '$1<w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr>');
@@ -357,7 +362,7 @@ export class S140DocxGenerator {
 
     const bodyMatch = originalXml.match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/);
     if (!bodyMatch) throw new Error("La plantilla S-140 no contiene un cuerpo Word válido.");
-    const documentXml = originalXml.replace(bodyMatch[1], clean + section);
+    const documentXml = originalXml.replace(bodyMatch[1], () => clean + section);
     zip.file("word/document.xml", documentXml);
     return zip.generate({ type: "nodebuffer" });
   }
