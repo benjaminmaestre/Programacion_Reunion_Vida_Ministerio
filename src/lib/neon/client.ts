@@ -52,6 +52,21 @@ async function getServerIssuedAccessToken(): Promise<string | null> {
   }
 }
 
+export interface LastRequestInfo {
+  tokenIat?: number;
+  tokenExp?: number;
+  clientNowSec: number;
+  url: string;
+  dataApiDate?: string | null;
+  status?: number;
+}
+
+let lastRequestInfo: LastRequestInfo | null = null;
+
+export function getLastRequestInfo(): LastRequestInfo | null {
+  return lastRequestInfo ? { ...lastRequestInfo } : null;
+}
+
 /**
  * The SDK's built-in token can be hydrated from the Better Auth session-cookie
  * cache. Override the Authorization header at the final Data API fetch boundary
@@ -68,11 +83,52 @@ const dataApiFetch: typeof fetch = async (input, init) => {
     return fetch(input, init);
   }
 
+  const urlString = typeof input === "string"
+    ? input
+    : input instanceof Request
+      ? input.url
+      : String(input);
+
+  let cleanUrl = urlString;
+  try {
+    const parsedUrl = new URL(urlString, window.location.origin);
+    cleanUrl = parsedUrl.pathname;
+  } catch {
+    cleanUrl = urlString.split("?")[0];
+  }
+
+  let tokenIat: number | undefined;
+  let tokenExp: number | undefined;
+  try {
+    const payloadPart = accessToken.split(".")[1];
+    if (payloadPart) {
+      const payload = JSON.parse(atob(payloadPart)) as { iat?: number; exp?: number };
+      tokenIat = payload.iat;
+      tokenExp = payload.exp;
+    }
+  } catch {
+    // Si falla la decodificación, no interrumpe la petición.
+  }
+
+  lastRequestInfo = {
+    tokenIat,
+    tokenExp,
+    clientNowSec: Math.floor(Date.now() / 1000),
+    url: cleanUrl,
+  };
+
   const headers = new Headers(input instanceof Request ? input.headers : undefined);
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
   headers.set("Authorization", `Bearer ${accessToken}`);
 
-  return fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers });
+
+  if (lastRequestInfo) {
+    lastRequestInfo.dataApiDate = response.headers.get("date");
+    lastRequestInfo.status = response.status;
+  }
+
+  return response;
 };
 
 function buildNeonClient(config: NeonPublicConfig) {

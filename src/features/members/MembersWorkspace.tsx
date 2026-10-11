@@ -5,7 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import {
   AlertTriangle, Archive, ArrowDownUp, Award, Check, ChevronRight,
   CircleHelp, Clock3, History, ListChecks,
-  KeyRound, LockKeyhole, Plus, Search, ShieldCheck,
+  KeyRound, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck,
   Users, X,
 } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
@@ -373,9 +373,21 @@ function openNewMemberForm() {
   }
   if (mode === "membership") {
     return <GatePage
-      title="Falta configurar tu acceso"
-      description="Tu cuenta inició sesión, pero no tiene acceso asignado a esta plataforma. Solo el administrador supremo puede crear o habilitar cuentas."
+      title="No pudimos confirmar tu acceso"
+      description="Puede ser un fallo temporal de conexión. Pulsa Reintentar; si persiste, contacta al administrador."
       icon={<LockKeyhole size={22} />}
+      action={
+        <button
+          className="button button-primary"
+          onClick={() => {
+            setMode("loading");
+            window.location.reload();
+          }}
+          type="button"
+        >
+          <RefreshCw size={15} /> Reintentar
+        </button>
+      }
     />;
   }
   if (mode === "error") {

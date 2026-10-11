@@ -63,6 +63,12 @@ Al comenzar un semestre no se borran registros. El historial de una persona debe
 
 ## 6. Registro de avances
 
+### 10 de octubre de 2026 — Tolerancia a Fallos Intermitentes de Identidad y Diagnóstico
+- **Reintento de Verificación de Acceso:** Se implementó `withIdentityRetry` con retardos progresivos (600ms y 1500ms) para tolerar errores transitorios de identidad en la Data API de Neon (`MembershipRequiredError` o mensajes de acceso denegado `P0001`).
+- **Diagnóstico en Cliente Neon:** Se incorporó en `src/lib/neon/client.ts` la función `getLastRequestInfo()`, la cual decodifica de forma segura `tokenIat` y `tokenExp` del JWT y registra la fecha `Date` entregada por el Data API sin exponer tokens ni credenciales.
+- **UI y Experiencia de Usuario:** Se actualizaron las pantallas de bloqueo de acceso en `ProgramsWorkspace.tsx`, `MembersWorkspace.tsx` y `/admin/users` mostrando el mensaje *"No pudimos confirmar tu acceso"* y añadiendo un botón sólido de *"Reintentar"* con ícono `RefreshCw`.
+- **Pruebas y Cobertura:** Se añadieron 3 nuevas pruebas unitarias en `members-repository.test.ts` verificando el comportamiento del reintento exitoso al 2.º intento, fallo al 3.er intento y ausencia de reintentos ante errores de red. 84 pruebas pasando.
+
 ### 9 de octubre de 2026 — Estabilización de Pruebas, Neon DB y Estilos de Administración
 - **Alineación del Modelo de Roles en Pruebas:** Se actualizaron los datos ficticios en `programs-repository.test.ts` pasando del esquema obsoleto de 4 roles al modelo vigente de 2 roles (`administrator` y `user`). Se reescribió la prueba de intento de guardado sin permisos para validar que cuentas inactivas rechazan la operación lanzando `MembershipRequiredError`. `npm test` logró un 100% de éxito (59/59 pruebas pasadas).
 - **Textos de Conexión:** Se actualizaron los textos de interfaz reemplazando referencias obsoletas a Supabase por la denominación correcta a Neon DB.

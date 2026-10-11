@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, CircleHelp, Clock, Download, FileText, FolderOpen, KeyRound, Plus, RefreshCw, RotateCcw, Save, ShieldAlert, Trash2, Upload, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -888,8 +888,26 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   if (mode === "membership") return (
     <Gate>
       <div className="gate-icon"><AlertTriangle size={22} /></div>
-      <h1 className="gate-title">Falta configurar tu acceso</h1>
-      <p className="gate-description">Tu cuenta no pertenece aún a la congregación activa. Contacta al administrador para vincularla.</p>
+      <h1 className="gate-title">No pudimos confirmar tu acceso</h1>
+      <p className="gate-description">Puede ser un fallo temporal de conexión. Pulsa Reintentar; si persiste, contacta al administrador.</p>
+      <button
+        type="button"
+        className="button button-primary"
+        style={{ marginTop: 16 }}
+        onClick={() => {
+          setMode("loading");
+          if (client && userId) {
+            void loadConnectedData(client, userId).catch((err) => {
+              if (err instanceof MembershipRequiredError) setMode("membership");
+              else setMode("error");
+            });
+          } else {
+            window.location.reload();
+          }
+        }}
+      >
+        <RefreshCw size={15} /> Reintentar
+      </button>
     </Gate>
   );
   if (mode === "error") return (

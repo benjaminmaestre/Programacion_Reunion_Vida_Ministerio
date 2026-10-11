@@ -1,4 +1,4 @@
-import type { createNeonBrowserClient } from "@/lib/neon/client";
+import { createNeonBrowserClient, getLastRequestInfo } from "../../lib/neon/client";
 import type {
   AssignmentHistoryEntry,
   DirectoryMember,
@@ -121,38 +121,71 @@ export async function assertCanManageDirectory(
   if (!canManageDirectory(appUser.role)) throw new PermissionRequiredError();
 }
 
+
+function isIdentityFailure(e: unknown): boolean {
+  if (e instanceof MembershipRequiredError) return true;
+  if (typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string") {
+    return ((e as { message: string }).message).includes("Acceso denegado");
+  }
+  return false;
+}
+
+export async function withIdentityRetry<T>(
+  op: () => Promise<T>,
+  isIdentityFailureFn: (e: unknown) => boolean = isIdentityFailure,
+): Promise<T> {
+  const delays = [600, 1500];
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      return await op();
+    } catch (e) {
+      lastError = e;
+      if (!isIdentityFailureFn(e) || attempt === delays.length) break;
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+    }
+  }
+  console.warn("Diagnóstico de acceso: la verificación falló tras reintentos", {
+    intentos: delays.length + 1,
+    ...getLastRequestInfo(),
+  });
+  throw lastError;
+}
+
 /** Lee el perfil/rol de la cuenta autenticada. RLS permite consultar únicamente el propio perfil. */
 export async function getCurrentAppUser(
   neon: NeonBrowserClient,
   userId: string,
 ): Promise<AppUserRow> {
-  // Usa la función protegida del servidor para resolver la membresía a partir de
-  // auth.uid(). Así evitamos que una consulta directa a app_users quede vacía por
-  // una discrepancia de evaluación de RLS en el Data API.
-  const { data, error } = await neon.rpc("get_current_app_user", {});
+  return withIdentityRetry(async () => {
+    // Usa la función protegida del servidor para resolver la membresía a partir de
+    // auth.uid(). Así evitamos que una consulta directa a app_users quede vacía por
+    // una discrepancia de evaluación de RLS en el Data API.
+    const { data, error } = await neon.rpc("get_current_app_user", {});
 
-  if (error) {
-    console.error("getCurrentAppUser falló", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      sessionUserId: userId,
-    });
-    throw new Error("No se pudo comprobar tu acceso a la aplicación. Vuelve a iniciar sesión e inténtalo de nuevo.");
-  }
+    if (error) {
+      console.error("getCurrentAppUser falló", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        sessionUserId: userId,
+      });
+      throw new Error("No se pudo comprobar tu acceso a la aplicación. Vuelve a iniciar sesión e inténtalo de nuevo.");
+    }
 
-  const rows = Array.isArray(data) ? data : data ? [data] : [];
-  const appUser = rows.find((row) => {
-    const candidate = row as Partial<AppUserRow>;
-    return candidate.user_id === userId && candidate.is_active === true;
-  }) as AppUserRow | undefined;
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    const appUser = rows.find((row) => {
+      const candidate = row as Partial<AppUserRow>;
+      return candidate.user_id === userId && candidate.is_active === true;
+    }) as AppUserRow | undefined;
 
-  if (!appUser) {
-    console.warn("La sesión no tiene una membresía activa asociada.", { sessionUserId: userId });
-    throw new MembershipRequiredError();
-  }
-  return appUser;
+    if (!appUser) {
+      console.warn("La sesión no tiene una membresía activa asociada.", { sessionUserId: userId });
+      throw new MembershipRequiredError();
+    }
+    return appUser;
+  });
 }
 
 export async function listMembers(

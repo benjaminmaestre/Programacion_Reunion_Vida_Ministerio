@@ -1,4 +1,5 @@
 import { createNeonBrowserClient } from "@/lib/neon/client";
+import { withIdentityRetry } from "../members/members-repository";
 import type { MeetingGuideWeek } from "./meeting-guide-importer";
 
 type NeonBrowserClient = ReturnType<typeof createNeonBrowserClient>;
@@ -29,40 +30,42 @@ function asRecordArray(data: unknown): ActiveGuideRow[] {
 }
 
 export async function getActiveMeetingGuide(neon: NeonBrowserClient): Promise<ActiveMeetingGuide | null> {
-  const { data: ready, error: readinessError } = await neon.rpc("is_active_meeting_guide_ready", {});
-  if (readinessError) {
-    const details = readinessError as { message?: string; code?: string };
-    if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
-      throw new Error("La base de datos todavía no tiene instalada la migración de bloqueo de la guía bimestral.");
+  return withIdentityRetry(async () => {
+    const { data: ready, error: readinessError } = await neon.rpc("is_active_meeting_guide_ready", {});
+    if (readinessError) {
+      const details = readinessError as { message?: string; code?: string };
+      if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
+        throw new Error("La base de datos todavía no tiene instalada la migración de bloqueo de la guía bimestral.");
+      }
+      throw new Error(details.message || "No se pudo comprobar el estado de la guía bimestral.");
     }
-    throw new Error(details.message || "No se pudo comprobar el estado de la guía bimestral.");
-  }
-  const readinessValue = Array.isArray(ready) ? ready[0] : ready;
-  if (readinessValue !== true && readinessValue !== "true") return null;
+    const readinessValue = Array.isArray(ready) ? ready[0] : ready;
+    if (readinessValue !== true && readinessValue !== "true") return null;
 
-  const { data, error } = await neon.rpc("get_active_meeting_guide", {});
-  if (error) {
-    const details = error as { message?: string; code?: string };
-    if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
-      throw new Error("La base de datos todavía no tiene instalada la migración de la guía bimestral.");
+    const { data, error } = await neon.rpc("get_active_meeting_guide", {});
+    if (error) {
+      const details = error as { message?: string; code?: string };
+      if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
+        throw new Error("La base de datos todavía no tiene instalada la migración de la guía bimestral.");
+      }
+      throw new Error(details.message || "No se pudo comprobar la guía bimestral activa.");
     }
-    throw new Error(details.message || "No se pudo comprobar la guía bimestral activa.");
-  }
 
-  const row = asRecordArray(data)[0];
-  if (!row) return null;
-  const weeks = typeof row.weeks === "string" ? JSON.parse(row.weeks) as MeetingGuideWeek[] : row.weeks;
-  if (!Array.isArray(weeks) || weeks.length === 0) {
-    throw new Error("La guía bimestral guardada no contiene una estructura válida.");
-  }
-  return {
-    fileName: row.file_name,
-    periodLabel: row.period_label,
-    periodStart: row.period_start,
-    periodEnd: row.period_end,
-    weeks,
-    uploadedAt: row.uploaded_at,
-  };
+    const row = asRecordArray(data)[0];
+    if (!row) return null;
+    const weeks = typeof row.weeks === "string" ? JSON.parse(row.weeks) as MeetingGuideWeek[] : row.weeks;
+    if (!Array.isArray(weeks) || weeks.length === 0) {
+      throw new Error("La guía bimestral guardada no contiene una estructura válida.");
+    }
+    return {
+      fileName: row.file_name,
+      periodLabel: row.period_label,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      weeks,
+      uploadedAt: row.uploaded_at,
+    };
+  });
 }
 
 export async function replaceActiveMeetingGuide(

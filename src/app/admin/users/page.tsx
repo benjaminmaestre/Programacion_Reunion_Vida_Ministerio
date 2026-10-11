@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, CheckCircle, CircleOff, KeyRound, LockKeyhole, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CheckCircle, CircleOff, KeyRound, LockKeyhole, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { createNeonBrowserClient } from "@/lib/neon/client";
 import { getCurrentAppUser, MembershipRequiredError } from "@/features/members/members-repository";
 import { PasswordChangeDialog } from "@/features/auth/PasswordChangeDialog";
@@ -201,9 +201,20 @@ export default function AdminUsersPage() {
     return (
       <main className="gate-page">
         <section className="gate-panel">
-          <h1 className="gate-title">No se pudo abrir la administración</h1>
-          <p role="alert" className="inline-alert" style={{ marginTop: 12 }}>{error}</p>
-          <a className="button button-primary" style={{ textDecoration: "none", width: "100%", justifyContent: "center", marginTop: 16 }} href="/">Volver</a>
+          <h1 className="gate-title">No pudimos confirmar tu acceso</h1>
+          <p className="gate-description">Puede ser un fallo temporal de conexión. Pulsa Reintentar; si persiste, contacta al administrador.</p>
+          {error && <p role="alert" className="inline-alert" style={{ marginTop: 12 }}>{error}</p>}
+          <button
+            type="button"
+            className="button button-primary"
+            style={{ width: "100%", justifyContent: "center", marginTop: 16 }}
+            onClick={() => {
+              setAccess("loading");
+              window.location.reload();
+            }}
+          >
+            <RefreshCw size={15} /> Reintentar
+          </button>
         </section>
       </main>
     );
