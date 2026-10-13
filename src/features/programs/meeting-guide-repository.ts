@@ -102,3 +102,19 @@ export async function activateActiveMeetingGuide(neon: NeonBrowserClient): Promi
     throw new Error(details.message || "No se pudo activar la guía después de preparar sus semanas.");
   }
 }
+
+/**
+ * Elimina permanentemente la guía de actividades activa.
+ * Los borradores generados a partir de ella se conservan y se recargan
+ * cuando se suba una guía nueva.
+ */
+export async function deleteActiveMeetingGuide(neon: NeonBrowserClient): Promise<void> {
+  const { error } = await neon.rpc("delete_active_meeting_guide", {});
+  if (error) {
+    const details = error as { code?: string; message?: string };
+    if (details.code === "PGRST202" || /could not find the function|schema cache/i.test(details.message ?? "")) {
+      throw new Error("No está desplegada la RPC delete_active_meeting_guide. Aplica la migración 015 en Neon.");
+    }
+    throw new Error(details.message || "No se pudo eliminar la guía activa.");
+  }
+}

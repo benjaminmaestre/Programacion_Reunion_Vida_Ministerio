@@ -16,7 +16,7 @@ import { deleteAllDraftProgramsInNeon, deleteDraftProgramInNeon, getMeetingProgr
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
-import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
+import { activateActiveMeetingGuide, beginActiveMeetingGuideReplacement, deleteActiveMeetingGuide, getActiveMeetingGuide, replaceActiveMeetingGuide, type ActiveMeetingGuide } from "./meeting-guide-repository";
 import { findExistingAssignment, type PendingDuplicateAssignment } from "./duplicate-assignment";
 import { isActiveAppointedBrother, slotRequiresAppointedBrother, validateAssignmentRoleRestrictions } from "./assignment-eligibility";
 import type { Section, WeekType } from "@/types/domain";
@@ -230,7 +230,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
   const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
-  async function loadConnectedData(neon: NeonBrowserClient, activeUserId: string) {
+  async function loadConnectedData(neon: NeonBrowserClient, activeUserId: string): Promise<MeetingProgramDetail[]> {
     const appUser = await getCurrentAppUser(neon, activeUserId);
     setUserId(activeUserId);
     setCanManage(["administrator", "user"].includes(appUser.role));
@@ -244,7 +244,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       setPrograms([]);
       setSelectedProgramId(null);
       setMode("guide_required");
-      return;
+      return [];
     }
 
     const [directory, savedPrograms] = await Promise.all([
@@ -260,6 +260,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       ? current
       : firstGuideProgram?.id ?? savedPrograms[0]?.id ?? null);
     setMode("connected");
+    return savedPrograms;
   }
 
   useEffect(() => {
@@ -500,6 +501,25 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     }
   }
 
+  async function handleDeleteGuide() {
+    if (!client || !userId || !canManage || guideImporting || !activeGuide) return;
+    setPageError("");
+    setFeedback("");
+    if (!confirm(`¿Eliminar permanentemente la guía activa (${activeGuide.periodLabel})? Los borradores se conservan y podrás cargar otra guía cuando quieras. Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setGuideImporting(true);
+    try {
+      await deleteActiveMeetingGuide(client);
+      await loadConnectedData(client, userId);
+      setFeedback("Guía eliminada. Carga una guía de actividades para continuar.");
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : "No se pudo eliminar la guía.");
+    } finally {
+      setGuideImporting(false);
+    }
+  }
+
   async function handleGuideFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -627,13 +647,14 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       );
 
       setGuideImportProgress("Verificando programas…");
-      const refreshed = await getMeetingProgramsFromNeon(client);
-      for (const expected of expectedPrograms) {
-        verifyProgramRoundTrip(expected, refreshed.find((program) => program.id === expected.id));
-      }
       await activateActiveMeetingGuide(client);
       setGuideImportProgress("Cargando datos…");
-      await loadConnectedData(client, userId);
+      // La verificación round-trip reutiliza los programas recién cargados
+      // en lugar de pedirlos otra vez: una recarga completa menos.
+      const refreshedPrograms = await loadConnectedData(client, userId);
+      for (const expected of expectedPrograms) {
+        verifyProgramRoundTrip(expected, refreshedPrograms.find((program) => program.id === expected.id));
+      }
       setIsGuideImportModalOpen(false);
       setGuideWeeks([]);
       setGuideFileName("");
@@ -1002,7 +1023,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     return () => onRegisterSignOut(null);
   }, [client, onRegisterSignOut]);
 
-  if (mode === "loading") return <Gate><p>Cargando programas…</p></Gate>;
+  if (mode === "loading") return <Gate><p>{guideImporting && guideImportProgress ? guideImportProgress : "Cargando programas…"}</p></Gate>;
   if (mode === "login") return (
     <LoginScreen
       onSubmit={handleSignIn}
@@ -1260,6 +1281,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
           {mode === "demo" && <span className="demo-pill"><span className="demo-dot" /> MODO DEMOSTRACIÓN</span>}
           {activeGuide && mode === "connected" && <span className="small-note">Guía activa: <strong>{activeGuide.periodLabel}</strong></span>}
           {canManage && mode === "connected" && <button type="button" className="button" onClick={() => void handleBeginGuideReplacement()} disabled={guideImporting}><Upload size={16} /> Iniciar nuevo ciclo bimestral</button>}
+          {activeGuide && canManage && mode === "connected" && <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} onClick={() => void handleDeleteGuide()} disabled={guideImporting} title="Elimina permanentemente la guía activa"><Trash2 size={16} /> Eliminar guía</button>}
           {canManage && <button type="button" className="button" onClick={() => setIsNewProgramModalOpen(true)}><Plus size={16} /> Crear programa</button>}
         </div>
       </header>
