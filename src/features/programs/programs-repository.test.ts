@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { createNeonBrowserClient } from "@/lib/neon/client";
 import { MembershipRequiredError } from "../members/members-repository";
 import type { MeetingProgramDetail } from "./program-types";
-import { getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
+import { deleteAllDraftProgramsInNeon, getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
 
 type Row = Record<string, any>;
 
@@ -174,6 +174,19 @@ class FakeDatabase {
         else slotRows.push(slotData);
       }
 
+      return Promise.resolve({ data: args.p_program_id, error: null });
+    }
+    if (fnName === "delete_draft_meeting_program") {
+      const programIdx = (this.tables.meeting_programs ?? []).findIndex((row) => row.id === args.p_program_id);
+      if (programIdx < 0) {
+        return Promise.resolve({ data: null, error: { message: "No existe el programa que deseas eliminar." } });
+      }
+      const program = this.tables.meeting_programs[programIdx];
+      if (program.is_draft !== true) {
+        return Promise.resolve({ data: null, error: { message: "No se pueden eliminar programas publicados. Primero debes reabrirlo a borrador." } });
+      }
+      this.tables.assignment_slots = (this.tables.assignment_slots ?? []).filter((s) => s.meeting_program_id !== args.p_program_id);
+      this.tables.meeting_programs.splice(programIdx, 1);
       return Promise.resolve({ data: args.p_program_id, error: null });
     }
     return Promise.resolve({ data: null, error: { message: `Función RPC ${fnName} no implementada en la prueba.` } });
@@ -417,5 +430,61 @@ describe("repositorio de programas: guardado y lectura posterior", () => {
 
     expect(db.tables.meeting_programs[0].planning_cycle_id).toBeDefined();
     expect(db.tables.meeting_programs[0].history_period_id).toBeDefined();
+  });
+});
+
+describe("repositorio de programas: eliminación de borradores", () => {
+  function seedDrafts(db: InstanceType<typeof FakeDatabase>, count: number, published: number) {
+    db.tables.app_users = [{ user_id: "user-user", role: "user", is_active: true }];
+    db.tables.meeting_programs = [];
+    db.tables.assignment_slots = [];
+    const ids: string[] = [];
+    for (let i = 1; i <= count; i++) {
+      const id = `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
+      ids.push(id);
+      db.tables.meeting_programs.push({ id, meeting_date: `2026-11-0${i}`, is_draft: true });
+      db.tables.assignment_slots.push({ id: `slot-${i}`, meeting_program_id: id, is_deleted: false });
+    }
+    for (let i = 1; i <= published; i++) {
+      db.tables.meeting_programs.push({ id: `90000000-0000-4000-8000-${String(i).padStart(12, "0")}`, meeting_date: `2026-12-0${i}`, is_draft: false });
+    }
+    return ids;
+  }
+
+  it("elimina todos los borradores indicados y conserva los publicados", async () => {
+    const db = new FakeDatabase();
+    const ids = seedDrafts(db, 3, 1);
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
+
+    const deleted = await deleteAllDraftProgramsInNeon(client, "user-user", ids);
+
+    expect(deleted).toBe(3);
+    expect(db.tables.meeting_programs).toHaveLength(1);
+    expect(db.tables.meeting_programs[0].is_draft).toBe(false);
+    expect(db.tables.assignment_slots).toHaveLength(0);
+  });
+
+  it("falla si uno de los programas ya está publicado y no lo elimina", async () => {
+    const db = new FakeDatabase();
+    const ids = seedDrafts(db, 2, 0);
+    // El segundo programa se publica antes de eliminarlo
+    db.tables.meeting_programs[1].is_draft = false;
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
+
+    await expect(deleteAllDraftProgramsInNeon(client, "user-user", ids)).rejects.toThrow("publicados");
+    // El primer borrador sí se eliminó; el publicado se conserva
+    expect(db.tables.meeting_programs).toHaveLength(1);
+    expect(db.tables.meeting_programs[0].is_draft).toBe(false);
+  });
+
+  it("devuelve cero cuando no hay borradores que eliminar", async () => {
+    const db = new FakeDatabase();
+    seedDrafts(db, 0, 1);
+    const client = db as unknown as ReturnType<typeof createNeonBrowserClient>;
+
+    const deleted = await deleteAllDraftProgramsInNeon(client, "user-user", []);
+
+    expect(deleted).toBe(0);
+    expect(db.tables.meeting_programs).toHaveLength(1);
   });
 });
