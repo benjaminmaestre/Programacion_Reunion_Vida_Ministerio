@@ -764,7 +764,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     const draftPrograms = programs.filter((p) => p.status === "draft");
 
     if (scope === "one") {
-      if (!confirm(`¿Eliminar permanentemente el borrador del ${longDate(selectedProgram.meetingDate)}? Esta acción no se puede deshacer.`)) {
+      if (!confirm(`¿Eliminar permanentemente el borrador del ${longDate(addDays(selectedProgram.meetingDate, meetingDayOffset))}? Esta acción no se puede deshacer.`)) {
         return;
       }
 
@@ -1656,7 +1656,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
             <div className="modal-header">
               <div>
                 <h2 className="modal-title" id="delete-draft-title">Eliminar borrador</h2>
-                <p className="modal-description">¿Deseas eliminar solo el borrador del {selectedProgram ? longDate(selectedProgram.meetingDate) : "programa seleccionado"} o todos los borradores? Los programas publicados no se eliminan. Esta acción no se puede deshacer.</p>
+                <p className="modal-description">¿Deseas eliminar solo el borrador del {selectedProgram ? longDate(addDays(selectedProgram.meetingDate, meetingDayOffset)) : "programa seleccionado"} o todos los borradores? Los programas publicados no se eliminan. Esta acción no se puede deshacer.</p>
               </div>
               <button type="button" className="icon-button" onClick={() => setIsDeleteDraftModalOpen(false)} aria-label="Cerrar modal"><X size={17} /></button>
             </div>
