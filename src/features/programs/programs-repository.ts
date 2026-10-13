@@ -299,3 +299,21 @@ export async function deleteDraftProgramInNeon(
   }
 }
 
+/**
+ * Elimina permanentemente varios programas en borrador y sus intervenciones asociadas.
+ * Reutiliza la eliminación individual, que protege los programas publicados.
+ * Devuelve la cantidad de borradores eliminados.
+ */
+export async function deleteAllDraftProgramsInNeon(
+  neon: NeonBrowserClient,
+  userId: string,
+  programIds: string[]
+): Promise<number> {
+  let deleted = 0;
+  for (const programId of programIds) {
+    await deleteDraftProgramInNeon(neon, userId, programId);
+    deleted += 1;
+  }
+  return deleted;
+}
+

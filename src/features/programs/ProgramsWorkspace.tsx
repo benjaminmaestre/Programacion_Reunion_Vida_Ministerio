@@ -12,7 +12,7 @@ import type { AssignmentHistoryEntry, DirectoryMember } from "../members/demo-da
 import { CATEGORY_LABELS, DEMO_HISTORY, DEMO_MEMBERS } from "../members/demo-data";
 import { DEMO_PROGRAMS } from "./programs-demo-data";
 import type { MeetingProgramDetail, AssignmentSlotDetail } from "./program-types";
-import { deleteDraftProgramInNeon, getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
+import { deleteAllDraftProgramsInNeon, deleteDraftProgramInNeon, getMeetingProgramsFromNeon, reopenMeetingProgramInNeon, saveMeetingProgramToNeon } from "./programs-repository";
 import { validateProgramForPublication } from "./program-validation";
 import { buildDefaultMeetingProgram, calculateBimonthCycle, formatBimonthCycleLabel } from "./program-builder";
 import { applyMeetingGuideTitles, getMeetingGuidePeriodLabel, parseMeetingGuideEpub, type MeetingGuideWeek } from "./meeting-guide-importer";
@@ -216,6 +216,8 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
 
   // Modal para crear un programa nuevo
   const [isNewProgramModalOpen, setIsNewProgramModalOpen] = useState(false);
+  // Modal para elegir si se elimina un borrador o todos los borradores
+  const [isDeleteDraftModalOpen, setIsDeleteDraftModalOpen] = useState(false);
   const [newMeetingDate, setNewMeetingDate] = useState("");
   const [newWeekType, setNewWeekType] = useState<WeekType>("normal");
   const [isGuideImportModalOpen, setIsGuideImportModalOpen] = useState(false);
@@ -753,27 +755,75 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     }
   }
 
-  async function handleDeleteDraftProgram() {
+  async function handleDeleteDraftProgram(scope: "one" | "all") {
     if (!selectedProgram || saving || selectedProgram.status !== "draft") return;
     setPageError("");
     setFeedback("");
+    setIsDeleteDraftModalOpen(false);
 
-    if (!confirm(`¿Eliminar permanentemente el borrador del ${longDate(selectedProgram.meetingDate)}? Esta acción no se puede deshacer.`)) {
+    const draftPrograms = programs.filter((p) => p.status === "draft");
+
+    if (scope === "one") {
+      if (!confirm(`¿Eliminar permanentemente el borrador del ${longDate(selectedProgram.meetingDate)}? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+
+      const programToDeleteId = selectedProgram.id;
+      const remainingPrograms = programs.filter((p) => p.id !== programToDeleteId);
+
+      if (mode === "demo") {
+        setPrograms(remainingPrograms);
+        setSelectedProgramId(remainingPrograms[0]?.id ?? null);
+        setFeedback("Borrador eliminado del estado de demostración.");
+        return;
+      }
+
+      if (mode !== "connected" || !client || !userId) {
+        setPageError("No hay una sesión válida para eliminar el borrador.");
+        return;
+      }
+      if (!canManage) {
+        setPageError("Tu rol no permite eliminar programas.");
+        return;
+      }
+
+      setSaving(true);
+      setSavingAction("deleting");
+      try {
+        await deleteDraftProgramInNeon(client, userId, programToDeleteId);
+        const freshPrograms = await getMeetingProgramsFromNeon(client);
+        setPrograms(freshPrograms);
+        setSelectedProgramId(freshPrograms[0]?.id ?? null);
+        setFeedback("Borrador eliminado permanentemente.");
+      } catch (error) {
+        setPageError(error instanceof Error ? error.message : "No se pudo eliminar el borrador.");
+      } finally {
+        setSaving(false);
+        setSavingAction(null);
+      }
       return;
     }
 
-    const programToDeleteId = selectedProgram.id;
-    const remainingPrograms = programs.filter((p) => p.id !== programToDeleteId);
+    if (draftPrograms.length === 0) {
+      setPageError("No hay borradores para eliminar.");
+      return;
+    }
+
+    if (!confirm(`¿Eliminar permanentemente los ${draftPrograms.length} borradores? Esta acción no se puede deshacer. Los programas publicados no se eliminan.`)) {
+      return;
+    }
+
+    const remainingPrograms = programs.filter((p) => p.status !== "draft");
 
     if (mode === "demo") {
       setPrograms(remainingPrograms);
       setSelectedProgramId(remainingPrograms[0]?.id ?? null);
-      setFeedback("Borrador eliminado del estado de demostración.");
+      setFeedback("Borradores eliminados del estado de demostración.");
       return;
     }
 
     if (mode !== "connected" || !client || !userId) {
-      setPageError("No hay una sesión válida para eliminar el borrador.");
+      setPageError("No hay una sesión válida para eliminar los borradores.");
       return;
     }
     if (!canManage) {
@@ -784,13 +834,13 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     setSaving(true);
     setSavingAction("deleting");
     try {
-      await deleteDraftProgramInNeon(client, userId, programToDeleteId);
+      const deletedCount = await deleteAllDraftProgramsInNeon(client, userId, draftPrograms.map((p) => p.id));
       const freshPrograms = await getMeetingProgramsFromNeon(client);
       setPrograms(freshPrograms);
       setSelectedProgramId(freshPrograms[0]?.id ?? null);
-      setFeedback("Borrador eliminado permanentemente.");
+      setFeedback(`${deletedCount} borradores eliminados permanentemente.`);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "No se pudo eliminar el borrador.");
+      setPageError(error instanceof Error ? error.message : "No se pudieron eliminar los borradores.");
     } finally {
       setSaving(false);
       setSavingAction(null);
@@ -1481,7 +1531,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
                       <button type="button" className="button" disabled={saving} onClick={handleClearAssignments} title="Borra todos los participantes asignados para volver a escogerlos">
                         <Eraser size={15} /> Limpiar formulario
                       </button>
-                      <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} disabled={saving} onClick={() => void handleDeleteDraftProgram()} title="Elimina permanentemente este borrador">
+                      <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} disabled={saving} onClick={() => setIsDeleteDraftModalOpen(true)} title="Elimina permanentemente este borrador o todos los borradores">
                         <Trash2 size={15} /> {savingAction === "deleting" ? "Eliminando…" : "Eliminar borrador"}
                       </button>
                       {mode === "connected" && (
@@ -1594,6 +1644,29 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
               <button type="button" className="button" onClick={() => setIsGuideImportModalOpen(false)} disabled={guideImporting}>Cancelar</button>
               <button type="button" className="button button-primary" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0}>
                 <Upload size={15} /> {guideImporting ? "Activando guía…" : "Guardar guía y aplicar estructura"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isDeleteDraftModalOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsDeleteDraftModalOpen(false); }}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-draft-title">
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title" id="delete-draft-title">Eliminar borrador</h2>
+                <p className="modal-description">¿Deseas eliminar solo el borrador del {selectedProgram ? longDate(selectedProgram.meetingDate) : "programa seleccionado"} o todos los borradores? Los programas publicados no se eliminan. Esta acción no se puede deshacer.</p>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setIsDeleteDraftModalOpen(false)} aria-label="Cerrar modal"><X size={17} /></button>
+            </div>
+            <div className="modal-footer" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button type="button" className="button" onClick={() => setIsDeleteDraftModalOpen(false)}>Cancelar</button>
+              <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} onClick={() => void handleDeleteDraftProgram("one")} disabled={saving}>
+                <Trash2 size={15} /> Eliminar este borrador
+              </button>
+              <button type="button" className="button" style={{ color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }} onClick={() => void handleDeleteDraftProgram("all")} disabled={saving}>
+                <Trash2 size={15} /> Eliminar todos los borradores ({programs.filter((p) => p.status === "draft").length})
               </button>
             </div>
           </section>
