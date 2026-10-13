@@ -226,6 +226,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
   const [guideWeeks, setGuideWeeks] = useState<MeetingGuideWeek[]>([]);
   const [guideError, setGuideError] = useState("");
   const [guideImporting, setGuideImporting] = useState(false);
+  const [guideImportProgress, setGuideImportProgress] = useState("");
 
   const selectedProgram = programs.find((program) => program.id === selectedProgramId) ?? null;
 
@@ -549,6 +550,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
     let publishedCount = 0;
     let currentWeekLabel = "";
     const expectedPrograms: MeetingProgramDetail[] = [];
+    const pendingSaves: Array<{ program: MeetingProgramDetail; isNew: boolean; weekLabel: string }> = [];
 
     try {
       const orderedWeeks = [...guideWeeks].sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -561,6 +563,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       });
       guideWasReplaced = true;
       setActiveGuide(newGuide);
+      setGuideImportProgress("Guía reemplazada. Preparando semanas…");
 
       // The guide is persisted before program lookup or participant loading.
       const existingPrograms = await getMeetingProgramsFromNeon(client);
@@ -599,18 +602,37 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
           continue;
         }
 
-        await saveMeetingProgramToNeon(client, userId, nextProgram);
+        pendingSaves.push({ program: nextProgram, isNew: !existing, weekLabel: week.label });
         expectedPrograms.push(nextProgram);
         byDate.set(week.startDate, nextProgram);
-        if (existing) updatedCount += 1;
-        else createdCount += 1;
       }
 
+      // Guardado en paralelo: cada semana toca un programa distinto y la RPC
+      // resuelve ciclos y períodos con ON CONFLICT, así que no hay carreras.
+      const totalSaves = pendingSaves.length;
+      let savedCount = 0;
+      setGuideImportProgress(totalSaves > 0 ? `Guardando semanas (0 de ${totalSaves})…` : "Verificando programas…");
+      await Promise.all(
+        pendingSaves.map(async ({ program, isNew, weekLabel }) => {
+          try {
+            await saveMeetingProgramToNeon(client, userId, program);
+          } catch (error) {
+            throw new Error(`Semana ${weekLabel}: ${error instanceof Error ? error.message : "no se pudo guardar."}`);
+          }
+          savedCount += 1;
+          if (isNew) createdCount += 1;
+          else updatedCount += 1;
+          setGuideImportProgress(`Guardando semanas (${savedCount} de ${totalSaves})…`);
+        }),
+      );
+
+      setGuideImportProgress("Verificando programas…");
       const refreshed = await getMeetingProgramsFromNeon(client);
       for (const expected of expectedPrograms) {
         verifyProgramRoundTrip(expected, refreshed.find((program) => program.id === expected.id));
       }
       await activateActiveMeetingGuide(client);
+      setGuideImportProgress("Cargando datos…");
       await loadConnectedData(client, userId);
       setIsGuideImportModalOpen(false);
       setGuideWeeks([]);
@@ -644,6 +666,7 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
       );
     } finally {
       setGuideImporting(false);
+      setGuideImportProgress("");
     }
   }
 
@@ -1641,6 +1664,9 @@ export const ProgramsWorkspace: React.FC<ProgramsWorkspaceProps> = ({ onRegister
               )}
             </div>
             <div className="modal-footer">
+              {guideImporting && guideImportProgress && (
+                <span style={{ marginRight: "auto", fontSize: 12, color: "var(--color-text-muted)" }}>{guideImportProgress}</span>
+              )}
               <button type="button" className="button" onClick={() => setIsGuideImportModalOpen(false)} disabled={guideImporting}>Cancelar</button>
               <button type="button" className="button button-primary" onClick={() => void handleApplyGuideImport()} disabled={guideImporting || guideWeeks.length === 0}>
                 <Upload size={15} /> {guideImporting ? "Activando guía…" : "Guardar guía y aplicar estructura"}
